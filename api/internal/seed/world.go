@@ -1,4 +1,4 @@
-// Package seed declares the fixed demo world from ARCHITECTURE.md. cmd/seed
+// Package seed declares the fixed demo world from docs/seed-data.md. cmd/seed
 // writes it, and the OpenFGA integration tests assert against it.
 package seed
 

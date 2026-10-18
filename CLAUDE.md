@@ -4,8 +4,8 @@ OpenFGA multi-tenant authorization demo: Go API in `api/` (its own module, Gin, 
 
 ## Source of truth
 
-- `ARCHITECTURE.md` is the implementation contract (model, tuple catalog, decision catalog, routes, seed, tests). `README.md` is the story and the 11-step click script. **Keep code, `ARCHITECTURE.md`, and `README.md` aligned in the same change.** If behavior changes, update the spec first.
-- `api/fga/model.fga` must equal the DSL block in `ARCHITECTURE.md` exactly.
+- Architecture overviews: `ARCHITECTURE.md` (system), `api/ARCHITECTURE.md` (Go service layers), `web/ARCHITECTURE.md` (React panel). Detailed reference lives in `docs/` (schema, `authorization-model.md`, `tuple-catalog.md`, `decision-catalog.md`, `http-api.md`, `seed-data.md`, `web-ui.md`, `testing.md`, `operations.md`). `README.md` is the story and the 11-step click script. **Keep code, the architecture files, `docs/`, and `README.md` aligned in the same change.** If behavior changes, update the spec first.
+- `api/fga/model.fga` must equal the DSL block in `docs/authorization-model.md` exactly.
 - Seed ids/tuples (with each container's private/public flag) live once in `api/internal/seed/world.go` (one slice per domain); `cmd/seed` writes them and the integration tests assert against them. Do not duplicate ids elsewhere.
 
 ## Commands
@@ -75,5 +75,5 @@ Restart `cmd/api` after every reseed (the store id changes). Seed accounts: ada,
 
 1. `cd api && go vet ./... && go vet -tags=integration ./... && go test ./...`
 2. `make compose-up && make seed && make test-integration`
-3. Restart the API and walk the README script (each step maps to a Check in `ARCHITECTURE.md`'s test tables).
+3. Restart the API and walk the README script (each step maps to a Check in `docs/decision-catalog.md` and `docs/testing.md`).
 4. `cd web && npm run build`.
