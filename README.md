@@ -93,8 +93,8 @@ Requirements: Docker, Go 1.26 or newer, Node.js 22 or newer.
 ```bash
 docker compose -f deploy/docker-compose.yml up -d
 cp .env.example .env
-go run ./cmd/seed
-go run ./cmd/api
+make seed   # cd api && go run ./cmd/seed
+make api    # cd api && go run ./cmd/api
 ```
 
 In a second shell:
@@ -117,16 +117,18 @@ The Playground is for inspecting tuples while you click through the script. The 
 The paths below are the ones the implementation creates. [ARCHITECTURE.md](ARCHITECTURE.md) defines each one.
 
 ```text
-cmd/api/                 HTTP process
-cmd/seed/                migrate, model bootstrap, demo data
-internal/domain/         entities and sentinel errors
-internal/usecase/        application services and port interfaces
-internal/adapter/http/   Gin handlers and middleware
-internal/adapter/postgres/
-internal/adapter/openfga/
-internal/platform/config/
-migrations/              goose SQL
-fga/model.fga            authorization model DSL
+api/                              Go module for the API service
+api/cmd/api/                      HTTP process; wire.go injects every dependency
+api/cmd/seed/                     migrate, model bootstrap, demo data
+api/internal/domain/entity/       entities, value types, sentinel errors
+api/internal/domain/gateway/      data-access interfaces (Postgres, OpenFGA)
+api/internal/usecase/             one interface per operation (FolderCreator, ...)
+api/internal/usecase/helper/      shared rule interfaces (write ordering, share policy)
+api/internal/service/             usecase implementations (folder_creator.go, ...)
+api/internal/infrastructure/      postgres, fga, auth, idgen, config
+api/internal/handler/http/        Gin handlers, one per domain, and middleware
+api/migrations/                   goose SQL
+api/fga/model.fga                 authorization model DSL
 deploy/docker-compose.yml
 deploy/postgres/init.sql
 web/                     Vite + React admin panel
