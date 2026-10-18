@@ -1,12 +1,12 @@
 # CLAUDE.md
 
-OpenFGA multi-tenant authorization demo: Go API (Gin, pgx, goose) + OpenFGA + React admin panel. Postgres is the display record; OpenFGA makes every allow/deny decision.
+OpenFGA multi-tenant authorization demo: Go API in `api/` (its own module, Gin, pgx, goose) + OpenFGA + React admin panel in `web/`. Postgres is the display record; OpenFGA makes every allow/deny decision.
 
 ## Source of truth
 
 - `ARCHITECTURE.md` is the implementation contract (model, tuple catalog, decision catalog, routes, seed, tests). `README.md` is the story and the 11-step click script. **Keep code, `ARCHITECTURE.md`, and `README.md` aligned in the same change.** If behavior changes, update the spec first.
-- `fga/model.fga` must equal the DSL block in `ARCHITECTURE.md` exactly.
-- Seed ids/tuples (with each container's private/public flag) live once in `internal/seed/world.go`; `cmd/seed` writes them and the integration tests assert against them. Do not duplicate ids elsewhere.
+- `api/fga/model.fga` must equal the DSL block in `ARCHITECTURE.md` exactly.
+- Seed ids/tuples (with each container's private/public flag) live once in `api/internal/seed/world.go` (one slice per domain); `cmd/seed` writes them and the integration tests assert against them. Do not duplicate ids elsewhere.
 
 ## Commands
 
@@ -15,7 +15,7 @@ make compose-up         # Postgres :5432, OpenFGA :8080 (gRPC :8081, Playground 
 make seed               # RESETS everything: truncates app tables, recreates the fga-demo store, writes the seed
 make api                # :8088 — migrates, opens existing store + newest model; never seeds
 make web                # Vite :5173, proxies /api -> :8088
-make test               # go test ./... (pure tuple builders)
+make test               # cd api && go test ./... (pure tuple builders)
 make test-integration   # live OpenFGA: model vs README script, internal_admin ⊇ internal_user
 cd web && npm run build # tsc --noEmit + vite build
 ```
@@ -24,16 +24,17 @@ Restart `cmd/api` after every reseed (the store id changes). Seed accounts: ada,
 
 ## Architecture rules
 
-- Dependency direction: `cmd -> usecase -> domain`, adapters implement usecase ports (`internal/usecase/ports.go`). `domain` imports stdlib only; `usecase` never imports Gin, pgx, or the OpenFGA SDK.
-- Tuple builders are pure (`internal/adapter/openfga/tuples.go`, `Catalog`) and reached via the `TupleCatalog` port.
-- Documents and photos share one code path parameterized by `domain.Kind` (`usecase/content.go`, `http/content_handler.go`, `web/src/components/ContentPage.tsx`). Never fork them.
-- Handlers: decode, read actor (JWT `sub`) and tenant (`X-Tenant-ID` header), call one usecase method, map errors via `writeErr`. Tenant is never a JWT claim.
+- Layers under `api/internal`: `domain/entity` (stdlib only) and `domain/gateway` (data-access interfaces) -> `usecase` (one interface per operation, e.g. `FolderCreator`) and `usecase/helper` (shared rule interfaces) -> `service` (implementations, one file per operation: `folder_creator.go`) -> `infrastructure/{postgres,fga,auth,idgen,config}` implements gateways -> `handler/http`. `domain`, `usecase`, and `service` never import Gin, pgx, or the OpenFGA SDK.
+- DI everywhere: constructors take interfaces; services hold no concrete types. `api/cmd/api/wire.go` is the only place that builds the graph. Add a new operation as usecase interface + service file + constructor wiring.
+- Services read as business logic: validate, Check via `usecase.Authorizer`, read/write via gateways, order stores via `helper.WriteGuard`. Tuple formatting lives only in `infrastructure/fga` (pure `*Relations` builders behind `*RelationGateway`); services pass `entity.Tuple` through.
+- Each domain is fully separate in every backend layer: folder, document, album, photo (and user, tenant, product, member) each own their entity, gateways, repos (literal table names), relation builder, usecases, services, handler, and routes. Never merge them back behind a shared `Kind`-style abstraction or a generic service/handler; keep their behavior identical unless the spec says otherwise. Shared code is only cross-domain rules in `service/helper.go` and SQL plumbing in `postgres/grant_rows.go`. The web UI still uses one `ContentPage.tsx` for both products.
+- Handlers: decode, read actor (JWT `sub`) and tenant (`X-Tenant-ID` header), call one usecase method, map errors via `writeErr`. Each handler registers its own routes (`Register(Routes)`). Tenant is never a JWT claim.
 
 ## Authorization invariants (do not break)
 
 - Every action is allowed only after the decision-catalog OpenFGA Check; collections use ListObjects then `WHERE tenant_id = $1 AND id = ANY($2)`. Never select a whole tenant and filter in Go.
 - Never branch on `memberships.role`/`affiliation` strings to permit anything (Go or React). They are display labels.
-- "Platform admin OR tenant relation" is two Checks composed in the usecase (`platformOr`), never a model relation that makes system admins tenant members.
+- "Platform admin OR tenant relation" is two Checks composed in the service (`Authorizer.PlatformOr`), never a model relation that makes system admins tenant members.
 - Model is allow-only: no `but not`, no conditions, no custom roles. Products are `user:*` wildcard tuples intersected into content checks; disabling deletes only that wildcard.
 - Content `can_view` intersects `can_read_tenant from tenant` (stale grants on removed members fail closed). `can_delete`/`can_share` = `can_manage` (owner or internal admin); folder/album rename uses `can_manage`, document/photo rename uses `can_edit`.
 - `internal_admin` implies `internal_user`, `external_admin` implies `external_user` via relations; never write the implied tuple. External users are never in `can_contribute`; editor grants to them are 400 `cannot_upload`.
@@ -41,7 +42,7 @@ Restart `cmd/api` after every reseed (the store id changes). Seed accounts: ada,
 - Tenant administration (Members page, `GET /tenants/:id/members`, `GET /tenants/:id/products`) is internal admin (`can_manage_members` / `can_view_products`) or platform only. Toggling a product is platform only (`can_manage_platform`); tenant admins only see product status. Never reopen these to all members; features that need people use narrower endpoints (e.g. `…/share-candidates`, gated by `can_share`).
 - Shares are for external members only (`user`, `external_users` viewer, `external_admins` viewer/editor). There is no `internal_users` subject.
 - Inspector derives the tenant from the object, never from the request body.
-- Write ordering is fail-closed: grants = Postgres then OpenFGA (compensate Postgres); revocations = OpenFGA delete then Postgres (restore *exactly* the tuples that existed). See `App.grant` / `App.revoke`.
+- Write ordering is fail-closed: grants = Postgres then OpenFGA (compensate Postgres); revocations = OpenFGA delete then Postgres (restore *exactly* the tuples that existed). See `WriteGuard.Grant` / `WriteGuard.Revoke` in `api/internal/service/helper.go`.
 - No raw tuple route; no outbox/workers.
 
 ## OpenFGA gotchas (learned the hard way)
@@ -72,7 +73,7 @@ Restart `cmd/api` after every reseed (the store id changes). Seed accounts: ada,
 
 ## Verifying a change
 
-1. `go vet ./... && go test ./...`
+1. `cd api && go vet ./... && go vet -tags=integration ./... && go test ./...`
 2. `make compose-up && make seed && make test-integration`
 3. Restart the API and walk the README script (each step maps to a Check in `ARCHITECTURE.md`'s test tables).
 4. `cd web && npm run build`.

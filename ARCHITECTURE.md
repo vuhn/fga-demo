@@ -43,7 +43,7 @@ Leave these out. Do not scaffold them "for later".
 
 | Piece | Choice |
 | --- | --- |
-| Module | `github.com/vuhn/fga-demo` |
+| Module | `github.com/vuhn/fga-demo/api` (its own `go.mod` in `api/`) |
 | Go | 1.26 |
 | HTTP | Gin |
 | Postgres driver | `github.com/jackc/pgx/v5` |
@@ -54,7 +54,7 @@ Leave these out. Do not scaffold them "for later".
 | Passwords | `golang.org/x/crypto/bcrypt`, cost `bcrypt.DefaultCost` |
 | JWT | `github.com/golang-jwt/jwt/v5`, HMAC-SHA256 |
 | Logging | `log/slog` |
-| Config | `os.Getenv` in `internal/platform/config`. No Viper |
+| Config | `os.Getenv` in `api/internal/infrastructure/config`. No Viper |
 | UI | Vite, React 19, TypeScript, `react-router-dom` 6, Mantine 9 (`@mantine/core`, `hooks`, `notifications`, `modals`) with `@tabler/icons-react`. One app stylesheet for small tweaks |
 | App database | Postgres 16 database `fgademo` |
 | OpenFGA database | Postgres 16 database `openfga` on the same server |
@@ -123,50 +123,69 @@ JWT_TTL=12h
 CORS_ORIGIN=http://localhost:5173
 ```
 
-`cmd/api` and `cmd/seed` load `.env` when the file exists, without overriding variables already set in the process. A missing `.env` falls back to the defaults above.
+`cmd/api` and `cmd/seed` run from `api/` and load the first `.env` they find (`api/.env`, then the repository root `.env`), without overriding variables already set in the process. A missing `.env` falls back to the defaults above. `OPENFGA_MODEL_PATH` is relative to `api/`.
 
 `.gitignore` includes `.env`, `web/node_modules`, and `web/dist`.
 
 ## Repository layout
 
+All Go code lives in `api/`. One content type is one file per layer; the
+listing shows folders in full and the pattern for the others.
+
 ```text
-cmd/api/main.go
-cmd/seed/main.go
-internal/domain/user.go
-internal/domain/tenant.go
-internal/domain/content.go
-internal/domain/errors.go
-internal/usecase/ports.go
-internal/usecase/app.go
-internal/usecase/auth.go
-internal/usecase/platform.go
-internal/usecase/membership.go
-internal/usecase/content.go
-internal/usecase/access.go
-internal/usecase/permissions.go
-internal/adapter/http/router.go
-internal/adapter/http/middleware.go
-internal/adapter/http/auth_handler.go
-internal/adapter/http/platform_handler.go
-internal/adapter/http/membership_handler.go
-internal/adapter/http/content_handler.go
-internal/adapter/http/views.go
-internal/adapter/http/access_handler.go
-internal/adapter/postgres/db.go
-internal/adapter/postgres/store.go
-internal/adapter/openfga/client.go
-internal/adapter/openfga/bootstrap.go
-internal/adapter/openfga/tuples.go
-internal/adapter/openfga/tuples_test.go
-internal/adapter/openfga/model_integration_test.go
-internal/adapter/auth/jwt.go
-internal/adapter/auth/password.go
-internal/platform/config/config.go
-internal/seed/world.go
-migrations/00001_init.sql
-migrations/00002_container_privacy.sql
-migrations/embed.go
-fga/model.fga
+api/go.mod
+api/cmd/api/main.go                      # config, Postgres pool, OpenFGA store, serve
+api/cmd/api/wire.go                      # dependency injection: gateways -> services -> handlers
+api/cmd/seed/main.go
+api/internal/domain/entity/              # entities and value types, stdlib only
+    user.go tenant.go product.go membership.go grant.go authz.go errors.go validate.go
+    folder.go document.go album.go photo.go
+api/internal/domain/gateway/             # data-access interfaces
+    authz_gateway.go                     # OpenFGA: Check, BatchCheck, ListObjectIDs, ReadTuples, Write
+    user_gateway.go tenant_gateway.go product_gateway.go membership_gateway.go credential_gateway.go
+    folder_gateway.go                    # FolderGateway, FolderGrantGateway, FolderRelationGateway
+    document_gateway.go album_gateway.go photo_gateway.go
+api/internal/usecase/                    # one interface per operation
+    authorizer.go auth.go user.go tenant.go product.go member.go permission.go inspector.go
+    folder.go                            # FolderLister, FolderGetter, FolderCreator, FolderRenamer,
+                                         # FolderVisibilitySetter, FolderDeleter, FolderGrantLister,
+                                         # FolderShareCandidateLister, FolderSharer, FolderShareRevoker
+    document.go album.go photo.go
+api/internal/usecase/helper/             # shared business-rule interfaces
+    write_guard.go share_policy.go object_tenant.go
+api/internal/service/                    # usecase implementations
+    authorizer.go                        # usecase.Authorizer over gateway.AuthzGateway
+    helper.go                            # WriteGuard (fail-closed ordering), SharePolicy, withPerms
+    object_tenant_resolver.go
+    folder_lister.go folder_getter.go folder_creator.go folder_renamer.go folder_visibility_setter.go
+    folder_deleter.go folder_grant_lister.go folder_share_candidate_lister.go folder_sharer.go
+    folder_share_revoker.go folder_helper.go
+    document_*.go album_*.go photo_*.go
+    authenticator.go token_verifier.go profile_getter.go permission_reader.go inspector.go access_reporter.go
+    user_*.go tenant_*.go my_tenant_lister.go product_*.go member_*.go
+api/internal/infrastructure/postgres/    # display-record gateways (pgx)
+    db.go grant_rows.go user_repo.go tenant_repo.go product_repo.go membership_repo.go
+    folder_repo.go folder_grant_repo.go document_repo.go document_grant_repo.go
+    album_repo.go album_grant_repo.go photo_repo.go photo_grant_repo.go
+api/internal/infrastructure/fga/         # OpenFGA gateways
+    client.go bootstrap.go tuples.go
+    membership_relations.go product_relations.go
+    folder_relations.go document_relations.go album_relations.go photo_relations.go
+    tuples_test.go model_integration_test.go role_integration_test.go
+api/internal/infrastructure/auth/jwt.go
+api/internal/infrastructure/auth/password.go
+api/internal/infrastructure/idgen/uuid.go
+api/internal/infrastructure/config/config.go
+api/internal/handler/http/               # Gin
+    router.go middleware.go views.go
+    auth_handler.go permission_handler.go user_handler.go tenant_handler.go product_handler.go
+    member_handler.go inspector_handler.go access_handler.go
+    folder_handler.go document_handler.go album_handler.go photo_handler.go
+api/internal/seed/world.go
+api/migrations/00001_init.sql
+api/migrations/00002_container_privacy.sql
+api/migrations/embed.go
+api/fga/model.fga
 deploy/docker-compose.yml
 deploy/postgres/init.sql
 web/package.json
@@ -199,20 +218,21 @@ Makefile
 
 ## Clean architecture
 
-Dependency direction:
+Dependency direction (paths under `api/internal`):
 
 ```text
-cmd  ->  usecase  ->  domain
-cmd  ->  adapter  ->  usecase interfaces
-adapter -> domain
+handler/http  ->  usecase (interfaces)  ->  domain/entity
+service       ->  usecase, usecase/helper, domain/gateway, domain/entity
+infrastructure -> domain/gateway, domain/entity
+cmd/api/wire.go constructs infrastructure, services, and handlers and injects them
 ```
 
-- `internal/domain` imports only the standard library.
-- `internal/usecase` imports `internal/domain` and defines the interfaces it needs. It does not import Gin, pgx, or the OpenFGA SDK.
-- Adapters implement those interfaces. `cmd/api/main.go` and `cmd/seed/main.go` construct adapters and inject them.
-- Documents and photos share every rule. `internal/usecase/content.go` and `internal/adapter/http/content_handler.go` take a `domain.Kind` (`folder`/`document` or `album`/`photo`) and are mounted twice, so the two products cannot drift apart. `web/src/components/ContentPage.tsx` does the same for the UI.
-- `internal/seed/world.go` holds the fixed ids, rows, and tuples. `cmd/seed` writes them and the integration test asserts against them, so the two cannot disagree.
-- HTTP handlers decode JSON, read the authenticated user and tenant header, call one usecase method, and write the status codes from the error catalog.
+- `domain/entity` imports only the standard library. `domain/gateway` and `usecase` import only `domain`. None of them, nor `service`, imports Gin, pgx, or the OpenFGA SDK.
+- Every dependency is injected through a constructor (`NewFolderCreator(folders, relations, authz, guard, ids)`); services hold only interfaces. `cmd/api/wire.go` is the only place that names concrete types. `cmd/seed` uses the Postgres repos and the pure FGA relation builders directly.
+- A service reads as business logic: validate, Check through `usecase.Authorizer`, read and write through gateways, and order the two stores through `helper.WriteGuard`. Tuple formatting lives only in `infrastructure/fga`; services pass `entity.Tuple` values through untouched.
+- **Each domain is separate in every layer.** Folder, document, album, and photo each have their own entity, gateway interfaces, Postgres repo (fixed table names), grant repo, FGA relation builder, usecase interfaces, services, handler, and routes, so any one can change without touching the others. Today they follow the same rules on purpose; the API contract for documents and photos is identical. Shared code is limited to cross-domain rules in `service/helper.go` (write ordering, share policy) and low-level SQL plumbing (`postgres/grant_rows.go`). `web/src/components/ContentPage.tsx` still renders both products with one component.
+- `api/internal/seed/world.go` holds the fixed ids, rows, and tuples. `cmd/seed` writes them and the integration test asserts against them, so the two cannot disagree.
+- HTTP handlers decode JSON, read the authenticated user and tenant header, call one usecase method, and write the status codes from the error catalog. Each handler registers its own routes; `router.go` only mounts the injected handlers.
 
 ## Identity and request context
 
@@ -234,13 +254,13 @@ Middleware, in order:
 3. Authentication on every route except `POST /api/v1/auth/login` and `GET /healthz`. Missing or invalid token returns 401.
 4. Optional tenant parsing. Content routes require `X-Tenant-ID` to be a UUID and return 400 when it is missing or malformed. Middleware stores the header. It does not check membership.
 
-The usecase receives `actorID` and, for content routes, `tenantID`.
+The service receives `actorID` and, for content routes, `tenantID`.
 
 ## Postgres schema
 
 Postgres is the display record and the membership label. Authorization reads do not use `memberships.role`.
 
-Apply this as `migrations/00001_init.sql` with goose `-- +goose Up` and a matching Down that drops tables in reverse dependency order.
+Apply this as `api/migrations/00001_init.sql` with goose `-- +goose Up` and a matching Down that drops tables in reverse dependency order.
 
 ```sql
 CREATE TABLE users (
@@ -360,7 +380,7 @@ CREATE INDEX resource_grants_tenant_user_idx
     ON resource_grants (tenant_id, user_id);
 ```
 
-`migrations/00002_container_privacy.sql` then adds `is_private boolean NOT NULL DEFAULT true` to `folders` and `albums`, and narrows `resource_grants.subject_type` to `user`, `external_users`, and `external_admins` (the `internal_users` group share is gone: internal members already see all content).
+`api/migrations/00002_container_privacy.sql` then adds `is_private boolean NOT NULL DEFAULT true` to `folders` and `albums`, and narrows `resource_grants.subject_type` to `user`, `external_users`, and `external_admins` (the `internal_users` group share is gone: internal members already see all content).
 
 `resource_grants` includes owners. A group share cannot use `user_id`. `external_users` maps to `tenant:<id>#external_user` and is viewer only, because an external user cannot upload. `external_admins` maps to `tenant:<id>#external_admin`. One group row per object and subject type; changing viewer to editor replaces that row.
 
@@ -368,7 +388,7 @@ CREATE INDEX resource_grants_tenant_user_idx
 
 `created_by` is a display field. The owner tuple is the authorization record. They can diverge after a member is removed: the row keeps `created_by`, and the owner tuple is deleted.
 
-There is no foreign key from `resource_grants.object_id` to a single table because the object type varies. The usecase writes the grant in the same transaction as the object and deletes grants when the object is deleted.
+There is no foreign key from `resource_grants.object_id` to a single table because the object type varies. The content repo writes the owner grant in the same transaction as the object and deletes grants when the object is deleted.
 
 ## Identifiers
 
@@ -376,13 +396,13 @@ Postgres primary keys and OpenFGA object ids are the same UUID strings, except t
 
 OpenFGA object format is `<type>:<id>`. User format is `user:<uuid>`. The wildcard is `user:*`. Group-share usersets are `tenant:<uuid>#external_user` and `tenant:<uuid>#external_admin`. A container's `tenant`, `root`, and `public` relations point at the plain `tenant:<uuid>` object.
 
-The adapter adds those prefixes. Usecases pass bare UUIDs, the platform id `main`, the relation name, and the object type.
+The fga infrastructure adds those prefixes. Services pass bare UUIDs, the platform id `main`, the relation name, and the object type.
 
 Generate ids with UUIDv4, except the seed section, which uses fixed ids.
 
 ## OpenFGA model
 
-Write this text to `fga/model.fga` exactly.
+Write this text to `api/fga/model.fga` exactly.
 
 ```fga
 model
@@ -483,17 +503,17 @@ How to read it:
 - **External admins contribute in public content.** `can_edit` includes `external_visible and external_admin from tenant`: they create subfolders, upload, and edit any item in public content. `can_manage` (delete, share) stays with the owner or the internal admin, so an external admin can delete only what they own.
 - **External users are read-only.** `can_contribute` excludes them, so every `can_edit`, `can_manage`, and create relation is false for them even if a tuple names them as editor.
 - **Shares reach into private content.** `viewer`/`editor` accept a specific `user` and the groups `tenant#external_user` (viewer) / `tenant#external_admin` (viewer or editor), and inherit down `parent` and to items. This is how an internal admin opens a private folder to an external person or group.
-- **Creating containers.** `can_create_folder`/`can_create_album` is any contributor with the product on (internal members and external admins). `can_create_private_folder`/`can_create_private_album` is internal members only, so external admins can only create public containers. A subfolder also needs `can_edit` on its parent (checked in the usecase).
+- **Creating containers.** `can_create_folder`/`can_create_album` is any contributor with the product on (internal members and external admins). `can_create_private_folder`/`can_create_private_album` is internal members only, so external admins can only create public containers. A subfolder also needs `can_edit` on its parent (checked in the service).
 - **Changing visibility** (`can_change_visibility`) is `can_manage` intersected with `internal_user from tenant`: the internal admin, or an internal owner.
 - **Owners** keep `can_view`/`can_manage` on what they own (owner implies editor implies viewer), even when the surrounding folder is private to them.
 - **Membership is a prerequisite.** `can_view` intersects `can_read_tenant from tenant`, so a stale share on a removed member grants nothing.
-- **Products.** `documents_enabled`/`photos_enabled` accept only `user:*`; when absent every content check and create relation is false. Only the platform toggles them (the usecase checks `can_manage_platform`); `can_view_products` lets the internal admin read their status. Member administration and product viewing are not intersected with a product.
+- **Products.** `documents_enabled`/`photos_enabled` accept only `user:*`; when absent every content check and create relation is false. Only the platform toggles them (the service checks `can_manage_platform`); `can_view_products` lets the internal admin read their status. Member administration and product viewing are not intersected with a product.
 - **No `but not`.** "Private wins" is expressed with intersection over the ancestor chain, so the model stays allow-only.
 - A system admin is not an `internal_admin` of each tenant. Nothing pulls `platform#system_admin` into a tenant or resource relation.
 
 ## Model bootstrap
 
-`internal/adapter/openfga/bootstrap.go` has two entry points.
+`api/internal/infrastructure/fga/bootstrap.go` has two entry points.
 
 `Reset` (used by `cmd/seed`):
 
@@ -511,17 +531,11 @@ Every Check, BatchCheck, ListObjects, Read, and Write sends that `authorization_
 
 Resetting the store is what makes the seed repeatable: the demo always starts from the README's step 1. The store id changes after each seed run, so restart `cmd/api` after seeding and reselect the store in the Playground.
 
-## Authorizer port
+## Authz gateway
 
-Define this in `internal/usecase/ports.go`. The OpenFGA adapter implements it.
+`entity.Tuple` and `entity.CheckRequest` live in `api/internal/domain/entity/authz.go`; the gateway is defined in `api/internal/domain/gateway/authz_gateway.go` and implemented by `infrastructure/fga.Client`. Services do not call it for decisions directly: `service.authorizer` wraps it as `usecase.Authorizer` (`Require` = 403, `RequireVisible` = 404, `PlatformOr`, `Permissions`), and `service.writeGuard` owns every `Write`.
 
 ```go
-type Subject struct {
-    Type     string // "user", "external_users", or "external_admins"
-    ID       string // user uuid, or tenant uuid for a userset subject
-    Relation string // empty for a user; external_user or external_admin for a group
-}
-
 type Tuple struct {
     User     string // "user:<uuid>", "user:*", or "tenant:<uuid>#<relation>"
     Relation string
@@ -535,7 +549,7 @@ type CheckRequest struct {
     ObjectID   string
 }
 
-type Authorizer interface {
+type AuthzGateway interface {
     Check(ctx context.Context, userID, relation, objectType, objectID string) (bool, error)
     BatchCheck(ctx context.Context, checks []CheckRequest) ([]bool, error)
     ListObjectIDs(ctx context.Context, userID, relation, objectType string) ([]string, error)
@@ -552,7 +566,7 @@ type Authorizer interface {
 
 ## Tuple catalog
 
-Pure functions in `internal/adapter/openfga/tuples.go` build these slices. Usecases persist Postgres, then call `Authorizer.Write` with the result. Unit tests cover the functions without a server.
+Pure relation builders in `api/internal/infrastructure/fga` build these slices, one per domain (`MembershipRelations`, `ProductRelations`, `FolderRelations`, `DocumentRelations`, `AlbumRelations`, `PhotoRelations`), reached through the `*RelationGateway` interfaces. Services persist Postgres, then hand the tuples to `helper.WriteGuard`. Unit tests cover the builders without a server.
 
 Notation: `user:U`, `tenant:T`, `folder:F`, `document:D`, `album:A`, `photo:P`.
 
@@ -589,7 +603,7 @@ The body carries `affiliation` and `role` on create. A role change carries `role
 
 Any other pair is 400 `affiliation_role_mismatch`. On update, the new role must belong to the membership's existing affiliation. Affiliation is immutable. Changing it means delete the membership and create it again.
 
-One OpenFGA Write. Write the new role tuple and delete the other three role tuples so a person has one direct role relation. The adapter ignores missing deletes, so the command does not need to know which tuple existed before:
+One OpenFGA Write. Write the new role tuple and delete the other three role tuples so a person has one direct role relation. The authz gateway ignores missing deletes, so the command does not need to know which tuple existed before:
 
 | New role | Write | Delete |
 | --- | --- | --- |
@@ -608,7 +622,7 @@ Reject the change with 409 when it would leave the tenant with zero rows where `
 
 Load the membership and the user's `resource_grants` rows for that tenant. One OpenFGA Write deletes the tuples below. Then one Postgres transaction deletes those grant rows and the `memberships` row. Revocations go to OpenFGA first, so a failure between the two steps leaves less access, not more. The tuples are:
 
-- `tenant:T#internal_admin@user:U`, `tenant:T#internal_user@user:U`, `tenant:T#external_admin@user:U`, and `tenant:T#external_user@user:U` (the adapter ignores the three that do not exist)
+- `tenant:T#internal_admin@user:U`, `tenant:T#internal_user@user:U`, `tenant:T#external_admin@user:U`, and `tenant:T#external_user@user:U` (the authz gateway ignores the three that do not exist)
 - every direct grant: `folder|document|album|photo:<id>#<relation>@user:U`
 
 Do not delete tuples whose user is `tenant:T#external_user` or `tenant:T#external_admin`, nor `root`/`public` markers.
@@ -722,7 +736,7 @@ If compensation itself fails, log both errors and still return 500.
 
 ## Decision catalog
 
-Object ids below are bare. The adapter formats them.
+Object ids below are bare. The fga infrastructure formats them.
 
 | Action | Check user | Relation | Object |
 | --- | --- | --- | --- |
@@ -749,7 +763,7 @@ Object ids below are bare. The adapter formats them.
 | Album and photo verbs | actor | the album or photo relation with the same name as the folder or document verb | that album or photo |
 | Delete folder or album | actor | `can_delete` | that folder or album |
 
-OR in the table means the usecase calls Check twice and allows the action when either call is true. That composition stays in the usecase. It is not a role test, and it is not a new OpenFGA relation that would make a system admin a tenant member.
+OR in the table means the service calls Check twice (`Authorizer.PlatformOr`) and allows the action when either call is true. That composition stays in the service layer. It is not a role test, and it is not a new OpenFGA relation that would make a system admin a tenant member.
 
 List queries:
 
@@ -909,7 +923,7 @@ Name length is 1 to 200. `mime_type` length is 1 to 200. `byte_size` is an integ
 
 Folder and document JSON includes `id`, `tenant_id`, `name`, `created_by`, `created_at`, plus `parent_id` and `is_private` for folders or `folder_id` for documents, and for documents `mime_type` and `byte_size`.
 
-List and get-by-id responses also include `permissions`: the actor's result for every content relation in the inspector whitelist for that type (for a folder: `can_view`, `can_edit`, `can_manage`, `can_delete`, `can_share`, `can_change_visibility`, `can_create_document`). The usecase computes them with one BatchCheck per page. Create and rename responses omit it.
+List and get-by-id responses also include `permissions`: the actor's result for every content relation in the inspector whitelist for that type (for a folder: `can_view`, `can_edit`, `can_manage`, `can_delete`, `can_share`, `can_change_visibility`, `can_create_document`). The service computes them with one BatchCheck per page (`Authorizer.Permissions`). Create and rename responses omit it.
 
 ### Photos and albums
 
@@ -1051,7 +1065,7 @@ Mime type `text/plain` and byte size `128` on every seeded document. Mime type `
 | photo | Offsite Shot | `e4444444-4444-4444-4444-444444444444` | Offsite | | Eve |
 | photo | Lobby | `e8888888-8888-8888-8888-888888888888` | Client visit | | Eve |
 
-Every container gets the tuples from "Create folder": `tenant`, `owner`, `parent` or `root`, and `public` when public. Every item gets `tenant`, its container, and `owner`. The one share is `folder:faaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#viewer@user:44444444-4444-4444-4444-444444444444` (Partners to Dan). All four product wildcards exist. The ids, rows, and tuples live in `internal/seed/world.go`; this table describes them.
+Every container gets the tuples from "Create folder": `tenant`, `owner`, `parent` or `root`, and `public` when public. Every item gets `tenant`, its container, and `owner`. The one share is `folder:faaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#viewer@user:44444444-4444-4444-4444-444444444444` (Partners to Dan). All four product wildcards exist. The ids, rows, and tuples live in `api/internal/seed/world.go` (one slice per domain: `Folders`, `Albums`, `Documents`, `Photos`); this table describes them.
 
 ## React admin panel
 
@@ -1104,26 +1118,26 @@ compose-up:
 	docker compose -f deploy/docker-compose.yml up -d
 
 seed:
-	go run ./cmd/seed
+	cd api && go run ./cmd/seed
 
 api:
-	go run ./cmd/api
+	cd api && go run ./cmd/api
 
 web:
 	cd web && npm install && npm run dev
 
 test:
-	go test ./...
+	cd api && go test ./...
 
 test-integration:
-	OPENFGA_API_URL=http://localhost:8080 go test -tags=integration ./internal/adapter/openfga/
+	cd api && OPENFGA_API_URL=http://localhost:8080 go test -tags=integration ./internal/infrastructure/fga/
 ```
 
 ## Tests
 
-`tuples_test.go` asserts the pure tuple functions: role assignment writes one role and deletes the other three; a crossed affiliation/role pair emits nothing; product toggles touch only the wildcard; create item emits `tenant`, container, and `owner`; create container emits `root` at top level or `parent` below, plus `public` only when public; `SetVisibility` writes or deletes only `public`; grants map `external_users`/`external_admins` to their usersets, reject `internal_users` and editor for `external_users`; remove member deletes the four role relations and the member's direct grants and never a group or marker tuple.
+`tuples_test.go` asserts the pure relation builders: role assignment writes one role and deletes the other three; a crossed affiliation/role pair emits nothing; a product toggle is only the wildcard; a created document or photo emits `tenant`, its folder or album, and `owner`; a created folder or album emits `root` at top level or `parent` below, plus `public` only when public; `Public` is the single visibility marker; grants map `external_users`/`external_admins` to their usersets, reject `internal_users` and editor for `external_users`; remove member deletes the four role relations and the member's direct grants and never a group or marker tuple.
 
-`model_integration_test.go` (build tag `integration`, skips without `OPENFGA_API_URL`) creates a throwaway store, writes `fga/model.fga` and the seed tuples from `internal/seed`, and asserts with Check and ListObjects:
+`model_integration_test.go` (build tag `integration`, skips without `OPENFGA_API_URL`) creates a throwaway store, writes `api/fga/model.fga` and the seed tuples from `api/internal/seed`, and asserts with Check and ListObjects:
 
 - Internal members (Bob, Cara) list every Acme folder, including private Company, Board, Specs, and Partners. Cara can edit Secret but not delete it, and cannot change visibility; Bob can.
 - External users (Dan) list exactly Client and the shared Partners, and their documents. Legal (public flag under private Board) and Specs/Pricing (private under public Client) stay hidden. Dan cannot edit or create.
@@ -1139,16 +1153,16 @@ test-integration:
 ## Implementation order
 
 1. Compose file, Postgres init, `.env.example`, Makefile, module skeleton.
-2. Goose migration and domain types.
-3. `fga/model.fga`, bootstrap, authorizer, tuple helpers, unit tests.
-4. Postgres store.
-5. Usecases for auth, platform, membership, documents, photos, and access, including compensation.
-6. Gin router and handlers.
+2. Goose migration, domain entities, and gateway interfaces.
+3. `api/fga/model.fga`, bootstrap, authz client, relation builders, unit tests.
+4. Postgres repos, one per domain.
+5. Usecase interfaces, then services for auth, platform, membership, folders, documents, albums, photos, and access, including compensation.
+6. Gin handlers (one per domain), router, and `cmd/api/wire.go`.
 7. `cmd/seed` with the fixed ids.
 8. Integration test against OpenFGA.
 9. React pages in the route table, wired only to the HTTP API above.
 
-Stop when `go test ./...` passes, `make test-integration` passes with compose up, and the README script's Checks match the table in this document.
+Stop when `make test` passes, `make test-integration` passes with compose up, and the README script's Checks match the table in this document.
 
 ## Hard rules for the implementing agent
 
