@@ -1,0 +1,14 @@
+/* Mantine supplies the design system; this file holds only app-specific tweaks. */
+body {
+  margin: 0;
+}
+
+.content-tree {
+  border-left: 1px solid var(--mantine-color-default-border);
+  margin-left: 14px;
+  padding-left: 12px;
+}
+
+.row-hover:hover {
+  background: var(--mantine-color-default-hover);
+}
