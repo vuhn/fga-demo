@@ -129,10 +129,13 @@ CORS_ORIGIN=http://localhost:5173
 
 ## Repository layout
 
-All Go code lives in `api/`. One content type is one file per layer; the
-listing shows folders in full and the pattern for the others.
+All Go code lives in `api/`. A root `go.work` includes that module so the
+language server resolves dependencies when the repository root is the
+workspace. One content type is one file per layer; the listing shows
+folders in full and the pattern for the others.
 
 ```text
+go.work
 api/go.mod
 api/cmd/api/main.go                      # config, Postgres pool, OpenFGA store, serve
 api/cmd/api/wire.go                      # dependency injection: gateways -> services -> handlers
