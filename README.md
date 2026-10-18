@@ -4,7 +4,7 @@ This repository is a teaching demo of [OpenFGA](https://openfga.dev) in a multi-
 
 Postgres stores names, membership labels, and file metadata. It is the display record. OpenFGA stores relationship tuples and answers Check and ListObjects. The API allows a content action only after OpenFGA returns true.
 
-The implementation contract is [ARCHITECTURE.md](ARCHITECTURE.md). Generate the database, the API, the model, the seed, and the UI from that document.
+How the system is built is in [ARCHITECTURE.md](ARCHITECTURE.md), with detailed reference in [docs/](docs/).
 
 ## What this demo teaches
 
@@ -70,7 +70,7 @@ Acme albums: **All-hands** (private, Kickoff), **Offsite** (private, Offsite Sho
 
 Globex mirrors the shape with Eve as owner: Company, Board, and the All-hands and Offsite albums are private; Client and Client visit are public. Bob, a Globex external user, sees only Client, Client Brief, Client visit, and Lobby there.
 
-Exact ids, tuples, and API fields are in [ARCHITECTURE.md](ARCHITECTURE.md).
+Exact ids and tuples are in [docs/seed-data.md](docs/seed-data.md); API fields are in [docs/http-api.md](docs/http-api.md).
 
 ## Five-minute script
 
@@ -112,30 +112,9 @@ cd web && npm install && npm run dev
 
 The Playground is for inspecting tuples while you click through the script. The store name is `fga-demo`. The seed command prints the store id and model id.
 
-## Repository map
-
-The paths below are the ones the implementation creates. [ARCHITECTURE.md](ARCHITECTURE.md) defines each one.
-
-```text
-api/                              Go module for the API service
-api/cmd/api/                      HTTP process; wire.go injects every dependency
-api/cmd/seed/                     migrate, model bootstrap, demo data
-api/internal/domain/entity/       entities, value types, sentinel errors
-api/internal/domain/gateway/      data-access interfaces (Postgres, OpenFGA)
-api/internal/usecase/             one interface per operation (FolderCreator, ...)
-api/internal/usecase/helper/      shared rule interfaces (write ordering, share policy)
-api/internal/service/             usecase implementations (folder_creator.go, ...)
-api/internal/infrastructure/      postgres, fga, auth, idgen, config
-api/internal/handler/http/        Gin handlers, one per domain, and middleware
-api/migrations/                   goose SQL
-api/fga/model.fga                 authorization model DSL
-deploy/docker-compose.yml
-deploy/postgres/init.sql
-web/                     Vite + React admin panel
-```
-
 ## Further reading
 
+- [ARCHITECTURE.md](ARCHITECTURE.md), [api/ARCHITECTURE.md](api/ARCHITECTURE.md), [web/ARCHITECTURE.md](web/ARCHITECTURE.md)
 - [OpenFGA concepts](https://openfga.dev/docs/concepts)
 - [Relationship queries: Check and ListObjects](https://openfga.dev/docs/interacting/relationship-queries)
 - [Modeling guides](https://openfga.dev/docs/modeling)

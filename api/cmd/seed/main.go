@@ -1,5 +1,5 @@
 // Command seed resets the demo: it migrates and truncates Postgres, recreates
-// the OpenFGA store, and writes the fixed world from ARCHITECTURE.md.
+// the OpenFGA store, and writes the fixed world from docs/seed-data.md.
 package main
 
 import (
