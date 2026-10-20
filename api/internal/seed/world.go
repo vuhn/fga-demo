@@ -18,6 +18,10 @@ const (
 	Acme   = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 	Globex = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
 
+	// Custom roles. Neither has an assignee, so seeded checks stay as they are.
+	AcmeAuditor  = "c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	GlobexVendor = "c0bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+
 	// Acme folders
 	AcmeCompany  = "f1111111-1111-1111-1111-111111111111" // private
 	AcmeBoard    = "f2222222-2222-2222-2222-222222222222" // private
@@ -90,6 +94,11 @@ var People = []Person{
 var Tenants = []TenantSeed{
 	{Acme, "acme", "Acme"},
 	{Globex, "globex", "Globex"},
+}
+
+var Roles = []entity.Role{
+	{ID: AcmeAuditor, TenantID: Acme, Name: "Auditor", Affiliation: entity.AffiliationInternal, Permissions: []string{entity.PermView, entity.PermViewProducts}},
+	{ID: GlobexVendor, TenantID: Globex, Name: "Vendor", Affiliation: entity.AffiliationExternal, Permissions: []string{entity.PermContribute}},
 }
 
 var Members = []entity.Membership{
@@ -231,6 +240,18 @@ func Tuples() ([]entity.Tuple, error) {
 			return nil, err
 		}
 		out = append(out, w...)
+	}
+	for _, role := range Roles {
+		created, err := fga.RoleRelations{}.Created(role.TenantID, role.ID, role.Affiliation)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, created...)
+		grants, err := fga.RoleRelations{}.Permissions(role.TenantID, role.ID, role.Permissions)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, grants...)
 	}
 	for _, t := range Tenants {
 		for _, prod := range entity.AllProducts {

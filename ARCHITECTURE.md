@@ -35,7 +35,7 @@ Postgres :5432          OpenFGA :8080  (gRPC :8081, Playground :3000)
 1. **OpenFGA decides.** An action is allowed only after the OpenFGA check named in the [decision catalog](docs/decision-catalog.md) returns true. Collections use ListObjects, then a Postgres query for those ids only.
 2. **Postgres only displays.** `memberships.role`, `affiliation`, and `platform_admins` choose which tuple to write and which label to show. No code, Go or React, branches on them to permit anything.
 3. **Identity is a user id, tenancy is a header.** The JWT `sub` is the user; the active tenant is `X-Tenant-ID`, because one person belongs to many tenants.
-4. **Allow-only model.** No `but not`, conditions, or custom roles. "Private wins" is an intersection over the ancestor chain; entitlements are `user:*` wildcard tuples intersected into content checks.
+4. **Allow-only model.** No `but not` or conditions. "Private wins" is an intersection over the ancestor chain; entitlements are `user:*` wildcard tuples intersected into content checks. Custom roles are tenant-scoped `role` objects: a platform admin assigns permissions from a fixed catalog, and those grants are `role#assignee` usersets OR'd into the existing `can_*` relations. The four built-in affiliation roles stay.
 5. **Fail closed.** Grants write Postgres then OpenFGA; revocations delete in OpenFGA then Postgres. A crash leaves less access, never more. No outbox, no workers.
 6. **The UI is a mirror.** The API computes permissions with Check and returns them; the UI hides controls from that. Hiding is UX only; the API always checks.
 
@@ -60,7 +60,7 @@ web  --Bearer JWT + X-Tenant-ID-->  handler  -->  usecase/service
 
 In scope: ReBAC across platform, tenant, and resource layers; affiliation-based defaults; private/public containers; direct shares to external members; product entitlements; an admin panel that performs the README script.
 
-Out of scope (do not scaffold): SSO or password flows beyond login, file bytes or object storage, cross-tenant shares, custom roles/conditions/`but not`, an API to grant `system_admin`, deleting users or tenants, outbox or background workers, pagination, ownership transfer.
+Out of scope (do not scaffold): SSO or password flows beyond login, file bytes or object storage, cross-tenant shares, conditions or `but not`, an API to grant `system_admin`, deleting users or tenants, outbox or background workers, pagination, ownership transfer.
 
 ## Repository layout
 

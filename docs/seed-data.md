@@ -36,6 +36,25 @@ Role tuples, and no implied duplicate:
 
 Both products enabled on both tenants, which means all four wildcard tuples exist.
 
+#### Custom roles
+
+No assignees, so nobody's checks change until a platform admin assigns someone.
+
+| Tenant | Role | Type | Id | Permissions |
+| --- | --- | --- | --- |
+| Acme | Auditor | internal | `c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa` | `view`, `view_products` |
+| Globex | Vendor | external | `c0bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb` | `contribute` |
+
+Tuples, and no `assignee` tuples:
+
+- `role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#tenant@tenant:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`
+- `tenant:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#internal_role@role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`
+- `tenant:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#grant_view@role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#assignee`
+- `tenant:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#grant_view_products@role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#assignee`
+- `role:c0bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb#tenant@tenant:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb`
+- `tenant:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb#external_role@role:c0bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb`
+- `tenant:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb#grant_contribute@role:c0bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb#assignee`
+
 #### Acme content
 
 | Kind | Name | Id | Parent or container | Visibility | Owner | Shares |

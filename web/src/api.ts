@@ -10,8 +10,37 @@ export type Tenant = {
   products: Product[];
   affiliation?: string;
   role?: string;
+  role_name?: string;
 };
-export type Member = { user_id: string; email: string; name: string; affiliation: string; role: string };
+export type Member = { user_id: string; email: string; name: string; affiliation: string; role: string; role_name?: string };
+export type RoleAssignee = { user_id: string; email: string; name: string };
+export type CustomRole = {
+  id: string;
+  tenant_id: string;
+  name: string;
+  affiliation: "internal" | "external";
+  permissions: string[];
+  assignees: RoleAssignee[];
+  created_at: string;
+};
+
+/** Built-in roles plus this tenant's custom roles of the same affiliation. */
+export function memberRoleOptions(affiliation: string, roles: CustomRole[]) {
+  const builtin = (ROLES[affiliation] ?? []).map((role) => ({ value: role, label: role.replaceAll("_", " ") }));
+  const custom = roles.filter((role) => role.affiliation === affiliation).map((role) => ({ value: role.id, label: role.name }));
+  return [...builtin, ...custom];
+}
+/** Fixed catalog a platform admin can attach to a tenant role. */
+export const CUSTOM_PERMISSIONS: { value: string; label: string; hint: string }[] = [
+  { value: "view", label: "View all content", hint: "Including private folders and albums, while the product is on." },
+  { value: "edit", label: "Edit all content", hint: "Also grants view and contribute." },
+  { value: "manage", label: "Manage all content", hint: "Delete, share, and rename. Also grants edit, view, and contribute." },
+  { value: "change_visibility", label: "Change visibility", hint: "Make any folder or album public or private." },
+  { value: "contribute", label: "Contribute", hint: "Create public folders and albums, and upload." },
+  { value: "create_private", label: "Create private containers", hint: "Also grants contribute." },
+  { value: "manage_members", label: "Manage members", hint: "Invite people and change their built-in role." },
+  { value: "view_products", label: "View products", hint: "See whether documents and photos are enabled." },
+];
 export type Container = {
   id: string;
   tenant_id: string;

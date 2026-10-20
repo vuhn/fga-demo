@@ -43,7 +43,7 @@ func (s *myTenantLister) ListMine(ctx context.Context, actor string) ([]usecase.
 	}
 	for _, t := range tenants {
 		m := labels[t.ID]
-		out = append(out, usecase.TenantView{Tenant: t, Affiliation: m.Affiliation, Role: m.Role})
+		out = append(out, usecase.TenantView{Tenant: t, Affiliation: m.Affiliation, Role: m.Role, RoleName: m.RoleName})
 	}
 	return out, nil
 }

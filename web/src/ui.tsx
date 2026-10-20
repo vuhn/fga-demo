@@ -84,11 +84,12 @@ const ROLE_COLOR: Record<string, string> = {
 };
 
 /** Display badge for a membership label. Never used to decide access. */
-export function RoleBadge({ role }: { role?: string }) {
-  if (!role) return null;
+export function RoleBadge({ role, name }: { role?: string; name?: string }) {
+  const label = name || role?.replaceAll("_", " ");
+  if (!label) return null;
   return (
-    <Badge variant="light" color={ROLE_COLOR[role] ?? "gray"}>
-      {role.replace("_", " ")}
+    <Badge variant="light" color={ROLE_COLOR[role ?? ""] ?? "gray"}>
+      {label}
     </Badge>
   );
 }

@@ -51,6 +51,7 @@ func run() error {
 		tenants   = postgres.NewTenantRepo(pool)
 		products  = postgres.NewProductRepo(pool)
 		members   = postgres.NewMembershipRepo(pool)
+		roles     = postgres.NewRoleRepo(pool)
 		folders   = postgres.NewFolderRepo(pool)
 		documents = postgres.NewDocumentRepo(pool)
 		albums    = postgres.NewAlbumRepo(pool)
@@ -81,6 +82,14 @@ func run() error {
 	for _, m := range seed.Members {
 		if err := members.Insert(ctx, m); err != nil {
 			return fmt.Errorf("membership: %w", err)
+		}
+	}
+	for _, role := range seed.Roles {
+		if err := roles.Insert(ctx, role); err != nil {
+			return fmt.Errorf("role %s: %w", role.Name, err)
+		}
+		if err := roles.InsertPermissions(ctx, role.ID, role.Permissions); err != nil {
+			return fmt.Errorf("role %s permissions: %w", role.Name, err)
 		}
 	}
 

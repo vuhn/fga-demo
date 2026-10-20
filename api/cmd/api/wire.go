@@ -25,6 +25,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		tenants     = postgres.NewTenantRepo(pool)
 		products    = postgres.NewProductRepo(pool)
 		members     = postgres.NewMembershipRepo(pool)
+		roles       = postgres.NewRoleRepo(pool)
 		folders     = postgres.NewFolderRepo(pool)
 		folderGrant = postgres.NewFolderGrantRepo(pool)
 		documents   = postgres.NewDocumentRepo(pool)
@@ -35,6 +36,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		photoGrant  = postgres.NewPhotoGrantRepo(pool)
 
 		memberRels   = fga.MembershipRelations{}
+		roleRels     = fga.RoleRelations{}
 		productRels  = fga.ProductRelations{}
 		folderRels   = fga.FolderRelations{}
 		documentRels = fga.DocumentRelations{}
@@ -77,9 +79,17 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		),
 		httph.NewMemberHandler(
 			service.NewMemberLister(tenants, members, authz),
-			service.NewMemberAdder(tenants, users, members, memberRels, authz, guard),
-			service.NewMemberRoleChanger(members, memberRels, authz, guard),
-			service.NewMemberRemover(members, memberRels, authz, guard),
+			service.NewMemberAdder(tenants, users, members, roles, memberRels, roleRels, authz, guard),
+			service.NewMemberRoleChanger(members, roles, memberRels, roleRels, authz, guard),
+			service.NewMemberRemover(members, memberRels, roles, roleRels, authz, guard),
+		),
+		httph.NewRoleHandler(
+			service.NewRoleLister(tenants, roles, authz),
+			service.NewRoleGetter(roles, authz),
+			service.NewRoleCreator(tenants, roles, roleRels, authz, guard, ids),
+			service.NewRoleUpdater(roles, authz),
+			service.NewRolePermissionSetter(roles, roleRels, authz, guard),
+			service.NewRoleDeleter(roles, roleRels, authz, guard),
 		),
 		httph.NewInspectorHandler(service.NewInspector(authz, objectTenants)),
 		httph.NewAccessHandler(service.NewAccessReporter(authzStore, members, users, authz, objectTenants)),

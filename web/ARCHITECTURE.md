@@ -32,7 +32,7 @@ The API computes permissions with OpenFGA; the UI renders them. It never decides
 - Content rows carry a `permissions` object from the API (one server-side BatchCheck per page). Buttons read it through `ACTIONS` and `canAct`.
 - `FEATURES` maps feature names (menu entries, route guards, controls) to rules over `platform:` or `tenant:` permissions, as `{ all?, any? }`. Product menus need tenant membership and the product enabled.
 - Components use `useCan`, `useAllows`, `<Can>`, and `RequireFeature`. They never name an OpenFGA relation and never read `role` or `affiliation` to show a control; those are display labels (`RoleBadge`, `AffiliationBadge`).
-- `/tenants/:id` is guarded against the tenant in the URL (`usePermissionSet(id)`), not the active one, because system admins open tenants they are not members of.
+- `/tenants/:id` is guarded against the tenant in the URL (`usePermissionSet(id)`), not the active one, because system admins open tenants they are not members of. `/tenants/:id/roles` and `/tenants/:id/roles/:roleId` use `tenant.roles.manage` (`can_manage_platform`). Members are assigned a custom role from the member role list.
 - The top menu is a config array of `{label, to, feature}` filtered by feature.
 
 Hiding a control is UX only; the API checks again on every request.

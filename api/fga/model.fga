@@ -8,22 +8,39 @@ type platform
     define system_admin: [user]
     define can_manage_platform: system_admin
 
+type role
+  relations
+    define assignee: [user]
+    define tenant: [tenant]
+
 type tenant
   relations
     define internal_admin: [user]
     define internal_user: [user] or internal_admin
     define external_admin: [user]
-    define external_user: [user] or external_admin
     define documents_enabled: [user:*]
     define photos_enabled: [user:*]
-    define can_manage_members: internal_admin
-    define can_view_products: internal_admin
-    define can_read_tenant: internal_user or external_user
-    define can_contribute: internal_user or external_admin
+    define internal_role: [role]
+    define external_role: [role]
+    define custom_internal: assignee from internal_role
+    define custom_external: assignee from external_role
+    define external_user: [user] or external_admin or custom_external
+    define grant_manage_members: [role#assignee]
+    define grant_view_products: [role#assignee]
+    define grant_view: [role#assignee]
+    define grant_edit: [role#assignee]
+    define grant_manage: [role#assignee]
+    define grant_change_visibility: [role#assignee]
+    define grant_contribute: [role#assignee]
+    define grant_create_private: [role#assignee]
+    define can_read_tenant: internal_user or external_user or custom_internal
+    define can_manage_members: internal_admin or (grant_manage_members and can_read_tenant)
+    define can_view_products: internal_admin or (grant_view_products and can_read_tenant)
+    define can_contribute: internal_user or external_admin or ((grant_contribute or grant_edit or grant_manage or grant_create_private) and can_read_tenant)
     define can_create_folder: can_contribute and documents_enabled
     define can_create_album: can_contribute and photos_enabled
-    define can_create_private_folder: internal_user and documents_enabled
-    define can_create_private_album: internal_user and photos_enabled
+    define can_create_private_folder: (internal_user or (grant_create_private and can_read_tenant)) and documents_enabled
+    define can_create_private_album: (internal_user or (grant_create_private and can_read_tenant)) and photos_enabled
 
 type folder
   relations
@@ -35,12 +52,12 @@ type folder
     define editor: [user, tenant#external_admin] or owner or editor from parent
     define viewer: [user, tenant#external_user, tenant#external_admin] or editor or viewer from parent
     define external_visible: external_user from public and (external_user from root or external_visible from parent)
-    define can_view: (internal_user from tenant or viewer or external_visible) and can_read_tenant from tenant and documents_enabled from tenant
-    define can_edit: (internal_user from tenant or editor or (external_visible and external_admin from tenant)) and can_contribute from tenant and documents_enabled from tenant
-    define can_manage: (owner or internal_admin from tenant) and can_contribute from tenant and documents_enabled from tenant
+    define can_view: (internal_user from tenant or viewer or external_visible or grant_view from tenant or grant_edit from tenant or grant_manage from tenant) and can_read_tenant from tenant and documents_enabled from tenant
+    define can_edit: (internal_user from tenant or editor or (external_visible and external_admin from tenant) or grant_edit from tenant or grant_manage from tenant) and can_contribute from tenant and documents_enabled from tenant
+    define can_manage: (owner or internal_admin from tenant or grant_manage from tenant) and can_contribute from tenant and documents_enabled from tenant
     define can_delete: can_manage
     define can_share: can_manage
-    define can_change_visibility: can_manage and internal_user from tenant
+    define can_change_visibility: (can_manage and internal_user from tenant) or (grant_change_visibility from tenant and can_read_tenant from tenant and documents_enabled from tenant)
     define can_create_document: can_edit
 
 type document
@@ -50,9 +67,9 @@ type document
     define owner: [user]
     define editor: [user, tenant#external_admin] or owner or editor from folder
     define viewer: [user, tenant#external_user, tenant#external_admin] or editor or viewer from folder
-    define can_view: (internal_user from tenant or viewer or external_visible from folder) and can_read_tenant from tenant and documents_enabled from tenant
-    define can_edit: (internal_user from tenant or editor or (external_visible from folder and external_admin from tenant)) and can_contribute from tenant and documents_enabled from tenant
-    define can_manage: (owner or internal_admin from tenant) and can_contribute from tenant and documents_enabled from tenant
+    define can_view: (internal_user from tenant or viewer or external_visible from folder or grant_view from tenant or grant_edit from tenant or grant_manage from tenant) and can_read_tenant from tenant and documents_enabled from tenant
+    define can_edit: (internal_user from tenant or editor or (external_visible from folder and external_admin from tenant) or grant_edit from tenant or grant_manage from tenant) and can_contribute from tenant and documents_enabled from tenant
+    define can_manage: (owner or internal_admin from tenant or grant_manage from tenant) and can_contribute from tenant and documents_enabled from tenant
     define can_delete: can_manage
     define can_share: can_manage
 
@@ -66,12 +83,12 @@ type album
     define editor: [user, tenant#external_admin] or owner or editor from parent
     define viewer: [user, tenant#external_user, tenant#external_admin] or editor or viewer from parent
     define external_visible: external_user from public and (external_user from root or external_visible from parent)
-    define can_view: (internal_user from tenant or viewer or external_visible) and can_read_tenant from tenant and photos_enabled from tenant
-    define can_edit: (internal_user from tenant or editor or (external_visible and external_admin from tenant)) and can_contribute from tenant and photos_enabled from tenant
-    define can_manage: (owner or internal_admin from tenant) and can_contribute from tenant and photos_enabled from tenant
+    define can_view: (internal_user from tenant or viewer or external_visible or grant_view from tenant or grant_edit from tenant or grant_manage from tenant) and can_read_tenant from tenant and photos_enabled from tenant
+    define can_edit: (internal_user from tenant or editor or (external_visible and external_admin from tenant) or grant_edit from tenant or grant_manage from tenant) and can_contribute from tenant and photos_enabled from tenant
+    define can_manage: (owner or internal_admin from tenant or grant_manage from tenant) and can_contribute from tenant and photos_enabled from tenant
     define can_delete: can_manage
     define can_share: can_manage
-    define can_change_visibility: can_manage and internal_user from tenant
+    define can_change_visibility: (can_manage and internal_user from tenant) or (grant_change_visibility from tenant and can_read_tenant from tenant and photos_enabled from tenant)
     define can_create_photo: can_edit
 
 type photo
@@ -81,8 +98,8 @@ type photo
     define owner: [user]
     define editor: [user, tenant#external_admin] or owner or editor from album
     define viewer: [user, tenant#external_user, tenant#external_admin] or editor or viewer from album
-    define can_view: (internal_user from tenant or viewer or external_visible from album) and can_read_tenant from tenant and photos_enabled from tenant
-    define can_edit: (internal_user from tenant or editor or (external_visible from album and external_admin from tenant)) and can_contribute from tenant and photos_enabled from tenant
-    define can_manage: (owner or internal_admin from tenant) and can_contribute from tenant and photos_enabled from tenant
+    define can_view: (internal_user from tenant or viewer or external_visible from album or grant_view from tenant or grant_edit from tenant or grant_manage from tenant) and can_read_tenant from tenant and photos_enabled from tenant
+    define can_edit: (internal_user from tenant or editor or (external_visible from album and external_admin from tenant) or grant_edit from tenant or grant_manage from tenant) and can_contribute from tenant and photos_enabled from tenant
+    define can_manage: (owner or internal_admin from tenant or grant_manage from tenant) and can_contribute from tenant and photos_enabled from tenant
     define can_delete: can_manage
     define can_share: can_manage

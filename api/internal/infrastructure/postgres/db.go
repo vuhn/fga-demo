@@ -51,7 +51,7 @@ func migrate(pool *pgxpool.Pool) error {
 // Truncate empties every app table. Only the seed calls it.
 func Truncate(ctx context.Context, pool *pgxpool.Pool) error {
 	_, err := pool.Exec(ctx, `TRUNCATE resource_grants, photos, albums, documents, folders,
-		tenant_products, memberships, tenants, platform_admins, users`)
+		tenant_products, memberships, role_permissions, roles, tenants, platform_admins, users`)
 	return err
 }
 

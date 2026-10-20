@@ -29,7 +29,7 @@ Rules:
 
 - `domain`, `usecase`, and `service` never import Gin, pgx, or the OpenFGA SDK.
 - Constructors take interfaces; `cmd/api/wire.go` is the only place that names concrete types. A new operation is a usecase interface, a service file, and wiring.
-- **Each domain is separate in every layer.** Folder, document, album, photo (and user, tenant, product, member) own their entity, gateways, repos, relation builder, usecases, services, handler, and routes. Do not merge them behind a shared abstraction. The only shared code is cross-domain rules in `service/helper.go` and SQL plumbing in `postgres/grant_rows.go`.
+- **Each domain is separate in every layer.** Folder, document, album, photo (and user, tenant, product, member, role) own their entity, gateways, repos, relation builder, usecases, services, handler, and routes. Do not merge them behind a shared abstraction. The only shared code is cross-domain rules in `service/helper.go` and SQL plumbing in `postgres/grant_rows.go`. Member removal also drops that person's custom-role assignee tuples.
 
 ## Request lifecycle
 
@@ -43,7 +43,7 @@ Rules:
 
 ## Authorization
 
-OpenFGA holds the model ([`fga/model.fga`](fga/model.fga)) and tuples. The model has three object layers: `platform`, `tenant`, and content containers and items. Content `can_*` relations intersect tenant membership (`can_read_tenant`) and the product entitlement, so stale grants and disabled products fail closed.
+OpenFGA holds the model ([`fga/model.fga`](fga/model.fga)) and tuples. The model has three object layers: `platform`, `tenant` (including custom `role` objects), and content containers and items. Content `can_*` relations intersect tenant membership (`can_read_tenant`) and the product entitlement, so stale grants and disabled products fail closed. A custom role adds `grant_*` usersets on the tenant; it does not replace the built-in affiliation relations.
 
 On startup `cmd/api` opens the existing store and its newest model; `cmd/seed` recreates the store and writes the model. Every call pins that model id and uses `HIGHER_CONSISTENCY` for reads.
 

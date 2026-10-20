@@ -54,6 +54,8 @@ const FEATURES = {
   // Products are a platform entitlement: only system admins toggle them. Tenant admins see status.
   "tenant.products.manage": { all: ["platform:can_manage_platform"] },
   "tenant.members.manage": { any: ["tenant:can_manage_members", "platform:can_manage_platform"] },
+  // Custom roles are a platform entitlement, like product toggles.
+  "tenant.roles.manage": { all: ["platform:can_manage_platform"] },
 
   // Content creation at tenant level (the model already intersects the product).
   "folder.create": { all: ["tenant:can_create_folder"] },

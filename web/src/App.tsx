@@ -28,6 +28,8 @@ const Home = lazy(() => import("./pages/Home"));
 const Users = lazy(() => import("./pages/Users"));
 const Tenants = lazy(() => import("./pages/Tenants"));
 const TenantDetail = lazy(() => import("./pages/TenantDetail"));
+const Roles = lazy(() => import("./pages/Roles"));
+const RoleDetail = lazy(() => import("./pages/RoleDetail"));
 const Documents = lazy(() => import("./pages/Documents"));
 const Photos = lazy(() => import("./pages/Photos"));
 const Inspector = lazy(() => import("./pages/Inspector"));
@@ -190,6 +192,8 @@ export default function App() {
           <Route path="/tenants" element={<RequireFeature feature="nav.tenants"><Tenants /></RequireFeature>} />
           {/* Guarded inside, against the tenant in the URL rather than the active one. */}
           <Route path="/tenants/:id" element={<TenantDetail />} />
+          <Route path="/tenants/:id/roles" element={<Roles />} />
+          <Route path="/tenants/:id/roles/:roleId" element={<RoleDetail />} />
           <Route path="/documents" element={<RequireFeature feature="nav.documents" denied={<ProductUnavailable product="Documents" />}><Documents /></RequireFeature>} />
           <Route path="/photos" element={<RequireFeature feature="nav.photos" denied={<ProductUnavailable product="Photos" />}><Photos /></RequireFeature>} />
           <Route path="/inspector" element={<Inspector />} />
