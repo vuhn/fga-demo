@@ -22,10 +22,10 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconFileText, IconPhoto, IconTrash, IconUserPlus, IconUsers } from "@tabler/icons-react";
+import { IconFileText, IconPhoto, IconShield, IconTrash, IconUserPlus, IconUsers } from "@tabler/icons-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { useParams } from "react-router-dom";
-import { api, ROLES, type Member, type Product, type Tenant, type User } from "../api";
+import { Link, useParams } from "react-router-dom";
+import { api, memberRoleOptions, type CustomRole, type Member, type Product, type Tenant, type User } from "../api";
 import { useAuth } from "../auth";
 import { allows, RequireFeature, usePermissionSet } from "../permissions";
 import { AffiliationBadge, confirmDanger, notifyError, PageHeader, RoleBadge, run } from "../ui";
@@ -42,6 +42,7 @@ export default function TenantDetail() {
         perms={{
           products: allows(loaded.set, "tenant.products.manage"),
           members: allows(loaded.set, "tenant.members.manage"),
+          roles: allows(loaded.set, "tenant.roles.manage"),
           directory: allows(loaded.set, "nav.users"),
         }}
       />
@@ -49,7 +50,7 @@ export default function TenantDetail() {
   );
 }
 
-type PagePerms = { products: boolean; members: boolean; directory: boolean };
+type PagePerms = { products: boolean; members: boolean; roles: boolean; directory: boolean };
 
 const PRODUCT_META: Record<string, { label: string; icon: typeof IconFileText }> = {
   documents: { label: "Documents", icon: IconFileText },
@@ -61,6 +62,7 @@ function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [roles, setRoles] = useState<CustomRole[]>([]);
   const [filter, setFilter] = useState("all");
   const [users, setUsers] = useState<User[] | null>(null);
   const [adding, { open: openAdd, close: closeAdd }] = useDisclosure();
@@ -69,21 +71,23 @@ function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {
     if (!me) return;
     try {
       const aff = filter === "all" ? "" : `?affiliation=${filter}`;
-      const [t, ps, ms] = await Promise.all([
+      const [t, ps, ms, rs] = await Promise.all([
         api<Tenant>("GET", `/tenants/${id}`),
         api<Product[]>("GET", `/tenants/${id}/products`),
         api<Member[]>("GET", `/tenants/${id}/members${aff}`),
+        perms.members ? api<CustomRole[]>("GET", `/tenants/${id}/roles`) : Promise.resolve([] as CustomRole[]),
       ]);
       setTenant(t);
       setProducts(ps);
       setMembers(ms);
+      setRoles(rs);
       // Only someone who can manage the platform can list identities; others invite by user id.
       if (perms.directory) api<User[]>("GET", "/users").then(setUsers, () => setUsers(null));
       else setUsers(null);
     } catch (e) {
       notifyError(e);
     }
-  }, [id, filter, me, perms.directory]);
+  }, [id, filter, me, perms.directory, perms.members]);
 
   useEffect(() => {
     void load();
@@ -109,7 +113,17 @@ function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {
 
   return (
     <>
-      <PageHeader title={tenant.name} description={`Tenant · ${tenant.slug}`} />
+      <PageHeader
+        title={tenant.name}
+        description={`Tenant · ${tenant.slug}`}
+        actions={
+          perms.roles ? (
+            <Button component={Link} to={`/tenants/${id}/roles`} variant="default" leftSection={<IconShield size={16} />}>
+              Roles
+            </Button>
+          ) : undefined
+        }
+      />
 
       <Group justify="space-between" align="baseline" mb="sm">
         <Title order={4}>Products</Title>
@@ -218,16 +232,17 @@ function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {
                       {perms.members ? (
                         <Select
                           size="xs"
-                          w={170}
+                          w={200}
                           allowDeselect={false}
                           value={m.role}
-                          data={ROLES[m.affiliation]}
-                          onChange={(role) =>
-                            role && role !== m.role && act(() => api("PATCH", `/tenants/${id}/members/${m.user_id}`, { role }), `${m.name} is now ${role}`)
-                          }
+                          data={memberRoleOptions(m.affiliation, roles)}
+                          onChange={(role) => {
+                            const label = memberRoleOptions(m.affiliation, roles).find((o) => o.value === role)?.label ?? role;
+                            role && role !== m.role && act(() => api("PATCH", `/tenants/${id}/members/${m.user_id}`, { role }), `${m.name} is now ${label}`);
+                          }}
                         />
                       ) : (
-                        <RoleBadge role={m.role} />
+                        <RoleBadge role={m.role} name={m.role_name} />
                       )}
                     </Table.Td>
                     {perms.members && (
@@ -240,7 +255,7 @@ function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {
                             onClick={() =>
                               confirmDanger(
                                 `Remove ${m.name}?`,
-                                "Their role tuple and every direct grant in this tenant are deleted. Library usersets stay; they simply drop out of them.",
+                                "Their role and every direct grant in this tenant are deleted. Group usersets stay; they simply drop out of them.",
                                 "Remove",
                                 () => void act(() => api("DELETE", `/tenants/${id}/members/${m.user_id}`), `Removed ${m.name}`),
                               )
@@ -264,6 +279,7 @@ function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {
         onClose={closeAdd}
         users={users}
         members={members}
+        roles={roles}
         onAdd={async (b) => {
           if (await act(() => api("POST", `/tenants/${id}/members`, b), "Member added")) closeAdd();
         }}
@@ -277,12 +293,14 @@ function AddMemberModal({
   onClose,
   users,
   members,
+  roles,
   onAdd,
 }: {
   opened: boolean;
   onClose: () => void;
   users: User[] | null;
   members: Member[];
+  roles: CustomRole[];
   onAdd: (b: { user_id: string; affiliation: string; role: string }) => void;
 }) {
   const [affiliation, setAffiliation] = useState("internal");
@@ -308,7 +326,8 @@ function AddMemberModal({
               value={affiliation}
               onChange={(v) => {
                 setAffiliation(v);
-                setRole(ROLES[v][1]);
+                setRole("internal_user");
+                if (v === "external") setRole("external_user");
               }}
               data={[
                 { value: "internal", label: "Internal (staff)" },
@@ -319,7 +338,7 @@ function AddMemberModal({
               Fixed once added. Roles never cross affiliation.
             </Text>
           </div>
-          <Select label="Role" allowDeselect={false} value={role} onChange={(v) => v && setRole(v)} data={ROLES[affiliation]} />
+          <Select label="Role" allowDeselect={false} value={role} onChange={(v) => v && setRole(v)} data={memberRoleOptions(affiliation, roles)} />
           {users ? (
             <Select
               label="User"

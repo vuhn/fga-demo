@@ -43,6 +43,7 @@ type tenantJSON struct {
 	Products    []productJSON `json:"products"`
 	Affiliation string        `json:"affiliation,omitempty"`
 	Role        string        `json:"role,omitempty"`
+	RoleName    string        `json:"role_name,omitempty"`
 }
 
 func tenantView(t entity.Tenant) tenantJSON {
@@ -53,7 +54,7 @@ func tenantViews(ts []usecase.TenantView) []tenantJSON {
 	out := make([]tenantJSON, 0, len(ts))
 	for _, t := range ts {
 		v := tenantView(t.Tenant)
-		v.Affiliation, v.Role = t.Affiliation, t.Role
+		v.Affiliation, v.Role, v.RoleName = t.Affiliation, t.Role, t.RoleName
 		out = append(out, v)
 	}
 	return out
@@ -65,10 +66,11 @@ type memberJSON struct {
 	Name        string `json:"name"`
 	Affiliation string `json:"affiliation"`
 	Role        string `json:"role"`
+	RoleName    string `json:"role_name,omitempty"`
 }
 
 func memberView(m entity.Membership) memberJSON {
-	return memberJSON{m.UserID, m.Email, m.Name, m.Affiliation, m.Role}
+	return memberJSON{m.UserID, m.Email, m.Name, m.Affiliation, m.Role, m.RoleName}
 }
 
 type grantJSON struct {

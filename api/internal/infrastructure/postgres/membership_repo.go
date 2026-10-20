@@ -16,7 +16,10 @@ var _ gateway.MembershipGateway = (*MembershipRepo)(nil)
 
 func NewMembershipRepo(pool *pgxpool.Pool) *MembershipRepo { return &MembershipRepo{pool: pool} }
 
-const memberCols = `m.tenant_id, m.user_id, m.affiliation, m.role, u.email, u.name`
+const memberCols = `m.tenant_id, m.user_id, m.affiliation,
+	CASE WHEN m.custom_role_id IS NULL THEN m.role ELSE m.custom_role_id::text END,
+	COALESCE(cr.name, ''), COALESCE(m.custom_role_id::text, ''), u.email, u.name`
+const memberFrom = `memberships m JOIN users u ON u.id = m.user_id LEFT JOIN roles cr ON cr.id = m.custom_role_id`
 
 func (r *MembershipRepo) query(ctx context.Context, q string, args ...any) ([]entity.Membership, error) {
 	rows, err := r.pool.Query(ctx, q, args...)
@@ -27,7 +30,7 @@ func (r *MembershipRepo) query(ctx context.Context, q string, args ...any) ([]en
 	out := []entity.Membership{}
 	for rows.Next() {
 		var m entity.Membership
-		if err := rows.Scan(&m.TenantID, &m.UserID, &m.Affiliation, &m.Role, &m.Email, &m.Name); err != nil {
+		if err := rows.Scan(&m.TenantID, &m.UserID, &m.Affiliation, &m.Role, &m.RoleName, &m.CustomRoleID, &m.Email, &m.Name); err != nil {
 			return nil, err
 		}
 		out = append(out, m)
@@ -36,7 +39,7 @@ func (r *MembershipRepo) query(ctx context.Context, q string, args ...any) ([]en
 }
 
 func (r *MembershipRepo) Get(ctx context.Context, tenantID, userID string) (entity.Membership, error) {
-	ms, err := r.query(ctx, `SELECT `+memberCols+` FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.tenant_id = $1 AND m.user_id = $2`, tenantID, userID)
+	ms, err := r.query(ctx, `SELECT `+memberCols+` FROM `+memberFrom+` WHERE m.tenant_id = $1 AND m.user_id = $2`, tenantID, userID)
 	if err != nil {
 		return entity.Membership{}, err
 	}
@@ -47,22 +50,23 @@ func (r *MembershipRepo) Get(ctx context.Context, tenantID, userID string) (enti
 }
 
 func (r *MembershipRepo) List(ctx context.Context, tenantID, affiliation string) ([]entity.Membership, error) {
-	return r.query(ctx, `SELECT `+memberCols+` FROM memberships m JOIN users u ON u.id = m.user_id
+	return r.query(ctx, `SELECT `+memberCols+` FROM `+memberFrom+`
 		WHERE m.tenant_id = $1 AND ($2 = '' OR m.affiliation = $2) ORDER BY m.affiliation, u.name`, tenantID, affiliation)
 }
 
 func (r *MembershipRepo) ListForUser(ctx context.Context, userID string) ([]entity.Membership, error) {
-	return r.query(ctx, `SELECT `+memberCols+` FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.user_id = $1`, userID)
+	return r.query(ctx, `SELECT `+memberCols+` FROM `+memberFrom+` WHERE m.user_id = $1`, userID)
 }
 
 func (r *MembershipRepo) Insert(ctx context.Context, m entity.Membership) error {
-	_, err := r.pool.Exec(ctx, `INSERT INTO memberships (tenant_id, user_id, affiliation, role) VALUES ($1, $2, $3, $4)`,
-		m.TenantID, m.UserID, m.Affiliation, m.Role)
+	_, err := r.pool.Exec(ctx, `INSERT INTO memberships (tenant_id, user_id, affiliation, role, custom_role_id)
+		VALUES ($1, $2, $3, $4, NULLIF($5, '')::uuid)`,
+		m.TenantID, m.UserID, m.Affiliation, m.Role, m.CustomRoleID)
 	return mapErr(err)
 }
 
-func (r *MembershipRepo) UpdateRole(ctx context.Context, tenantID, userID, role string) error {
-	tag, err := r.pool.Exec(ctx, `UPDATE memberships SET role = $3 WHERE tenant_id = $1 AND user_id = $2`, tenantID, userID, role)
+func (r *MembershipRepo) UpdateRole(ctx context.Context, tenantID, userID, role, customRoleID string) error {
+	tag, err := r.pool.Exec(ctx, `UPDATE memberships SET role = $3, custom_role_id = NULLIF($4, '')::uuid WHERE tenant_id = $1 AND user_id = $2`, tenantID, userID, role, customRoleID)
 	if err != nil {
 		return mapErr(err)
 	}

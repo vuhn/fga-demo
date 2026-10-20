@@ -11,6 +11,7 @@ type TenantView struct {
 	entity.Tenant
 	Affiliation string
 	Role        string
+	RoleName    string
 }
 
 type TenantLister interface {

@@ -45,6 +45,15 @@ func (MembershipRelations) Removal(tenantID, userID string, grants []entity.Gran
 	return deletes
 }
 
+// ClearRoles deletes every built-in role tuple. Missing ones are ignored by the write.
+func (MembershipRelations) ClearRoles(tenantID, userID string) []entity.Tuple {
+	deletes := make([]entity.Tuple, 0, len(entity.AllRoles))
+	for _, r := range entity.AllRoles {
+		deletes = append(deletes, roleTuple(tenantID, userID, r))
+	}
+	return deletes
+}
+
 // Grants returns the tuple of each existing grant row.
 func (MembershipRelations) Grants(grants []entity.Grant) ([]entity.Tuple, error) {
 	out := make([]entity.Tuple, 0, len(grants))

@@ -110,9 +110,28 @@ An internal tenant admin and a system admin can both call this PUT. An internal 
 Routes do not require `X-Tenant-ID`. The tenant is the path id.
 
 - `GET /api/v1/tenants/:id/members?affiliation=internal|external` returns `{user_id, email, name, affiliation, role}`. The query parameter is optional. `internal` and `external` add `AND affiliation = $aff` after the authz check. Any other value is 400. OR check of `can_manage_platform` or `can_manage_members`; 403 otherwise. The roster is tenant administration: internal admins and the platform only. The share dialog does not use it; it uses the object's share candidates. The filter is display. It is not an authorization decision.
-- `POST /api/v1/tenants/:id/members` body `{user_id, affiliation, role}`. `affiliation` is `internal` or `external`. `role` must be one of the two roles for that affiliation. OR check of `can_manage_platform` or `can_manage_members`. 409 when the membership exists. 404 when the user id does not exist. 400 `affiliation_role_mismatch` for a crossed pair.
-- `PATCH /api/v1/tenants/:id/members/:userId` body `{role}`. Same OR check. The role must belong to the current affiliation. Role-change tuples. There is no field for affiliation.
-- `DELETE /api/v1/tenants/:id/members/:userId`. Same OR check. Remove-member tuples.
+- `POST /api/v1/tenants/:id/members` body `{user_id, affiliation, role}`. `affiliation` is `internal` or `external`. `role` is a built-in role for that affiliation, or the id of a custom role with that affiliation. OR check of `can_manage_platform` or `can_manage_members`. 409 when the membership exists. 404 when the user id does not exist. 400 `affiliation_role_mismatch` for a crossed pair.
+- `PATCH /api/v1/tenants/:id/members/:userId` body `{role}`. Same OR check. The role must belong to the current affiliation, built-in or custom. Role-change tuples. There is no field for affiliation. The response includes `role_name` when the role is custom.
+- `DELETE /api/v1/tenants/:id/members/:userId`. Same OR check. Remove-member tuples, including that person's custom-role assignee tuples.
+
+#### Custom roles
+
+Routes do not require `X-Tenant-ID`. The tenant is the path id. Listing and getting a role is allowed for `can_manage_platform` or `can_manage_members`, so the member form can offer them. Creating, renaming, setting permissions, and deleting stay `can_manage_platform` only.
+
+A role has `affiliation` `internal` or `external`, fixed at creation. A member holds one role. `POST` and `PATCH` on members accept a built-in role name or a custom role id of the member's affiliation. A crossed pair is 400 `affiliation_role_mismatch`. Assigning a custom role deletes the built-in role tuple and writes `role:<id>#assignee@user`. Assigning a built-in role deletes the assignee tuple.
+
+Delete is 409 when any member still holds the role.
+
+The permission catalog is fixed: `view`, `edit`, `manage`, `change_visibility`, `contribute`, `create_private`, `manage_members`, `view_products`. An unknown name is 400 `validation`. The response lists permissions in that order. Implications (`manage` includes edit and view, and so on) live in the model, so the stored list is exactly what was assigned.
+
+A role response is `{id, tenant_id, name, affiliation, permissions, assignees, created_at}`. `assignees` is `[{user_id, email, name}]` for members whose current role is this one.
+
+- `GET /api/v1/tenants/:id/roles` lists the tenant's custom roles. 404 when the tenant does not exist.
+- `GET /api/v1/tenants/:id/roles/:roleId` returns one role.
+- `POST /api/v1/tenants/:id/roles` body `{name, affiliation}`. 201. `affiliation` is `internal` or `external`. Name length is 1 to 200. The four built-in role ids are reserved (400). A duplicate name in the tenant is 409. The role starts with no permissions.
+- `PATCH /api/v1/tenants/:id/roles/:roleId` body `{name}`. Display only; no tuple changes. Affiliation does not change.
+- `PUT /api/v1/tenants/:id/roles/:roleId/permissions` body `{permissions: string[]}`. `permissions` is required; `[]` clears the role. Replaces the set. Removed grants are deleted in OpenFGA before Postgres; added grants are inserted in Postgres first.
+- `DELETE /api/v1/tenants/:id/roles/:roleId`. 204. 409 when a member still holds it. Otherwise deletes the role's tuples, then the row. Permissions cascade.
 
 #### Documents and folders
 

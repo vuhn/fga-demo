@@ -90,3 +90,33 @@ func TestInternalAdminCoversInternalUser(t *testing.T) {
 		t.Fatal("internal_user was allowed nothing; the comparison is vacuous")
 	}
 }
+
+// TestCustomRoleGrant assigns Dan to Acme's seeded Auditor role (view and
+// view_products, no edit). He gains private content and product status, and
+// keeps the limits of an external user everywhere else.
+func TestCustomRoleGrant(t *testing.T) {
+	ctx, c := newStore(t, "fga-demo-custom-role")
+	before := []row{
+		{Dan, "can_view", fo, AcmeCompany, false},
+		{Dan, "can_view_products", tn, Acme, false},
+		{Dan, "can_edit", fo, AcmeCompany, false},
+		{Dan, "can_contribute", tn, Acme, false},
+	}
+	assertRows(t, ctx, c, "before auditor", before)
+
+	write(t, ctx, c, []entity.Tuple{{
+		User: "user:" + Dan, Relation: "assignee", Object: "role:" + AcmeAuditor,
+	}}, nil)
+
+	assertRows(t, ctx, c, "auditor assigned", []row{
+		{Dan, "can_view", fo, AcmeCompany, true},
+		{Dan, "can_view", do, AcmeSecret, true},
+		{Dan, "can_view", al, AcmeAllHands, true},
+		{Dan, "can_view_products", tn, Acme, true},
+		{Dan, "can_edit", fo, AcmeCompany, false},
+		{Dan, "can_manage", fo, AcmeCompany, false},
+		{Dan, "can_contribute", tn, Acme, false},
+		{Dan, "can_manage_members", tn, Acme, false},
+		{Dan, "can_create_private_folder", tn, Acme, false},
+	})
+}

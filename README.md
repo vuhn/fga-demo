@@ -32,7 +32,9 @@ Every folder and album is **private** or **public** (`is_private`). Private cont
 
 `internal_admin` implies `internal_user`, and `external_admin` implies `external_user`, so each admin has every permission of the matching user role.
 
-**Platform.** Ada is `system_admin` of `platform:main`. She manages tenants, users, products, and memberships, but she is not a tenant member and sees no files.
+**Custom roles.** Those four roles are built into the model. A platform admin can also define extra roles for one tenant, each internal or external, from the tenant's Roles page. The role's detail page sets its permissions: view all content, edit all content, manage all content, change visibility, contribute, create private containers, manage members, and view products. Members are given a custom role from the same role list as the built-in roles, and it replaces the built-in role. An internal custom role can only go to an internal member; an external custom role only to an external member. Acme starts with an internal Auditor role and Globex with an external Vendor role. Neither is assigned, so the click script is unchanged until you assign one.
+
+**Platform.** Ada is `system_admin` of `platform:main`. She manages tenants, users, products, memberships, and custom roles, but she is not a tenant member and sees no files.
 
 **Visibility.** Only internal members create private containers; an external admin's new folder is always public. Making a container public or private takes `can_change_visibility`: the internal admin, or an internal owner. Creating a subfolder needs edit rights on the parent, so an external admin can nest only inside public content.
 

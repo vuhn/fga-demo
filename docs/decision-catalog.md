@@ -15,6 +15,8 @@ Object ids below are bare. The fga infrastructure formats them.
 | List members | actor | `can_manage_platform` on `platform:main` OR `can_manage_members` on that tenant | either check true; 403 otherwise |
 | List share candidates for an object | actor | `can_share` | that object |
 | Assign, change, or remove a member | actor | `can_manage_platform` on `platform:main` OR `can_manage_members` on that tenant | either check true |
+| List, create, rename, or delete a custom role; set its permissions; assign or unassign a member | actor | `can_manage_platform` | `platform:main` |
+| Assign a custom role | assignee | `can_read_tenant` | that tenant; otherwise 400 `not_a_member` |
 | Create folder | actor | `can_create_folder`; plus `can_create_private_folder` when `is_private`; plus `can_edit` on the parent when `parent_id` is set | that tenant / parent folder |
 | Create album | actor | `can_create_album`; plus `can_create_private_album` when `is_private`; plus `can_edit` on the parent | that tenant / parent album |
 | Make a folder or album public or private | actor | `can_change_visibility` | that folder or album |
@@ -31,6 +33,8 @@ Object ids below are bare. The fga infrastructure formats them.
 | Delete folder or album | actor | `can_delete` | that folder or album |
 
 OR in the table means the service calls Check twice (`Authorizer.PlatformOr`) and allows the action when either call is true. That composition stays in the service layer. It is not a role test, and it is not a new OpenFGA relation that would make a system admin a tenant member.
+
+Custom-role grants are not a separate check. `grant_view`, `grant_edit`, `grant_manage`, and the other catalog relations are OR'd into the `can_*` relations above, and still require `can_read_tenant` (and the product wildcard, for content). Assigning a role changes the result of those existing checks.
 
 List queries:
 

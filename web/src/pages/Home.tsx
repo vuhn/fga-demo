@@ -86,7 +86,7 @@ export default function Home() {
                       <AffiliationBadge affiliation={t.affiliation} />
                     </Table.Td>
                     <Table.Td>
-                      <RoleBadge role={t.role} />
+                      <RoleBadge role={t.role} name={t.role_name} />
                     </Table.Td>
                     <Table.Td>{t.id === tenantId && <Badge variant="outline">active</Badge>}</Table.Td>
                   </Table.Tr>

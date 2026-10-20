@@ -11,13 +11,15 @@ import (
 
 type memberRoleChanger struct {
 	members   gateway.MembershipGateway
+	roles     gateway.RoleGateway
 	relations gateway.MembershipRelationGateway
+	roleRels  gateway.RoleRelationGateway
 	authz     usecase.Authorizer
 	guard     helper.WriteGuard
 }
 
-func NewMemberRoleChanger(members gateway.MembershipGateway, relations gateway.MembershipRelationGateway, authz usecase.Authorizer, guard helper.WriteGuard) usecase.MemberRoleChanger {
-	return &memberRoleChanger{members: members, relations: relations, authz: authz, guard: guard}
+func NewMemberRoleChanger(members gateway.MembershipGateway, roles gateway.RoleGateway, relations gateway.MembershipRelationGateway, roleRels gateway.RoleRelationGateway, authz usecase.Authorizer, guard helper.WriteGuard) usecase.MemberRoleChanger {
+	return &memberRoleChanger{members: members, roles: roles, relations: relations, roleRels: roleRels, authz: authz, guard: guard}
 }
 
 // ChangeRole keeps the affiliation. A role from the other affiliation is a
@@ -30,22 +32,22 @@ func (s *memberRoleChanger) ChangeRole(ctx context.Context, actor, tenantID, use
 	if err != nil {
 		return entity.Membership{}, err
 	}
-	writes, deletes, err := s.relations.AssignRole(tenantID, userID, m.Affiliation, role)
-	if err != nil {
-		return entity.Membership{}, err
-	}
 	if m.Role == role {
 		return m, nil
+	}
+	assigned, err := assignMemberRole(ctx, s.roles, s.relations, s.roleRels, tenantID, userID, m.Affiliation, role, m.CustomRoleID)
+	if err != nil {
+		return entity.Membership{}, err
 	}
 	if err := keepOneInternalAdmin(ctx, s.members, m); err != nil {
 		return entity.Membership{}, err
 	}
 
-	if err := s.members.UpdateRole(ctx, tenantID, userID, role); err != nil {
+	if err := s.members.UpdateRole(ctx, tenantID, userID, assigned.StoredRole, assigned.CustomRoleID); err != nil {
 		return entity.Membership{}, err
 	}
-	err = s.guard.Grant(ctx, writes, deletes, func(ctx context.Context) error {
-		return s.members.UpdateRole(ctx, tenantID, userID, m.Role)
+	err = s.guard.Grant(ctx, assigned.Writes, assigned.Deletes, func(ctx context.Context) error {
+		return s.members.UpdateRole(ctx, tenantID, userID, m.Role, m.CustomRoleID)
 	})
 	if err != nil {
 		return entity.Membership{}, err

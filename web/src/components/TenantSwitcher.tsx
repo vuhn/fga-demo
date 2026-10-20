@@ -1,7 +1,7 @@
 import { Badge, Group, Select, Text } from "@mantine/core";
 import { IconBuilding } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
-import { matchPath, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api, type Tenant } from "../api";
 import { useAuth } from "../auth";
 
@@ -32,7 +32,7 @@ export default function TenantSwitcher() {
     if (!id) return;
     selectTenant(id);
     // A tenant-scoped page follows the switch; other pages reload from context.
-    if (matchPath("/tenants/:id", location.pathname)) navigate(`/tenants/${id}`);
+    if (location.pathname.startsWith("/tenants/") && location.pathname !== "/tenants") navigate(`/tenants/${id}`);
   };
 
   const byId = new Map(tenants.map((t) => [t.id, t]));
@@ -51,7 +51,7 @@ export default function TenantSwitcher() {
           <Group justify="space-between" w="100%" wrap="nowrap">
             <Text size="sm">{option.label}</Text>
             <Text size="xs" c="dimmed">
-              {t?.affiliation} · {t?.role?.replace("_", " ")}
+              {t?.affiliation} · {t?.role_name || t?.role?.replaceAll("_", " ")}
             </Text>
           </Group>
         );

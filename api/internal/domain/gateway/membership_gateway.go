@@ -12,7 +12,8 @@ type MembershipGateway interface {
 	List(ctx context.Context, tenantID, affiliation string) ([]entity.Membership, error)
 	ListForUser(ctx context.Context, userID string) ([]entity.Membership, error)
 	Insert(ctx context.Context, m entity.Membership) error
-	UpdateRole(ctx context.Context, tenantID, userID, role string) error
+	// UpdateRole sets the built-in role, or a custom role id with customRoleID set.
+	UpdateRole(ctx context.Context, tenantID, userID, role, customRoleID string) error
 	CountInternalAdmins(ctx context.Context, tenantID string) (int, error)
 	// ListUserGrants returns the user's direct grants on any content in the tenant.
 	ListUserGrants(ctx context.Context, tenantID, userID string) ([]entity.Grant, error)
@@ -31,4 +32,6 @@ type MembershipRelationGateway interface {
 	Removal(tenantID, userID string, grants []entity.Grant) []entity.Tuple
 	// Grants returns the tuples of existing grants, for restoring them.
 	Grants(grants []entity.Grant) ([]entity.Tuple, error)
+	// ClearRoles deletes all four built-in role tuples for the user.
+	ClearRoles(tenantID, userID string) []entity.Tuple
 }

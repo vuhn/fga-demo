@@ -4,9 +4,9 @@ Which tuples each domain command writes, and how Postgres and OpenFGA writes are
 
 ## Tuple catalog
 
-Pure relation builders in `api/internal/infrastructure/fga` build these slices, one per domain (`MembershipRelations`, `ProductRelations`, `FolderRelations`, `DocumentRelations`, `AlbumRelations`, `PhotoRelations`), reached through the `*RelationGateway` interfaces. Services persist Postgres, then hand the tuples to `helper.WriteGuard`. Unit tests cover the builders without a server.
+Pure relation builders in `api/internal/infrastructure/fga` build these slices, one per domain (`MembershipRelations`, `RoleRelations`, `ProductRelations`, `FolderRelations`, `DocumentRelations`, `AlbumRelations`, `PhotoRelations`), reached through the `*RelationGateway` interfaces. Services persist Postgres, then hand the tuples to `helper.WriteGuard`. Unit tests cover the builders without a server.
 
-Notation: `user:U`, `tenant:T`, `folder:F`, `document:D`, `album:A`, `photo:P`.
+Notation: `user:U`, `tenant:T`, `role:R`, `folder:F`, `document:D`, `album:A`, `photo:P`.
 
 #### Platform admin seed
 
@@ -66,6 +66,25 @@ Load the membership and the user's `resource_grants` rows for that tenant. One O
 Do not delete tuples whose user is `tenant:T#external_user` or `tenant:T#external_admin`, nor `root`/`public` markers.
 
 The same last-internal-admin 409 applies.
+
+Also delete each `role:R#assignee@user:U` for custom roles in this tenant that name the user, and delete the matching `role_assignees` rows in the same Postgres transaction as the membership. Do not delete the role itself or its `grant_*` tuples; other assignees keep them.
+
+#### Custom roles
+
+Check is `can_manage_platform` for create, rename, permissions, and delete. List and get are also allowed by `can_manage_members`. The four built-in roles are not rows in `roles`. Affiliation is `internal` or `external` and does not change.
+
+Create writes two tuples and inserts `roles`:
+
+- `role:R#tenant@tenant:T`
+- `tenant:T#internal_role@role:R` or `tenant:T#external_role@role:R`
+
+Rename updates `roles.name` only.
+
+Set permissions replaces `role_permissions`. For each removed permission, delete `tenant:T#grant_<permission>@role:R#assignee` in OpenFGA first, then delete the row. For each added permission, insert the row, then write that tuple. Do not write the implied permissions. The relation names are `grant_view`, `grant_edit`, `grant_manage`, `grant_change_visibility`, `grant_contribute`, `grant_create_private`, `grant_manage_members`, and `grant_view_products`.
+
+Assigning the role to a member is the member add or role-change command. It writes `role:R#assignee@user:U`, deletes the four built-in role tuples, and sets `memberships.custom_role_id`. Switching back to a built-in role deletes the assignee tuple and writes the built-in tuple. One person holds one role.
+
+Delete role is refused with 409 while a membership still points at it. Otherwise it deletes the anchor and grant tuples in OpenFGA first, then the `roles` row. Permissions cascade.
 
 #### Create folder
 

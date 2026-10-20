@@ -128,6 +128,8 @@ CREATE INDEX resource_grants_tenant_user_idx
 
 `api/migrations/00002_container_privacy.sql` then adds `is_private boolean NOT NULL DEFAULT true` to `folders` and `albums`, and narrows `resource_grants.subject_type` to `user`, `external_users`, and `external_admins` (the `internal_users` group share is gone: internal members already see all content).
 
+`api/migrations/00003_custom_roles.sql` adds tenant-scoped custom roles. `roles.name` is unique per tenant. `role_permissions.permission` is one of `view`, `edit`, `manage`, `change_visibility`, `contribute`, `create_private`, `manage_members`, `view_products`. `api/migrations/00004_role_affiliation.sql` adds `roles.affiliation` (`internal` or `external`) and `memberships.custom_role_id`. A member holds one role: a built-in role with `custom_role_id` null, or a custom role whose id is stored in both `role` and `custom_role_id`. These rows display the tuples; OpenFGA still decides.
+
 `resource_grants` includes owners. A group share cannot use `user_id`. `external_users` maps to `tenant:<id>#external_user` and is viewer only, because an external user cannot upload. `external_admins` maps to `tenant:<id>#external_admin`. One group row per object and subject type; changing viewer to editor replaces that row.
 
 `is_private` is the display flag. The `public` tuple is the authorization record (see the tuple catalog).
