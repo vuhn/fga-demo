@@ -1,0 +1,130 @@
+{
+  "rules": [
+    "Scope source: the 11-step script in README.md. Seed ids live only in api/internal/seed/world.go; reference tests and decision-catalog rows, never ids.",
+    "At most one feature is in_progress at a time.",
+    "A feature becomes passing only after its verification command succeeds; record the command output date and commit in evidence.",
+    "Manual steps are walked in the UI after make seed and an API restart. A feature with passing auto evidence and an unwalked manual step is recorded as passing (auto) with 'UI walk pending' in evidence."
+  ],
+  "features": [
+    {
+      "id": "S01",
+      "behavior": "Platform admin sees both tenants and no files; can add internal/external users",
+      "verification": {
+        "auto": "none: no automated test covers platform-admin tenant list or user creation; walk README step 1 or add an HTTP-level test",
+        "manual": "README step 1"
+      },
+      "status": "not_started",
+      "evidence": "",
+      "notes": "gap: manual only"
+    },
+    {
+      "id": "S02",
+      "behavior": "Internal admin sees every folder with visibility badges; only admin has Members with read-only products",
+      "verification": {
+        "auto": "make test-integration (TestModelAgainstSeed: internal members list every Acme folder)",
+        "manual": "README step 2"
+      },
+      "status": "passing",
+      "evidence": "2026-10-23 make test-integration PASS on ae789fc + uncommitted harness changes; UI walk pending"
+    },
+    {
+      "id": "S03",
+      "behavior": "Internal user sees and edits all, cannot delete others' items or change visibility, no Members access",
+      "verification": {
+        "auto": "make test-integration (TestModelAgainstSeed: Cara edit Secret, not delete)",
+        "manual": "README step 3"
+      },
+      "status": "passing",
+      "evidence": "2026-10-23 make test-integration PASS on ae789fc + uncommitted harness changes; UI walk pending"
+    },
+    {
+      "id": "S04",
+      "behavior": "External user sees only public chain content plus shares; no create/edit",
+      "verification": {
+        "auto": "make test-integration (TestModelAgainstSeed: Dan lists Client and shared Partners)",
+        "manual": "README step 4"
+      },
+      "status": "passing",
+      "evidence": "2026-10-23 make test-integration PASS on ae789fc + uncommitted harness changes; UI walk pending"
+    },
+    {
+      "id": "S05",
+      "behavior": "External admin contributes only in public content; own deletes only; folders always public",
+      "verification": {
+        "auto": "make test-integration (TestModelAgainstSeed: Fay cases)",
+        "manual": "README step 5"
+      },
+      "status": "passing",
+      "evidence": "2026-10-23 make test-integration PASS on ae789fc + uncommitted harness changes; UI walk pending"
+    },
+    {
+      "id": "S06",
+      "behavior": "Making a private child public reveals it; making it private hides it",
+      "verification": {
+        "auto": "make test-integration (TestModelAgainstSeed: visibility flips)",
+        "manual": "README step 6"
+      },
+      "status": "passing",
+      "evidence": "2026-10-23 make test-integration PASS on ae789fc + uncommitted harness changes; UI walk pending"
+    },
+    {
+      "id": "S07",
+      "behavior": "Making a private parent public reveals the subtree; reverting hides it",
+      "verification": {
+        "auto": "make test-integration (TestModelAgainstSeed: Board and Specs public)",
+        "manual": "README step 7"
+      },
+      "status": "passing",
+      "evidence": "2026-10-23 make test-integration PASS on ae789fc + uncommitted harness changes; UI walk pending"
+    },
+    {
+      "id": "S08",
+      "behavior": "Sharing a private folder with all external admins gives view only, not external users; revoke removes it",
+      "verification": {
+        "auto": "make test-integration (TestModelAgainstSeed: share Board)",
+        "manual": "README step 8"
+      },
+      "status": "passing",
+      "evidence": "2026-10-23 make test-integration PASS on ae789fc + uncommitted harness changes; UI walk pending"
+    },
+    {
+      "id": "S09",
+      "behavior": "Disabling a product blocks all content checks; owner tuples remain; re-enable restores",
+      "verification": {
+        "auto": "make test-integration (TestModelAgainstSeed: photos disabled)",
+        "manual": "README step 9"
+      },
+      "status": "passing",
+      "evidence": "2026-10-23 make test-integration PASS on ae789fc + uncommitted harness changes; UI walk pending"
+    },
+    {
+      "id": "S10",
+      "behavior": "Removing a member removes all their access including stale shares",
+      "verification": {
+        "auto": "make test-integration (TestModelAgainstSeed: remove Dan)",
+        "manual": "README step 10"
+      },
+      "status": "passing",
+      "evidence": "2026-10-23 make test-integration PASS on ae789fc + uncommitted harness changes; UI walk pending"
+    },
+    {
+      "id": "S11",
+      "behavior": "Tenant isolation: same user is external in another tenant with public-only view",
+      "verification": {
+        "auto": "make test-integration (TestModelAgainstSeed: Bob in Globex)",
+        "manual": "README step 11"
+      },
+      "status": "passing",
+      "evidence": "2026-10-23 make test-integration PASS on ae789fc + uncommitted harness changes; UI walk pending"
+    },
+    {
+      "id": "R01",
+      "behavior": "Custom roles: internal admin covers internal user; Auditor grants view-only reach",
+      "verification": {
+        "auto": "make test-integration (TestInternalAdminCoversInternalUser, TestCustomRoleGrant)"
+      },
+      "status": "passing",
+      "evidence": "2026-10-23 make test-integration PASS (TestInternalAdminCoversInternalUser, TestCustomRoleGrant) on ae789fc + uncommitted harness changes"
+    }
+  ]
+}

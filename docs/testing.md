@@ -20,3 +20,4 @@ What the unit and integration tests assert.
 
 `role_integration_test.go` asserts that a bare internal admin is allowed every permission an internal user is, on every Acme object. It also assigns Dan to Acme's Auditor role and asserts he can view private Company, Secret, and All-hands and can view products, and still cannot edit, manage, contribute, manage members, or create a private folder.
 
+`scripts/check-architecture.sh` (run by `make check`) asserts the architecture rules: no Gin, pgx, or OpenFGA SDK imports in `domain`, `usecase`, or `service`; no tuple or object-id literals outside `infrastructure/fga`; no role/affiliation branching in services (stored-invariant files allowlisted); no `but not` or `condition` in `model.fga`; `model.fga` equals the DSL block in `docs/authorization-model.md`; no OpenFGA relation names in web code outside `permissions.tsx` and the Inspector page. Each failure prints what, why, and fix.

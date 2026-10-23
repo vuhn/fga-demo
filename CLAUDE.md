@@ -4,13 +4,17 @@ OpenFGA multi-tenant authorization demo: Go API in `api/` (its own module, Gin, 
 
 ## Source of truth
 
-- Architecture overviews: `ARCHITECTURE.md` (system), `api/ARCHITECTURE.md` (Go service layers), `web/ARCHITECTURE.md` (React panel). Detailed reference lives in `docs/` (schema, `authorization-model.md`, `tuple-catalog.md`, `decision-catalog.md`, `http-api.md`, `seed-data.md`, `web-ui.md`, `testing.md`, `operations.md`). `README.md` is the story and the 11-step click script. **Keep code, the architecture files, `docs/`, and `README.md` aligned in the same change.** If behavior changes, update the spec first.
+- Architecture overviews: `ARCHITECTURE.md` (system; read first), `api/ARCHITECTURE.md` (read when touching Go layers), `web/ARCHITECTURE.md` (read when touching the panel). Detailed reference lives in `docs/`: `authorization-model.md` and `tuple-catalog.md` (model or relation builders), `decision-catalog.md` (any new action or Check), `http-api.md` (routes), `database-schema.md` and `seed-data.md` (migrations, seed), `web-ui.md` (UI), `testing.md` (tests), `operations.md` (compose, env). `README.md` is the story and the 11-step click script. **Keep code, the architecture files, `docs/`, and `README.md` aligned in the same change.** If behavior changes, update the spec first.
+- Session state lives in `docs/harness/`: `progress.md` (where we are), `feature-list.json` (README script as verifiable features), `decisions.md`, `clean-state-checklist.md`, `evaluator-rubric.md`, `quality.md`.
 - `api/fga/model.fga` must equal the DSL block in `docs/authorization-model.md` exactly.
 - Seed ids/tuples (with each container's private/public flag) live once in `api/internal/seed/world.go` (one slice per domain); `cmd/seed` writes them and the integration tests assert against them. Do not duplicate ids elsewhere.
 
 ## Commands
 
 ```bash
+make init               # tools, .env, npm ci, make check
+make check             # one command: vet, unit tests, architecture rules, docs/model sync, web build
+make verify-live       # compose-up + seed + integration tests (RESETS data)
 make compose-up         # Postgres :5432, OpenFGA :8080 (gRPC :8081, Playground :3000)
 make seed               # RESETS everything: truncates app tables, recreates the fga-demo store, writes the seed
 make api                # :8088 — migrates, opens existing store + newest model; never seeds
@@ -71,7 +75,16 @@ Restart `cmd/api` after every reseed (the store id changes). Seed accounts: ada,
 - Pages are `React.lazy` routes; vendor chunks are split in `vite.config.ts`. Keep icon imports named (`import { IconX } from "@tabler/icons-react"`) so they tree-shake.
 - The user's `~/.npm` cache has root-owned files; run npm with `npm_config_cache=$(mktemp -d)` instead of sudo.
 
+## Session protocol
+
+- Clock-in: read `docs/harness/progress.md`, run `make check`.
+- One feature at a time (`feature-list.json`); mark `passing` only with a recorded verification run.
+- After touching `service/`, `fga/`, or `model.fga`, run the `authz-reviewer` subagent (rubric: `docs/harness/evaluator-rubric.md`).
+- Clock-out: walk `docs/harness/clean-state-checklist.md`, update `progress.md`.
+
 ## Verifying a change
+
+`make check` runs step 1 and 4 plus the architecture rules (`scripts/check-architecture.sh`); `make verify-live` runs step 2.
 
 1. `cd api && go vet ./... && go vet -tags=integration ./... && go test ./...`
 2. `make compose-up && make seed && make test-integration`

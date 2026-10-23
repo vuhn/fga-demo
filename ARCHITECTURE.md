@@ -86,3 +86,7 @@ go.work     Lets the language server resolve api/ from the repo root
 | [docs/seed-data.md](docs/seed-data.md) | The fixed demo world |
 | [docs/web-ui.md](docs/web-ui.md) | Page behavior and UI permission mapping |
 | [docs/testing.md](docs/testing.md) | What the tests assert |
+
+## Harness
+
+Verification and session state: `make check` runs the static tier and `scripts/check-architecture.sh`; `make verify-live` runs the live tier. Progress, feature list, decisions, and checklists are in [docs/harness/](docs/harness/).
