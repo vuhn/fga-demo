@@ -16,4 +16,14 @@ test:
 test-integration:
 	cd api && OPENFGA_API_URL=http://localhost:8080 go test -tags=integration ./internal/infrastructure/fga/
 
-.PHONY: compose-up seed api web test test-integration
+check:
+	cd api && go vet ./... && go vet -tags=integration ./... && go test ./...
+	bash scripts/check-architecture.sh
+	cd web && npm run build
+
+verify-live: compose-up seed test-integration
+
+init:
+	bash scripts/init.sh
+
+.PHONY: compose-up seed api web test test-integration check verify-live init
