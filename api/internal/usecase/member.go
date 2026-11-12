@@ -10,10 +10,17 @@ type MemberLister interface {
 	List(ctx context.Context, actor, tenantID, affiliation string) ([]entity.Membership, error)
 }
 
+// AddMemberInput names the person by UserID or by Email. An unknown email
+// creates the user (Name, Password, and CompanyID are then required);
+// a known email reuses the one account. Affiliation is derived from the
+// user's company, never sent.
 type AddMemberInput struct {
-	UserID      string
-	Affiliation string
-	Role        string
+	UserID    string
+	Email     string
+	Name      string
+	Password  string
+	CompanyID string
+	Role      string
 }
 
 type MemberAdder interface {

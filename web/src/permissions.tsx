@@ -57,11 +57,13 @@ const FEATURES = {
   // Custom roles are a platform entitlement, like product toggles.
   "tenant.roles.manage": { all: ["platform:can_manage_platform"] },
 
-  // Content creation at tenant level (the model already intersects the product).
-  "folder.create": { all: ["tenant:can_create_folder"] },
-  "album.create": { all: ["tenant:can_create_album"] },
-  "folder.createPrivate": { all: ["tenant:can_create_private_folder"] },
-  "album.createPrivate": { all: ["tenant:can_create_private_album"] },
+  // Projects: every member sees the list the server returns; creating one is a tenant permission.
+  "nav.projects": { all: ["tenant:can_read_tenant"] },
+  "tenant.projects.manage": { any: ["tenant:can_manage_projects", "platform:can_manage_platform"] },
+  // Project roles are a platform entitlement, like tenant custom roles.
+  "project.roles.manage": { all: ["platform:can_manage_platform"] },
+  // Companies span tenants: claiming one is a platform action.
+  "nav.companies": { all: ["platform:can_manage_platform"] },
 } as const satisfies Record<string, Rule>;
 
 export type Feature = keyof typeof FEATURES;
@@ -101,6 +103,27 @@ export type Action = keyof typeof ACTIONS;
 export function canAct(obj: { permissions?: Perms }, type: ObjectType, action: Action): boolean {
   const relation = (ACTIONS[action] as Partial<Record<ObjectType, string>>)[type];
   return relation !== undefined && obj.permissions?.[relation] === true;
+}
+
+// ---- Project actions ----
+
+/**
+ * Content is created inside a project, so creation is decided by the project
+ * row's permissions (the model already intersects the product).
+ */
+const PROJECT_ACTIONS = {
+  createFolder: "can_create_folder",
+  createAlbum: "can_create_album",
+  createPrivateFolder: "can_create_private_folder",
+  createPrivateAlbum: "can_create_private_album",
+  manageMembers: "can_manage_members",
+} as const satisfies Record<string, string>;
+
+export type ProjectAction = keyof typeof PROJECT_ACTIONS;
+
+/** True when the project's server-provided permissions allow the action. */
+export function canProject(project: { permissions?: Perms } | null | undefined, action: ProjectAction): boolean {
+  return project?.permissions?.[PROJECT_ACTIONS[action]] === true;
 }
 
 // ---- Loading ----

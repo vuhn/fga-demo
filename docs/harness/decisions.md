@@ -32,3 +32,10 @@ Why the repo is shaped this way. One entry per decision; add new ones at the top
 ## Harness: one verification command, rules as scripts
 - **Reason:** prose rules were not checkable by an agent (`docs/harness` follows Learn Harness Engineering lectures 2, 9, 10).
 - **Rejected:** a Stop hook running `make check` on every session (opt-in, not added).
+
+## 2026-11: companies, projects, project roles (prds/update-tenant-structure.md)
+
+- Open TODO(Vu) default: internal members reach every project in their tenant; external members need project membership. Needs confirmation.
+- Claim = platform admin merges unclaimed companies into the claiming tenant's own company (409 on conflicts). Proof is out of band.
+- Affiliation derived from company; FGA relation chosen at add time.
+- Go names kept for tenant roles (`Role*`); project roles are `ProjectRole*`. Roles and project roles are created by the platform admin.

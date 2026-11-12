@@ -21,27 +21,34 @@ import (
 func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway, log *slog.Logger) *gin.Engine {
 	// Gateways
 	var (
-		users       = postgres.NewUserRepo(pool)
-		tenants     = postgres.NewTenantRepo(pool)
-		products    = postgres.NewProductRepo(pool)
-		members     = postgres.NewMembershipRepo(pool)
-		roles       = postgres.NewRoleRepo(pool)
-		folders     = postgres.NewFolderRepo(pool)
-		folderGrant = postgres.NewFolderGrantRepo(pool)
-		documents   = postgres.NewDocumentRepo(pool)
-		docGrant    = postgres.NewDocumentGrantRepo(pool)
-		albums      = postgres.NewAlbumRepo(pool)
-		albumGrant  = postgres.NewAlbumGrantRepo(pool)
-		photos      = postgres.NewPhotoRepo(pool)
-		photoGrant  = postgres.NewPhotoGrantRepo(pool)
+		users          = postgres.NewUserRepo(pool)
+		tenants        = postgres.NewTenantRepo(pool)
+		products       = postgres.NewProductRepo(pool)
+		members        = postgres.NewMembershipRepo(pool)
+		companies      = postgres.NewCompanyRepo(pool)
+		projects       = postgres.NewProjectRepo(pool)
+		projectRoles   = postgres.NewProjectRoleRepo(pool)
+		projectMembers = postgres.NewProjectMemberRepo(pool)
+		roles          = postgres.NewRoleRepo(pool)
+		folders        = postgres.NewFolderRepo(pool)
+		folderGrant    = postgres.NewFolderGrantRepo(pool)
+		documents      = postgres.NewDocumentRepo(pool)
+		docGrant       = postgres.NewDocumentGrantRepo(pool)
+		albums         = postgres.NewAlbumRepo(pool)
+		albumGrant     = postgres.NewAlbumGrantRepo(pool)
+		photos         = postgres.NewPhotoRepo(pool)
+		photoGrant     = postgres.NewPhotoGrantRepo(pool)
 
-		memberRels   = fga.MembershipRelations{}
-		roleRels     = fga.RoleRelations{}
-		productRels  = fga.ProductRelations{}
-		folderRels   = fga.FolderRelations{}
-		documentRels = fga.DocumentRelations{}
-		albumRels    = fga.AlbumRelations{}
-		photoRels    = fga.PhotoRelations{}
+		memberRels        = fga.MembershipRelations{}
+		roleRels          = fga.RoleRelations{}
+		productRels       = fga.ProductRelations{}
+		projectRels       = fga.ProjectRelations{}
+		projectRoleRels   = fga.ProjectRoleRelations{}
+		projectMemberRels = fga.ProjectMemberRelations{}
+		folderRels        = fga.FolderRelations{}
+		documentRels      = fga.DocumentRelations{}
+		albumRels         = fga.AlbumRelations{}
+		photoRels         = fga.PhotoRelations{}
 
 		tokens = auth.JWT{Secret: []byte(cfg.JWTSecret), TTL: cfg.JWTTTL}
 		hasher = auth.Bcrypt{}
@@ -52,7 +59,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 	authz := service.NewAuthorizer(authzStore)
 	guard := service.NewWriteGuard(authzStore, log)
 	policy := service.NewSharePolicy(authz)
-	objectTenants := service.NewObjectTenantResolver(folders, documents, albums, photos)
+	objectTenants := service.NewObjectTenantResolver(folders, documents, albums, photos, projects)
 	myTenants := service.NewMyTenantLister(tenants, members, authz)
 
 	handlers := []httph.RouteRegistrar{
@@ -63,7 +70,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		httph.NewPermissionHandler(service.NewPermissionReader(authz)),
 		httph.NewUserHandler(
 			service.NewUserLister(users, authz),
-			service.NewUserCreator(users, hasher, authz, ids),
+			service.NewUserCreator(users, hasher, authz, ids, companies),
 			service.NewUserUpdater(users, authz),
 		),
 		httph.NewTenantHandler(
@@ -79,9 +86,34 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		),
 		httph.NewMemberHandler(
 			service.NewMemberLister(tenants, members, authz),
-			service.NewMemberAdder(tenants, users, members, roles, memberRels, roleRels, authz, guard),
+			service.NewMemberAdder(tenants, users, companies, members, roles, memberRels, roleRels, hasher, authz, guard, ids),
 			service.NewMemberRoleChanger(members, roles, memberRels, roleRels, authz, guard),
-			service.NewMemberRemover(members, memberRels, roles, roleRels, authz, guard),
+			service.NewMemberRemover(members, memberRels, roles, roleRels, projectMembers, projectMemberRels, projectRoleRels, authz, guard),
+		),
+		httph.NewCompanyHandler(
+			service.NewCompanyLister(tenants, companies, authz),
+			service.NewAllCompanyLister(companies, authz),
+			service.NewCompanyCreator(tenants, companies, authz, ids),
+			service.NewCompanyClaimer(tenants, companies, authz),
+		),
+		httph.NewProjectHandler(
+			service.NewProjectLister(projects, authz),
+			service.NewProjectGetter(projects, authz),
+			service.NewProjectCreator(tenants, projects, projectRels, authz, guard, ids),
+			service.NewProjectRenamer(projects, authz),
+		),
+		httph.NewProjectRoleHandler(
+			service.NewProjectRoleLister(projects, projectRoles, authz),
+			service.NewProjectRoleCreator(projects, projectRoles, projectRoleRels, authz, guard, ids),
+			service.NewProjectRolePermissionSetter(projects, projectRoles, projectRoleRels, authz, guard),
+			service.NewProjectRoleDeleter(projects, projectRoles, projectRoleRels, authz, guard),
+		),
+		httph.NewProjectMemberHandler(
+			service.NewProjectMemberLister(projects, projectMembers, authz),
+			service.NewProjectMemberCandidateLister(projects, members, projectMembers, authz),
+			service.NewProjectMemberAdder(projects, members, projectMembers, projectRoles, projectMemberRels, projectRoleRels, authz, guard),
+			service.NewProjectMemberRoleChanger(projects, projectMembers, projectRoles, projectMemberRels, projectRoleRels, authz, guard),
+			service.NewProjectMemberRemover(projects, projectMembers, projectMemberRels, projectRoleRels, authz, guard),
 		),
 		httph.NewRoleHandler(
 			service.NewRoleLister(tenants, roles, authz),
@@ -96,7 +128,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		httph.NewFolderHandler(httph.FolderUsecases{
 			Lister:           service.NewFolderLister(folders, authz),
 			Getter:           service.NewFolderGetter(folders, authz),
-			Creator:          service.NewFolderCreator(folders, folderRels, authz, guard, ids),
+			Creator:          service.NewFolderCreator(projects, folders, folderRels, authz, guard, ids),
 			Renamer:          service.NewFolderRenamer(folders, authz),
 			VisibilitySetter: service.NewFolderVisibilitySetter(folders, folderRels, authz, guard),
 			Deleter:          service.NewFolderDeleter(folders, authz, guard),
@@ -119,7 +151,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		httph.NewAlbumHandler(httph.AlbumUsecases{
 			Lister:           service.NewAlbumLister(albums, authz),
 			Getter:           service.NewAlbumGetter(albums, authz),
-			Creator:          service.NewAlbumCreator(albums, albumRels, authz, guard, ids),
+			Creator:          service.NewAlbumCreator(projects, albums, albumRels, authz, guard, ids),
 			Renamer:          service.NewAlbumRenamer(albums, authz),
 			VisibilitySetter: service.NewAlbumVisibilitySetter(albums, albumRels, authz, guard),
 			Deleter:          service.NewAlbumDeleter(albums, authz, guard),

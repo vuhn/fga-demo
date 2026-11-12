@@ -13,13 +13,13 @@ func TestSeedCustomRolesHaveNoAssignees(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[entity.Tuple]bool{
-		{User: "tenant:" + seed.Acme, Relation: "tenant", Object: "role:" + seed.AcmeAuditor}:                            true,
-		{User: "role:" + seed.AcmeAuditor, Relation: "internal_role", Object: "tenant:" + seed.Acme}:                    true,
-		{User: "role:" + seed.AcmeAuditor + "#assignee", Relation: "grant_view", Object: "tenant:" + seed.Acme}:          true,
-		{User: "role:" + seed.AcmeAuditor + "#assignee", Relation: "grant_view_products", Object: "tenant:" + seed.Acme}: true,
-		{User: "tenant:" + seed.Globex, Relation: "tenant", Object: "role:" + seed.GlobexVendor}:                         true,
-		{User: "role:" + seed.GlobexVendor, Relation: "external_role", Object: "tenant:" + seed.Globex}:                 true,
-		{User: "role:" + seed.GlobexVendor + "#assignee", Relation: "grant_contribute", Object: "tenant:" + seed.Globex}: true,
+		{User: "tenant:" + seed.Acme, Relation: "tenant", Object: "tenant_role:" + seed.AcmeAuditor}:                            true,
+		{User: "tenant_role:" + seed.AcmeAuditor, Relation: "internal_role", Object: "tenant:" + seed.Acme}:                     true,
+		{User: "tenant_role:" + seed.AcmeAuditor + "#assignee", Relation: "grant_view", Object: "tenant:" + seed.Acme}:          true,
+		{User: "tenant_role:" + seed.AcmeAuditor + "#assignee", Relation: "grant_view_products", Object: "tenant:" + seed.Acme}: true,
+		{User: "tenant:" + seed.Globex, Relation: "tenant", Object: "tenant_role:" + seed.GlobexVendor}:                         true,
+		{User: "tenant_role:" + seed.GlobexVendor, Relation: "external_role", Object: "tenant:" + seed.Globex}:                  true,
+		{User: "tenant_role:" + seed.GlobexVendor + "#assignee", Relation: "grant_contribute", Object: "tenant:" + seed.Globex}: true,
 	}
 	for _, tuple := range tuples {
 		if tuple.Relation == "assignee" {

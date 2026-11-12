@@ -18,7 +18,7 @@ How the system is built is in [ARCHITECTURE.md](ARCHITECTURE.md), with detailed 
 
 ## Authorization story
 
-Each tenant has two member lists. Internal members work for the tenant. External members do not; an internal tenant admin or a system admin invites them. Affiliation is chosen when the person is added and does not change afterward. Internal roles go only to internal members, external roles only to external members.
+Content lives in **projects** (Acme: Tower A and Annex; Globex: Main). Members belong to a **company**: internal members work for the tenant's own company, external members for a subcontractor company the tenant created (BuildRight, Steelworks), shown as a chip next to their name. Affiliation is derived from the company. Internal members reach every project; external members see only projects they were added to, and a member's permissions in a project are the union of their tenant role and project role. A platform admin can claim a subcontractor company into a tenant, merging it into the tenant's own company. Each tenant has two member lists. Internal members work for the tenant. External members do not; an internal tenant admin or a system admin invites them. Affiliation is chosen when the person is added and does not change afterward. Internal roles go only to internal members, external roles only to external members.
 
 Every folder and album is **private** or **public** (`is_private`). Private content is for internal members only, unless it is shared. Public content is also visible to every external member of the tenant. A container is public to externals only if it and all its ancestors are public, so a private folder hides everything inside it.
 
@@ -53,8 +53,8 @@ Password for every account: `password`
 | Ada | ada@example.com | System admin of `platform:main`. No tenant membership. |
 | Bob | bob@example.com | Internal admin of Acme. External user of Globex. |
 | Cara | cara@example.com | Internal user of Acme. |
-| Dan | dan@example.com | External user of Acme. Viewer of the private Partners folder. |
-| Fay | fay@example.com | External admin of Acme. Owns the Visit Agenda document. |
+| Dan | dan@example.com | External user of Acme (BuildRight), member of Tower A. Viewer of the private Partners folder. |
+| Fay | fay@example.com | External admin of Acme (Steelworks), member of Tower A. Owns the Visit Agenda document. |
 | Eve | eve@example.com | Internal admin of Globex. No Acme membership. |
 
 Both tenants start with documents and photos enabled.
@@ -77,14 +77,14 @@ Exact ids and tuples are in [docs/seed-data.md](docs/seed-data.md); API fields a
 ## Five-minute script
 
 1. Sign in as Ada. The tenant directory shows Acme and Globex with both products on. Her tenant switcher is empty and she sees no files. She can add a user to a tenant as internal or external, and the role list follows that choice.
-2. Sign in as Bob and select Acme. He sees every folder with a Private or Public badge; Legal shows "Public · hidden by parent". Only internal admins have the Members menu: there he sees product status (read-only, with no switches) and manages members; the filter Internal shows Bob and Cara, External shows Dan and Fay.
-3. Sign in as Cara. She sees every Acme folder, private or public, without any share, and can add documents anywhere. She cannot delete Secret (Bob owns it) and cannot change visibility. She has no Members menu, and opening the tenant page by URL says "Not available".
-4. Sign in as Dan. He sees Client (Client Brief, Visit Agenda) and Partners (Partner Deck, shared with him), plus the Client visit album. He does not see Company, Board, Legal, or Specs. He has no upload or create buttons.
+2. Sign in as Bob, select Acme, and open the project Tower A (Documents tab). He sees every folder with a Private or Public badge; Legal shows "Public · hidden by parent". Only internal admins have the Members menu: there he sees product status (read-only, with no switches) and manages members; the filter Internal shows Bob and Cara, External shows Dan and Fay.
+3. Sign in as Cara. In Tower A she sees every Acme folder, private or public, without any share, and can add documents anywhere. She cannot delete Secret (Bob owns it) and cannot change visibility. She has no Members menu, and opening the tenant page by URL says "Not available".
+4. Sign in as Dan and open Projects, then Tower A (he is not in Annex). Documents and Photos are tabs inside the project. He sees Client (Client Brief, Visit Agenda) and Partners (Partner Deck, shared with him), plus the Client visit album. He does not see Company, Board, Legal, or Specs. He has no upload or create buttons.
 5. Sign in as Fay. She sees Client only. She can add a document there and edit Client Brief, but only delete her own Visit Agenda. Her New folder dialog has no Private switch: her folders are always public, and Dan sees them immediately.
 6. As Bob, make Specs public. Dan now sees Specs and Pricing. Make it private again and they disappear.
 7. As Bob, make Board public. Board and Legal (already flagged public) appear for Dan and Fay. Make it private again.
 8. As Bob, share Board with all external admins as viewer. Fay sees Board, Q3 Plan, and Legal but cannot edit; Dan still cannot see Board. Revoke it.
-9. As Ada, open Acme from the tenant directory and disable photos (only the platform admin can). Sign in as Bob: the Photos menu is gone for every Acme member, `/photos` says the product is turned off, and his Members page shows Photos as disabled. Kickoff's owner tuple is still visible in the inspector. Ada enables photos again and everything comes back.
+9. As Ada, open Acme from the tenant directory and disable photos (only the platform admin can). Sign in as Bob: the Photos tab is gone from every Acme project for every member, and his Members page shows Photos as disabled. Kickoff's owner tuple is still visible in the inspector. Ada enables photos again and everything comes back.
 10. As Bob, remove Dan from Acme. Dan loses Acme in the switcher and every Acme file, including the Partners share.
 11. Sign in as Bob and switch to Globex. He sees only the public Client folder and Client visit album, with no create buttons: he is an external user there.
 

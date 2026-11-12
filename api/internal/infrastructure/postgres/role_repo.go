@@ -17,7 +17,7 @@ var _ gateway.RoleGateway = (*RoleRepo)(nil)
 func NewRoleRepo(pool *pgxpool.Pool) *RoleRepo { return &RoleRepo{pool: pool} }
 
 func (r *RoleRepo) List(ctx context.Context, tenantID string) ([]entity.Role, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id, tenant_id, name, affiliation, created_at FROM roles WHERE tenant_id = $1 ORDER BY affiliation, name`, tenantID)
+	rows, err := r.pool.Query(ctx, `SELECT id, tenant_id, name, affiliation, created_at FROM tenant_roles WHERE tenant_id = $1 ORDER BY affiliation, name`, tenantID)
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -40,7 +40,7 @@ func (r *RoleRepo) List(ctx context.Context, tenantID string) ([]entity.Role, er
 }
 
 func (r *RoleRepo) Get(ctx context.Context, tenantID, roleID string) (entity.Role, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id, tenant_id, name, affiliation, created_at FROM roles WHERE tenant_id = $1 AND id = $2`, tenantID, roleID)
+	rows, err := r.pool.Query(ctx, `SELECT id, tenant_id, name, affiliation, created_at FROM tenant_roles WHERE tenant_id = $1 AND id = $2`, tenantID, roleID)
 	if err != nil {
 		return entity.Role{}, mapErr(err)
 	}
@@ -76,7 +76,7 @@ func (r *RoleRepo) hydrate(ctx context.Context, tenantID string, roles []entity.
 		byID[roles[i].ID] = &roles[i]
 	}
 	perms, err := r.pool.Query(ctx, `SELECT rp.role_id, rp.permission
-		FROM role_permissions rp JOIN roles r ON r.id = rp.role_id
+		FROM tenant_role_permissions rp JOIN tenant_roles r ON r.id = rp.role_id
 		WHERE r.tenant_id = $1`, tenantID)
 	if err != nil {
 		return nil, mapErr(err)
@@ -104,10 +104,10 @@ func (r *RoleRepo) hydrate(ctx context.Context, tenantID string, roles []entity.
 		}
 	}
 
-	assignees, err := r.pool.Query(ctx, `SELECT m.custom_role_id, u.id, u.email, u.name
-		FROM memberships m
+	assignees, err := r.pool.Query(ctx, `SELECT m.tenant_role_id, u.id, u.email, u.name
+		FROM tenant_members m
 		JOIN users u ON u.id = m.user_id
-		WHERE m.tenant_id = $1 AND m.custom_role_id IS NOT NULL
+		WHERE m.tenant_id = $1 AND m.tenant_role_id IS NOT NULL
 		ORDER BY u.name`, tenantID)
 	if err != nil {
 		return nil, mapErr(err)
@@ -127,12 +127,12 @@ func (r *RoleRepo) hydrate(ctx context.Context, tenantID string, roles []entity.
 }
 
 func (r *RoleRepo) Insert(ctx context.Context, role entity.Role) error {
-	_, err := r.pool.Exec(ctx, `INSERT INTO roles (id, tenant_id, name, affiliation) VALUES ($1, $2, $3, $4)`, role.ID, role.TenantID, role.Name, role.Affiliation)
+	_, err := r.pool.Exec(ctx, `INSERT INTO tenant_roles (id, tenant_id, name, affiliation) VALUES ($1, $2, $3, $4)`, role.ID, role.TenantID, role.Name, role.Affiliation)
 	return mapErr(err)
 }
 
 func (r *RoleRepo) UpdateName(ctx context.Context, tenantID, roleID, name string) error {
-	tag, err := r.pool.Exec(ctx, `UPDATE roles SET name = $3 WHERE tenant_id = $1 AND id = $2`, tenantID, roleID, name)
+	tag, err := r.pool.Exec(ctx, `UPDATE tenant_roles SET name = $3 WHERE tenant_id = $1 AND id = $2`, tenantID, roleID, name)
 	if err != nil {
 		return mapErr(err)
 	}
@@ -143,7 +143,7 @@ func (r *RoleRepo) UpdateName(ctx context.Context, tenantID, roleID, name string
 }
 
 func (r *RoleRepo) Delete(ctx context.Context, tenantID, roleID string) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM roles WHERE tenant_id = $1 AND id = $2`, tenantID, roleID)
+	tag, err := r.pool.Exec(ctx, `DELETE FROM tenant_roles WHERE tenant_id = $1 AND id = $2`, tenantID, roleID)
 	if err != nil {
 		return mapErr(err)
 	}
@@ -159,7 +159,7 @@ func (r *RoleRepo) InsertPermissions(ctx context.Context, roleID string, permiss
 	}
 	return inTx(ctx, r.pool, func(tx pgx.Tx) error {
 		for _, p := range permissions {
-			if _, err := tx.Exec(ctx, `INSERT INTO role_permissions (role_id, permission) VALUES ($1, $2)`, roleID, p); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO tenant_role_permissions (role_id, permission) VALUES ($1, $2)`, roleID, p); err != nil {
 				return err
 			}
 		}
@@ -173,7 +173,7 @@ func (r *RoleRepo) DeletePermissions(ctx context.Context, roleID string, permiss
 	}
 	return inTx(ctx, r.pool, func(tx pgx.Tx) error {
 		for _, p := range permissions {
-			if _, err := tx.Exec(ctx, `DELETE FROM role_permissions WHERE role_id = $1 AND permission = $2`, roleID, p); err != nil {
+			if _, err := tx.Exec(ctx, `DELETE FROM tenant_role_permissions WHERE role_id = $1 AND permission = $2`, roleID, p); err != nil {
 				return err
 			}
 		}
@@ -182,8 +182,8 @@ func (r *RoleRepo) DeletePermissions(ctx context.Context, roleID string, permiss
 }
 
 func (r *RoleRepo) ListRoleIDsForUser(ctx context.Context, tenantID, userID string) ([]string, error) {
-	rows, err := r.pool.Query(ctx, `SELECT custom_role_id FROM memberships
-		WHERE tenant_id = $1 AND user_id = $2 AND custom_role_id IS NOT NULL`, tenantID, userID)
+	rows, err := r.pool.Query(ctx, `SELECT tenant_role_id FROM tenant_members
+		WHERE tenant_id = $1 AND user_id = $2 AND tenant_role_id IS NOT NULL`, tenantID, userID)
 	if err != nil {
 		return nil, mapErr(err)
 	}

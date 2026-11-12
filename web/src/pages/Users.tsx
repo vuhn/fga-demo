@@ -1,16 +1,20 @@
-import { Avatar, Badge, Button, Card, Code, Group, Modal, PasswordInput, Stack, Table, Text, TextInput } from "@mantine/core";
+import { Avatar, Badge, Button, Card, Code, Group, Modal, PasswordInput, Select, Stack, Table, Text, TextInput } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconPlus } from "@tabler/icons-react";
 import { useEffect, useState, type FormEvent } from "react";
-import { api, type User } from "../api";
-import { notifyError, PageHeader, run } from "../ui";
+import { api, type Company, type User } from "../api";
+import { CompanyBadge, notifyError, PageHeader, run } from "../ui";
 
 export default function Users() {
   const [users, setUsers] = useState<User[]>([]);
   const [opened, { open, close }] = useDisclosure();
-  const [form, setForm] = useState({ email: "", name: "", password: "" });
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [form, setForm] = useState({ email: "", name: "", password: "", company_id: "" });
 
   const load = () => api<User[]>("GET", "/users").then(setUsers, notifyError);
+  useEffect(() => {
+    api<Company[]>("GET", "/companies").then(setCompanies, notifyError);
+  }, []);
   useEffect(() => {
     void load();
   }, []);
@@ -18,7 +22,7 @@ export default function Users() {
   const create = async (e: FormEvent) => {
     e.preventDefault();
     if (await run(() => api("POST", "/users", form), `Created ${form.name}`)) {
-      setForm({ email: "", name: "", password: "" });
+      setForm({ email: "", name: "", password: "", company_id: "" });
       close();
       await load();
     }
@@ -42,6 +46,7 @@ export default function Users() {
               <Table.Tr>
                 <Table.Th>Name</Table.Th>
                 <Table.Th>Email</Table.Th>
+                <Table.Th>Company</Table.Th>
                 <Table.Th>Platform</Table.Th>
                 <Table.Th>User id</Table.Th>
               </Table.Tr>
@@ -60,6 +65,9 @@ export default function Users() {
                     </Group>
                   </Table.Td>
                   <Table.Td>{u.email}</Table.Td>
+                  <Table.Td>
+                    <CompanyBadge company={u.company} />
+                  </Table.Td>
                   <Table.Td>{u.is_system_admin && <Badge variant="light">system admin</Badge>}</Table.Td>
                   <Table.Td>
                     <Code fz="xs">{u.id}</Code>
@@ -76,6 +84,15 @@ export default function Users() {
           <Stack>
             <TextInput label="Email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.currentTarget.value })} />
             <TextInput label="Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.currentTarget.value })} />
+            <Select
+              label="Company"
+              description="One person, one account, one employer."
+              required
+              searchable
+              value={form.company_id || null}
+              onChange={(v) => setForm({ ...form, company_id: v ?? "" })}
+              data={companies.map((c) => ({ value: c.id, label: c.name }))}
+            />
             <PasswordInput
               label="Password"
               description="8 to 72 characters"
@@ -87,7 +104,9 @@ export default function Users() {
               <Button variant="default" onClick={close}>
                 Cancel
               </Button>
-              <Button type="submit">Create user</Button>
+              <Button type="submit" disabled={!form.company_id}>
+                Create user
+              </Button>
             </Group>
           </Stack>
         </form>

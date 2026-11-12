@@ -9,14 +9,36 @@ Password for every user is `password`, hashed at seed time.
 
 #### People
 
-| Name | Email | Id | Platform |
+| Name | Email | Id | Platform | Company |
+| --- | --- | --- | --- | --- |
+| Ada | ada@example.com | `11111111-1111-1111-1111-111111111111` | system admin | Platform |
+| Bob | bob@example.com | `22222222-2222-2222-2222-222222222222` | | Acme |
+| Cara | cara@example.com | `33333333-3333-3333-3333-333333333333` | | Acme |
+| Dan | dan@example.com | `44444444-4444-4444-4444-444444444444` | | BuildRight Subcontractors |
+| Eve | eve@example.com | `55555555-5555-5555-5555-555555555555` | | Globex |
+| Fay | fay@example.com | `66666666-6666-6666-6666-666666666666` | | Steelworks Ltd |
+
+#### Companies
+
+| Company | Id | Kind |
+| --- | --- | --- |
+| Platform | `90000000-0000-4000-8000-000000000001` | no tenant, no creator (Ada) |
+| Acme | `90000000-0000-4000-8000-000000000002` | Acme's own company |
+| Globex | `90000000-0000-4000-8000-000000000003` | Globex's own company |
+| BuildRight Subcontractors | `90000000-0000-4000-8000-000000000004` | unclaimed, created by Acme (Dan) |
+| Steelworks Ltd | `90000000-0000-4000-8000-000000000005` | unclaimed, created by Acme (Fay) |
+
+Affiliation is derived from these: Bob is internal in Acme (his company) and external in Globex (shown with company "Acme"); Dan and Fay are external in Acme. No company has tuples.
+
+#### Projects
+
+| Tenant | Project | Id | Members |
 | --- | --- | --- | --- |
-| Ada | ada@example.com | `11111111-1111-1111-1111-111111111111` | system admin |
-| Bob | bob@example.com | `22222222-2222-2222-2222-222222222222` | |
-| Cara | cara@example.com | `33333333-3333-3333-3333-333333333333` | |
-| Dan | dan@example.com | `44444444-4444-4444-4444-444444444444` | |
-| Eve | eve@example.com | `55555555-5555-5555-5555-555555555555` | |
-| Fay | fay@example.com | `66666666-6666-6666-6666-666666666666` | |
+| Acme | Tower A | `a1a1a1a1-0000-4000-8000-000000000001` | Dan external_user, Fay external_admin |
+| Acme | Annex | `a1a1a1a1-0000-4000-8000-000000000002` | Cara internal_admin |
+| Globex | Main | `b1b1b1b1-0000-4000-8000-000000000001` | Bob external_user |
+
+Tuples: `project:P#tenant@tenant:T` for each project and `project:P#<role>@user:U` for each member above. Internal members of a tenant reach every project without a project membership; Dan, Fay, and Globex's Bob see nothing in a project they are not in. Cara is an internal user in the tenant and internal admin of Annex only, so in Annex she holds the union (she can manage and delete there, not in Tower A). No project roles are seeded.
 
 #### Tenants and memberships
 
@@ -47,15 +69,17 @@ No assignees, so nobody's checks change until a platform admin assigns someone.
 
 Tuples, and no `assignee` tuples:
 
-- `role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#tenant@tenant:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`
-- `tenant:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#internal_role@role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`
-- `tenant:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#grant_view@role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#assignee`
-- `tenant:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#grant_view_products@role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#assignee`
-- `role:c0bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb#tenant@tenant:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb`
-- `tenant:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb#external_role@role:c0bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb`
-- `tenant:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb#grant_contribute@role:c0bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb#assignee`
+- `tenant_role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#tenant@tenant:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`
+- `tenant:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#internal_role@tenant_role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`
+- `tenant:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#grant_view@tenant_role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#assignee`
+- `tenant:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#grant_view_products@tenant_role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#assignee`
+- `tenant_role:c0bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb#tenant@tenant:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb`
+- `tenant:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb#external_role@tenant_role:c0bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb`
+- `tenant:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb#grant_contribute@tenant_role:c0bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb#assignee`
 
 #### Acme content
+
+Everything below is in Tower A, plus one Annex folder: `Annex Plans` (`f0000000-0000-4000-8000-0000000000a1`, top level, private, Bob) containing the document `Annex Spec` (`d0000000-0000-4000-8000-0000000000a1`, Bob).
 
 | Kind | Name | Id | Parent or container | Visibility | Owner | Shares |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -84,6 +108,8 @@ Mime type `text/plain` and byte size `128` on every seeded document. Mime type `
 
 #### Globex content
 
+All in the project Main.
+
 | Kind | Name | Id | Parent or container | Visibility | Owner |
 | --- | --- | --- | --- | --- | --- |
 | folder | Company | `f4444444-4444-4444-4444-444444444444` | top level | private | Eve |
@@ -99,5 +125,5 @@ Mime type `text/plain` and byte size `128` on every seeded document. Mime type `
 | photo | Offsite Shot | `e4444444-4444-4444-4444-444444444444` | Offsite | | Eve |
 | photo | Lobby | `e8888888-8888-8888-8888-888888888888` | Client visit | | Eve |
 
-Every container gets the tuples from "Create folder": `tenant`, `owner`, `parent` or `root`, and `public` when public. Every item gets `tenant`, its container, and `owner`. The one share is `folder:faaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#viewer@user:44444444-4444-4444-4444-444444444444` (Partners to Dan). All four product wildcards exist. The ids, rows, and tuples live in `api/internal/seed/world.go` (one slice per domain: `Folders`, `Albums`, `Documents`, `Photos`); this table describes them.
+Every container gets the tuples from "Create folder": `tenant`, `project`, `owner`, `parent` or `root`, and `public` when public. Every item gets `tenant`, `project`, its container, and `owner`. The one share is `folder:faaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#viewer@user:44444444-4444-4444-4444-444444444444` (Partners to Dan). All four product wildcards exist. The ids, rows, and tuples live in `api/internal/seed/world.go` (one slice per domain: `Folders`, `Albums`, `Documents`, `Photos`, plus `Subcontractors`, `Projects`, `ProjectMembers`); this table describes them.
 

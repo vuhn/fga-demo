@@ -13,6 +13,7 @@ func (PhotoRelations) Created(p entity.Photo) []entity.Tuple {
 	o := obj(entity.ObjectTypePhoto, p.ID)
 	return []entity.Tuple{
 		{User: obj(entity.ObjectTypeTenant, p.TenantID), Relation: "tenant", Object: o},
+		{User: obj(entity.ObjectTypeProject, p.ProjectID), Relation: "project", Object: o},
 		{User: obj(entity.ObjectTypeAlbum, p.AlbumID), Relation: "album", Object: o},
 		{User: userRef(p.CreatedBy), Relation: entity.RelOwner, Object: o},
 	}

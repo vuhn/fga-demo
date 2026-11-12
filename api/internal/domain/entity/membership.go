@@ -49,9 +49,12 @@ func CheckAffiliationRole(affiliation, role string) error {
 // custom role id. RoleName is the custom role's display name when Role is an id.
 // CustomRoleID is set only when the member holds a custom role.
 type Membership struct {
-	TenantID     string
-	UserID       string
+	TenantID string
+	UserID   string
+	// Affiliation is derived: internal when the user's company is the tenant's own.
 	Affiliation  string
+	CompanyID    string
+	CompanyName  string
 	Role         string
 	RoleName     string
 	CustomRoleID string

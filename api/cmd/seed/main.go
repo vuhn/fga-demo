@@ -47,15 +47,18 @@ func run() error {
 		return err
 	}
 	var (
-		users     = postgres.NewUserRepo(pool)
-		tenants   = postgres.NewTenantRepo(pool)
-		products  = postgres.NewProductRepo(pool)
-		members   = postgres.NewMembershipRepo(pool)
-		roles     = postgres.NewRoleRepo(pool)
-		folders   = postgres.NewFolderRepo(pool)
-		documents = postgres.NewDocumentRepo(pool)
-		albums    = postgres.NewAlbumRepo(pool)
-		photos    = postgres.NewPhotoRepo(pool)
+		users          = postgres.NewUserRepo(pool)
+		tenants        = postgres.NewTenantRepo(pool)
+		products       = postgres.NewProductRepo(pool)
+		members        = postgres.NewMembershipRepo(pool)
+		companies      = postgres.NewCompanyRepo(pool)
+		projects       = postgres.NewProjectRepo(pool)
+		projectMembers = postgres.NewProjectMemberRepo(pool)
+		roles          = postgres.NewRoleRepo(pool)
+		folders        = postgres.NewFolderRepo(pool)
+		documents      = postgres.NewDocumentRepo(pool)
+		albums         = postgres.NewAlbumRepo(pool)
+		photos         = postgres.NewPhotoRepo(pool)
 
 		folderGrants = postgres.NewFolderGrantRepo(pool)
 		albumGrants  = postgres.NewAlbumGrantRepo(pool)
@@ -64,13 +67,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	for _, p := range seed.People {
-		if err := users.Create(ctx, entity.User{ID: p.ID, Email: p.Email, Name: p.Name, PasswordHash: hash, IsSystemAdmin: p.SystemAdmin}); err != nil {
-			return fmt.Errorf("user %s: %w", p.Name, err)
-		}
-	}
+	// Tenants first: each creates its own company, which internal users belong to.
 	for _, t := range seed.Tenants {
-		if err := tenants.Create(ctx, entity.Tenant{ID: t.ID, Slug: t.Slug, Name: t.Name}); err != nil {
+		if err := tenants.Create(ctx, entity.Tenant{ID: t.ID, Slug: t.Slug, Name: t.Name, CompanyID: t.CompanyID}); err != nil {
 			return fmt.Errorf("tenant %s: %w", t.Name, err)
 		}
 		for _, prod := range entity.AllProducts {
@@ -79,9 +78,30 @@ func run() error {
 			}
 		}
 	}
+	for _, c := range seed.Subcontractors {
+		c.NameKey = entity.CompanyNameKey(c.Name)
+		if err := companies.Create(ctx, c); err != nil {
+			return fmt.Errorf("company %s: %w", c.Name, err)
+		}
+	}
+	for _, p := range seed.People {
+		if err := users.Create(ctx, entity.User{ID: p.ID, Email: p.Email, Name: p.Name, PasswordHash: hash, IsSystemAdmin: p.SystemAdmin, CompanyID: p.CompanyID}); err != nil {
+			return fmt.Errorf("user %s: %w", p.Name, err)
+		}
+	}
 	for _, m := range seed.Members {
 		if err := members.Insert(ctx, m); err != nil {
 			return fmt.Errorf("membership: %w", err)
+		}
+	}
+	for _, pr := range seed.Projects {
+		if err := projects.Create(ctx, pr); err != nil {
+			return fmt.Errorf("project %s: %w", pr.Name, err)
+		}
+	}
+	for _, pm := range seed.ProjectMembers {
+		if err := projectMembers.Insert(ctx, pm); err != nil {
+			return fmt.Errorf("project member: %w", err)
 		}
 	}
 	for _, role := range seed.Roles {

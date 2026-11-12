@@ -43,7 +43,7 @@ Rules:
 
 ## Authorization
 
-OpenFGA holds the model ([`fga/model.fga`](fga/model.fga)) and tuples. The model has three object layers: `platform`, `tenant` (including custom `role` objects), and content containers and items. Content `can_*` relations intersect tenant membership (`can_read_tenant`) and the product entitlement, so stale grants and disabled products fail closed. A custom role adds `grant_*` usersets on the tenant; it does not replace the built-in affiliation relations.
+OpenFGA holds the model ([`fga/model.fga`](fga/model.fga)) and tuples. The model has three object layers: `platform`, `tenant` (including custom `tenant_role` objects), `project` (including `project_role` objects), and content containers and items. Content `can_*` relations intersect tenant membership (`can_read_tenant`) and the product entitlement, so stale grants and disabled products fail closed. A custom role adds `grant_*` usersets on the tenant; it does not replace the built-in affiliation relations.
 
 On startup `cmd/api` opens the existing store and its newest model; `cmd/seed` recreates the store and writes the model. Every call pins that model id and uses `HIGHER_CONSISTENCY` for reads.
 
@@ -60,7 +60,7 @@ There is no transaction across Postgres and OpenFGA. Ordering keeps failures saf
 
 ## Data
 
-Postgres tables: users, platform_admins, tenants, memberships, tenant_products, one container and one item table per product, and `resource_grants`. Postgres ids and OpenFGA object ids are the same UUIDs (the platform object is `main`). Schema: [database schema](../docs/database-schema.md). Migrations are embedded and applied on startup.
+Postgres tables: users, companies, platform_admins, tenants, tenant_members, tenant_roles, projects, project_members, project_roles, tenant_products, one container and one item table per product, and `resource_grants`. Postgres ids and OpenFGA object ids are the same UUIDs (the platform object is `main`). Schema: [database schema](../docs/database-schema.md). Migrations are embedded and applied on startup.
 
 ## Entry points
 

@@ -16,18 +16,19 @@ var _ gateway.UserGateway = (*UserRepo)(nil)
 
 func NewUserRepo(pool *pgxpool.Pool) *UserRepo { return &UserRepo{pool: pool} }
 
-const userCols = `u.id, u.email, u.name, u.password_hash, u.created_at, EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = u.id)`
+const userCols = `u.id, u.email, u.name, u.password_hash, u.created_at, EXISTS (SELECT 1 FROM platform_admins pa WHERE pa.user_id = u.id), u.company_id, co.name`
+const userFrom = `users u JOIN companies co ON co.id = u.company_id`
 
 func scanUser(row pgx.Row) (entity.User, error) {
 	var u entity.User
-	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.CreatedAt, &u.IsSystemAdmin)
+	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.CreatedAt, &u.IsSystemAdmin, &u.CompanyID, &u.CompanyName)
 	return u, mapErr(err)
 }
 
 func (r *UserRepo) Create(ctx context.Context, u entity.User) error {
 	return inTx(ctx, r.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `INSERT INTO users (id, email, name, password_hash) VALUES ($1, $2, $3, $4)`,
-			u.ID, u.Email, u.Name, u.PasswordHash); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO users (id, email, name, password_hash, company_id) VALUES ($1, $2, $3, $4, $5)`,
+			u.ID, u.Email, u.Name, u.PasswordHash, u.CompanyID); err != nil {
 			return err
 		}
 		if u.IsSystemAdmin {
@@ -39,11 +40,11 @@ func (r *UserRepo) Create(ctx context.Context, u entity.User) error {
 }
 
 func (r *UserRepo) Get(ctx context.Context, id string) (entity.User, error) {
-	return scanUser(r.pool.QueryRow(ctx, `SELECT `+userCols+` FROM users u WHERE u.id = $1`, id))
+	return scanUser(r.pool.QueryRow(ctx, `SELECT `+userCols+` FROM `+userFrom+` WHERE u.id = $1`, id))
 }
 
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (entity.User, error) {
-	return scanUser(r.pool.QueryRow(ctx, `SELECT `+userCols+` FROM users u WHERE lower(u.email) = lower($1)`, email))
+	return scanUser(r.pool.QueryRow(ctx, `SELECT `+userCols+` FROM `+userFrom+` WHERE lower(u.email) = lower($1)`, email))
 }
 
 func (r *UserRepo) query(ctx context.Context, q string, args ...any) ([]entity.User, error) {
@@ -64,11 +65,11 @@ func (r *UserRepo) query(ctx context.Context, q string, args ...any) ([]entity.U
 }
 
 func (r *UserRepo) List(ctx context.Context) ([]entity.User, error) {
-	return r.query(ctx, `SELECT `+userCols+` FROM users u ORDER BY u.name`)
+	return r.query(ctx, `SELECT `+userCols+` FROM `+userFrom+` ORDER BY u.name`)
 }
 
 func (r *UserRepo) ListPlatformAdmins(ctx context.Context) ([]entity.User, error) {
-	return r.query(ctx, `SELECT `+userCols+` FROM users u JOIN platform_admins p ON p.user_id = u.id ORDER BY u.name`)
+	return r.query(ctx, `SELECT `+userCols+` FROM `+userFrom+` JOIN platform_admins p ON p.user_id = u.id ORDER BY u.name`)
 }
 
 func (r *UserRepo) UpdateName(ctx context.Context, id, name string) (entity.User, error) {

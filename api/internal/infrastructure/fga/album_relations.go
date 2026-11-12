@@ -16,6 +16,7 @@ func (r AlbumRelations) Created(a entity.Album) []entity.Tuple {
 	o := obj(entity.ObjectTypeAlbum, a.ID)
 	ts := []entity.Tuple{
 		{User: obj(entity.ObjectTypeTenant, a.TenantID), Relation: "tenant", Object: o},
+		{User: obj(entity.ObjectTypeProject, a.ProjectID), Relation: "project", Object: o},
 		{User: userRef(a.CreatedBy), Relation: entity.RelOwner, Object: o},
 	}
 	if a.ParentID != nil {

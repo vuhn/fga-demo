@@ -8,5 +8,7 @@ type User struct {
 	Name          string
 	PasswordHash  string
 	IsSystemAdmin bool
+	CompanyID     string
+	CompanyName   string
 	CreatedAt     time.Time
 }

@@ -43,7 +43,7 @@ func (h *FolderHandler) Register(r Routes) {
 
 func folderView(f entity.Folder) map[string]any {
 	return map[string]any{
-		"id": f.ID, "tenant_id": f.TenantID, "parent_id": f.ParentID, "name": f.Name, "is_private": f.IsPrivate,
+		"id": f.ID, "tenant_id": f.TenantID, "project_id": f.ProjectID, "parent_id": f.ParentID, "name": f.Name, "is_private": f.IsPrivate,
 		"created_by": f.CreatedBy, "created_at": f.CreatedAt,
 	}
 }
@@ -55,12 +55,13 @@ func visibleFolderView(v entity.Visible[entity.Folder]) map[string]any {
 }
 
 func (h *FolderHandler) list(c *gin.Context) {
-	fs, err := h.uc.Lister.List(c, actor(c), tenant(c))
+	fs, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("project_id"))
 	respond(c, http.StatusOK, mapSlice(fs, visibleFolderView), err)
 }
 
 func (h *FolderHandler) create(c *gin.Context) {
 	var body struct {
+		ProjectID string  `json:"project_id"`
 		Name      string  `json:"name"`
 		ParentID  *string `json:"parent_id"`
 		IsPrivate *bool   `json:"is_private"`
@@ -72,7 +73,7 @@ func (h *FolderHandler) create(c *gin.Context) {
 		writeErr(c, entity.Invalid("is_private is required"))
 		return
 	}
-	f, err := h.uc.Creator.Create(c, actor(c), tenant(c), usecase.CreateFolderInput{Name: body.Name, ParentID: body.ParentID, IsPrivate: *body.IsPrivate})
+	f, err := h.uc.Creator.Create(c, actor(c), tenant(c), usecase.CreateFolderInput{ProjectID: body.ProjectID, Name: body.Name, ParentID: body.ParentID, IsPrivate: *body.IsPrivate})
 	respond(c, http.StatusCreated, folderView(f), err)
 }
 

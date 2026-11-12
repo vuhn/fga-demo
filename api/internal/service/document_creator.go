@@ -38,14 +38,15 @@ func (s *documentCreator) Create(ctx context.Context, actor, tenantID string, in
 	if in.ByteSize < 0 {
 		return entity.Document{}, entity.Invalid("byte_size must be >= 0")
 	}
-	if _, err := loadFolder(ctx, s.folders, tenantID, in.FolderID); err != nil {
+	folder, err := loadFolder(ctx, s.folders, tenantID, in.FolderID)
+	if err != nil {
 		return entity.Document{}, err
 	}
 	if err := s.authz.Require(ctx, actor, "can_create_document", entity.ObjectTypeFolder, in.FolderID); err != nil {
 		return entity.Document{}, err
 	}
 
-	d := entity.Document{ID: s.ids.NewID(), TenantID: tenantID, FolderID: in.FolderID, Name: name, MimeType: mime, ByteSize: in.ByteSize, CreatedBy: actor}
+	d := entity.Document{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: folder.ProjectID, FolderID: in.FolderID, Name: name, MimeType: mime, ByteSize: in.ByteSize, CreatedBy: actor}
 	owner := entity.OwnerGrant(s.ids.NewID(), tenantID, entity.ObjectTypeDocument, d.ID, actor)
 	if err := s.documents.Create(ctx, d, owner); err != nil {
 		return entity.Document{}, err

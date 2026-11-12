@@ -38,14 +38,15 @@ func (s *photoCreator) Create(ctx context.Context, actor, tenantID string, in us
 	if in.ByteSize < 0 {
 		return entity.Photo{}, entity.Invalid("byte_size must be >= 0")
 	}
-	if _, err := loadAlbum(ctx, s.albums, tenantID, in.AlbumID); err != nil {
+	album, err := loadAlbum(ctx, s.albums, tenantID, in.AlbumID)
+	if err != nil {
 		return entity.Photo{}, err
 	}
 	if err := s.authz.Require(ctx, actor, "can_create_photo", entity.ObjectTypeAlbum, in.AlbumID); err != nil {
 		return entity.Photo{}, err
 	}
 
-	p := entity.Photo{ID: s.ids.NewID(), TenantID: tenantID, AlbumID: in.AlbumID, Name: name, MimeType: mime, ByteSize: in.ByteSize, CreatedBy: actor}
+	p := entity.Photo{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: album.ProjectID, AlbumID: in.AlbumID, Name: name, MimeType: mime, ByteSize: in.ByteSize, CreatedBy: actor}
 	owner := entity.OwnerGrant(s.ids.NewID(), tenantID, entity.ObjectTypePhoto, p.ID, actor)
 	if err := s.photos.Create(ctx, p, owner); err != nil {
 		return entity.Photo{}, err

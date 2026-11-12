@@ -10,20 +10,23 @@ import (
 )
 
 type memberRemover struct {
-	members   gateway.MembershipGateway
-	relations gateway.MembershipRelationGateway
-	roles     gateway.RoleGateway
-	roleRels  gateway.RoleRelationGateway
-	authz     usecase.Authorizer
-	guard     helper.WriteGuard
+	members         gateway.MembershipGateway
+	relations       gateway.MembershipRelationGateway
+	roles           gateway.RoleGateway
+	roleRels        gateway.RoleRelationGateway
+	projectMembers  gateway.ProjectMemberGateway
+	projectRels     gateway.ProjectMemberRelationGateway
+	projectRoleRels gateway.ProjectRoleRelationGateway
+	authz           usecase.Authorizer
+	guard           helper.WriteGuard
 }
 
-func NewMemberRemover(members gateway.MembershipGateway, relations gateway.MembershipRelationGateway, roles gateway.RoleGateway, roleRels gateway.RoleRelationGateway, authz usecase.Authorizer, guard helper.WriteGuard) usecase.MemberRemover {
-	return &memberRemover{members: members, relations: relations, roles: roles, roleRels: roleRels, authz: authz, guard: guard}
+func NewMemberRemover(members gateway.MembershipGateway, relations gateway.MembershipRelationGateway, roles gateway.RoleGateway, roleRels gateway.RoleRelationGateway, projectMembers gateway.ProjectMemberGateway, projectRels gateway.ProjectMemberRelationGateway, projectRoleRels gateway.ProjectRoleRelationGateway, authz usecase.Authorizer, guard helper.WriteGuard) usecase.MemberRemover {
+	return &memberRemover{members: members, relations: relations, roles: roles, roleRels: roleRels, projectMembers: projectMembers, projectRels: projectRels, projectRoleRels: projectRoleRels, authz: authz, guard: guard}
 }
 
-// Remove deletes the built-in role tuples, custom-role assignee tuples, and
-// every direct grant for the user in this tenant. Group usersets stay; the
+// Remove deletes the built-in role tuples, custom-role assignee tuples,
+// project membership tuples, and every direct grant for the user in this tenant. Group usersets stay; the
 // person simply drops out of them.
 func (s *memberRemover) Remove(ctx context.Context, actor, tenantID, userID string) error {
 	if err := s.authz.PlatformOr(ctx, actor, "can_manage_members", tenantID, entity.ErrForbidden); err != nil {
@@ -65,6 +68,21 @@ func (s *memberRemover) Remove(ctx context.Context, actor, tenantID, userID stri
 	restore = append(restore, grantTuples...)
 	for _, id := range roleIDs {
 		restore = append(restore, s.roleRels.Assignee(id, userID))
+	}
+
+	// Project memberships go with the tenant membership (cascade in Postgres),
+	// so their tuples are deleted here too.
+	pms, err := s.projectMembers.ListForUser(ctx, tenantID, userID)
+	if err != nil {
+		return err
+	}
+	for _, pm := range pms {
+		d, r, err := projectMemberTuples(s.projectRels, s.projectRoleRels, pm)
+		if err != nil {
+			return err
+		}
+		deletes = append(deletes, d...)
+		restore = append(restore, r...)
 	}
 
 	return s.guard.Revoke(ctx, deletes, restore, func(ctx context.Context) error {

@@ -14,10 +14,11 @@ type objectTenantResolver struct {
 	documents gateway.DocumentGateway
 	albums    gateway.AlbumGateway
 	photos    gateway.PhotoGateway
+	projects  gateway.ProjectGateway
 }
 
-func NewObjectTenantResolver(folders gateway.FolderGateway, documents gateway.DocumentGateway, albums gateway.AlbumGateway, photos gateway.PhotoGateway) helper.ObjectTenantResolver {
-	return &objectTenantResolver{folders: folders, documents: documents, albums: albums, photos: photos}
+func NewObjectTenantResolver(folders gateway.FolderGateway, documents gateway.DocumentGateway, albums gateway.AlbumGateway, photos gateway.PhotoGateway, projects gateway.ProjectGateway) helper.ObjectTenantResolver {
+	return &objectTenantResolver{folders: folders, documents: documents, albums: albums, photos: photos, projects: projects}
 }
 
 func (r *objectTenantResolver) TenantOf(ctx context.Context, objectType, objectID string) (string, error) {
@@ -34,6 +35,9 @@ func (r *objectTenantResolver) TenantOf(ctx context.Context, objectType, objectI
 	case entity.ObjectTypeAlbum:
 		a, err := r.albums.Get(ctx, objectID)
 		return a.TenantID, err
+	case entity.ObjectTypeProject:
+		p, err := r.projects.Get(ctx, objectID)
+		return p.TenantID, err
 	case entity.ObjectTypePhoto:
 		p, err := r.photos.Get(ctx, objectID)
 		return p.TenantID, err

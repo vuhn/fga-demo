@@ -10,7 +10,7 @@ Base path `/api/v1`. JSON uses snake_case. Timestamps are RFC3339. Authenticated
 | Status | Code | When |
 | --- | --- | --- |
 | 400 | `validation` | Malformed JSON, bad UUID, empty name, bad slug, bad role, bad product, owner grant, unknown affiliation |
-| 400 | `affiliation_role_mismatch` | Internal role on an external member, external role on an internal member, or a role change that would switch affiliation |
+| 400 | `affiliation_role_mismatch` | Internal role on an external member, external role on an internal member (tenant or project role), or a role change that would switch affiliation |
 | 400 | `not_a_member` | Share target fails `can_read_tenant` |
 | 400 | `cannot_upload` | Editor grant targets an external user, or subject `external_users` is combined with relation `editor` |
 | 401 | `unauthenticated` | Missing or invalid JWT |
@@ -83,10 +83,12 @@ Response 200:
 System admin (`can_manage_platform`).
 
 - `GET /api/v1/users` returns every user. `is_system_admin` is true when a `platform_admins` row exists.
-- `POST /api/v1/users` body `{email, name, password}` creates an identity. 201 and the user object. No tuple.
+- `POST /api/v1/users` body `{email, name, password, company_id}` creates an identity in one company. 201 and the user object (with `company`). No tuple. Email is unique case-insensitively (409).
 - `PATCH /api/v1/users/:id` body `{name}` updates the display name.
 
-Validation: email contains `@`, name length 1 to 200 after trim, password length 8 to 72.
+Validation: email contains `@`, name length 1 to 200 after trim, password length 8 to 72, `company_id` an existing company.
+
+Every place that shows a person (users, members, project members) includes `company: {id, name}`.
 
 #### Tenants
 
@@ -109,16 +111,38 @@ An internal tenant admin and a system admin can both call this PUT. An internal 
 
 Routes do not require `X-Tenant-ID`. The tenant is the path id.
 
-- `GET /api/v1/tenants/:id/members?affiliation=internal|external` returns `{user_id, email, name, affiliation, role}`. The query parameter is optional. `internal` and `external` add `AND affiliation = $aff` after the authz check. Any other value is 400. OR check of `can_manage_platform` or `can_manage_members`; 403 otherwise. The roster is tenant administration: internal admins and the platform only. The share dialog does not use it; it uses the object's share candidates. The filter is display. It is not an authorization decision.
-- `POST /api/v1/tenants/:id/members` body `{user_id, affiliation, role}`. `affiliation` is `internal` or `external`. `role` is a built-in role for that affiliation, or the id of a custom role with that affiliation. OR check of `can_manage_platform` or `can_manage_members`. 409 when the membership exists. 404 when the user id does not exist. 400 `affiliation_role_mismatch` for a crossed pair.
+- `GET /api/v1/tenants/:id/members?affiliation=internal|external` returns `{user_id, email, name, affiliation, role, role_name?, company}`. `affiliation` is derived (internal iff the member's company is the tenant's own). The query parameter is optional. `internal` and `external` add `AND affiliation = $aff` after the authz check. Any other value is 400. OR check of `can_manage_platform` or `can_manage_members`; 403 otherwise. The roster is tenant administration: internal admins and the platform only. The share dialog does not use it; it uses the object's share candidates. The filter is display. It is not an authorization decision.
+- `POST /api/v1/tenants/:id/members` body `{user_id | email, role, name?, password?, company_id?}`. The person is named by `user_id` or `email`. A known email reuses the one account; an unknown email creates it and needs `name`, `password` (8 to 72), and a `company_id` the tenant manages (its own company, or a subcontractor it created; the platform may use any). There is no `affiliation` field: it follows the company. `role` is a built-in role for that affiliation, or the id of a custom role with that affiliation. OR check of `can_manage_platform` or `can_manage_members`. 409 when the membership exists. 404 when the user id or company does not exist. 400 `affiliation_role_mismatch` for a crossed pair.
 - `PATCH /api/v1/tenants/:id/members/:userId` body `{role}`. Same OR check. The role must belong to the current affiliation, built-in or custom. Role-change tuples. There is no field for affiliation. The response includes `role_name` when the role is custom.
 - `DELETE /api/v1/tenants/:id/members/:userId`. Same OR check. Remove-member tuples, including that person's custom-role assignee tuples.
+
+#### Companies
+
+Routes do not require `X-Tenant-ID`.
+
+- `GET /api/v1/companies` lists every company with `{id, name, tax_id?, created_by_tenant_id?, tenant_id?, claimed, claimed_at, member_count}`. `can_manage_platform`.
+- `GET /api/v1/tenants/:id/companies` lists the tenant's own company and the subcontractor companies it created. OR check of `can_manage_platform` or `can_manage_members`.
+- `POST /api/v1/tenants/:id/companies` body `{name, tax_id?}` creates an unclaimed subcontractor company on the tenant's behalf. 201. 409 on a duplicate name for that tenant. Same OR check.
+- `POST /api/v1/tenants/:id/company-claims` body `{company_ids: string[]}` merges the unclaimed companies into the tenant's own company (the platform has verified ownership). `can_manage_platform`. 409 when a company is already claimed or one of its users is already a member of the tenant. Returns the tenant's company.
+
+#### Projects
+
+Require `X-Tenant-ID`. Rows carry the caller's `permissions` (`can_view`, `can_manage_members`, `can_contribute`, `can_create_folder`, `can_create_album`, `can_create_private_folder`, `can_create_private_album`).
+
+- `GET /api/v1/projects` is ListObjects `can_view` on `project`, then a Postgres load. Internal members see every project of the tenant; an external member sees the projects they belong to.
+- `POST /api/v1/projects` body `{name}`. OR check of `can_manage_platform` or `can_manage_projects`. 201. 409 on a duplicate name in the tenant.
+- `GET /api/v1/projects/:id` needs `can_view` (404 when denied). `PATCH /api/v1/projects/:id` body `{name}` needs the create check.
+- `GET /api/v1/projects/:id/members`, `GET /api/v1/projects/:id/member-candidates`, `GET /api/v1/projects/:id/roles`: OR check of `can_manage_platform` or `can_manage_members` on the project. Member rows are `{user_id, email, name, affiliation, role, role_name?, company}`; candidates are the tenant members not yet in the project.
+- `POST /api/v1/projects/:id/members` body `{user_id, role}`. The person must be a tenant member (400 `not_a_member`). `role` is a built-in role of their affiliation or a project role of it (400 `affiliation_role_mismatch` otherwise). 409 when already a member. `PATCH /api/v1/projects/:id/members/:userId` body `{role}`. `DELETE` removes the project membership only.
+- `POST /api/v1/projects/:id/roles` body `{name, affiliation}`, `PUT /api/v1/projects/:id/roles/:roleId/permissions` body `{permissions}` (same catalog as tenant roles), `DELETE /api/v1/projects/:id/roles/:roleId` (409 while held). `can_manage_platform` only.
+
+A project role response is `{id, tenant_id, project_id, name, affiliation, permissions, assignees, created_at}`.
 
 #### Custom roles
 
 Routes do not require `X-Tenant-ID`. The tenant is the path id. Listing and getting a role is allowed for `can_manage_platform` or `can_manage_members`, so the member form can offer them. Creating, renaming, setting permissions, and deleting stay `can_manage_platform` only.
 
-A role has `affiliation` `internal` or `external`, fixed at creation. A member holds one role. `POST` and `PATCH` on members accept a built-in role name or a custom role id of the member's affiliation. A crossed pair is 400 `affiliation_role_mismatch`. Assigning a custom role deletes the built-in role tuple and writes `role:<id>#assignee@user`. Assigning a built-in role deletes the assignee tuple.
+A role has `affiliation` `internal` or `external`, fixed at creation. A member holds one role. `POST` and `PATCH` on members accept a built-in role name or a custom role id of the member's affiliation. A crossed pair is 400 `affiliation_role_mismatch`. Assigning a custom role deletes the built-in role tuple and writes `tenant_role:<id>#assignee@user`. Assigning a built-in role deletes the assignee tuple.
 
 Delete is 409 when any member still holds the role.
 
@@ -137,13 +161,13 @@ A role response is `{id, tenant_id, name, affiliation, permissions, assignees, c
 
 Require `X-Tenant-ID`.
 
-- `GET /api/v1/folders`
-- `POST /api/v1/folders` body `{name, parent_id?, is_private}`. `is_private` is required (400 when missing). `parent_id` null creates a top-level folder. Checks per the decision catalog. Parent must be in the header tenant.
+- `GET /api/v1/folders?project_id=<optional>`
+- `POST /api/v1/folders` body `{project_id, name, parent_id?, is_private}`. `project_id` is required for a top-level folder (400 otherwise) and must match the parent's when `parent_id` is set. `is_private` is required (400 when missing). `parent_id` null creates a top-level folder. Checks per the decision catalog. Project and parent must be in the header tenant.
 - `PUT /api/v1/folders/:id/visibility` body `{is_private}`. Check `can_change_visibility`.
 - `GET /api/v1/folders/:id`
 - `PATCH /api/v1/folders/:id` body `{name}`. Check `can_manage` on the folder.
 - `DELETE /api/v1/folders/:id`. Check `can_delete`.
-- `GET /api/v1/documents?folder_id=<optional>`
+- `GET /api/v1/documents?folder_id=<optional>&project_id=<optional>`
 - `POST /api/v1/documents` body `{folder_id, name, mime_type, byte_size}`. Check `can_create_document` on the folder. This is the upload command. It stores metadata and does not accept a multipart body.
 - `GET /api/v1/documents/:id`
 - `PATCH /api/v1/documents/:id` body `{name}`
@@ -157,11 +181,11 @@ Require `X-Tenant-ID`.
 - `GET /api/v1/folders/:id/share-candidates` and `GET /api/v1/documents/:id/share-candidates` return the external members of the object's tenant as `{user_id, email, name, affiliation, role}`. Check `can_share` on the object. This lets an owner share without reading the full roster.
 - `GET /api/v1/folders/:id/grants` and `GET /api/v1/documents/:id/grants` list the `resource_grants` rows as `{relation, subject, user_id, name}`. Check `can_share`. The share dialog uses this to show and revoke existing grants.
 
-`GET /documents` returns every visible document in the tenant when `folder_id` is omitted, including documents whose parent folder the caller cannot view. The UI uses that response for a "Shared with me" group.
+`GET /documents` returns every visible document in the tenant (or project) when `folder_id` is omitted, including documents whose parent folder the caller cannot view. The UI uses that response for a "Shared with me" group.
 
 Name length is 1 to 200. `mime_type` length is 1 to 200. `byte_size` is an integer greater than or equal to 0.
 
-Folder and document JSON includes `id`, `tenant_id`, `name`, `created_by`, `created_at`, plus `parent_id` and `is_private` for folders or `folder_id` for documents, and for documents `mime_type` and `byte_size`.
+Folder and document JSON includes `id`, `tenant_id`, `project_id`, `name`, `created_by`, `created_at`, plus `parent_id` and `is_private` for folders or `folder_id` for documents, and for documents `mime_type` and `byte_size`.
 
 List and get-by-id responses also include `permissions`: the actor's result for every content relation in the inspector whitelist for that type (for a folder: `can_view`, `can_edit`, `can_manage`, `can_delete`, `can_share`, `can_change_visibility`, `can_create_document`). The service computes them with one BatchCheck per page (`Authorizer.Permissions`). Create and rename responses omit it.
 
@@ -175,7 +199,7 @@ Same routes and checks, with these replacements:
 | `/documents` | `/photos` |
 | `parent_id` on folder | `parent_id` on album |
 | `folder_id` | `album_id` |
-| `can_create_folder` | `can_create_album` |
+| `can_create_folder` (on the project) | `can_create_album` (on the project) |
 | `can_create_document` | `can_create_photo` |
 | `documents_enabled` | `photos_enabled` |
 

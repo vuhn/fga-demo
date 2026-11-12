@@ -19,9 +19,14 @@ func NewPhotoLister(photos gateway.PhotoGateway, authz usecase.Authorizer) useca
 
 // List returns every visible photo in the tenant, including photos
 // whose album the actor cannot see ("Shared with me").
-func (s *photoLister) List(ctx context.Context, actor, tenantID, albumID string) ([]entity.Visible[entity.Photo], error) {
+func (s *photoLister) List(ctx context.Context, actor, tenantID, albumID, projectID string) ([]entity.Visible[entity.Photo], error) {
 	if albumID != "" {
 		if err := entity.RequireUUID("album_id", albumID); err != nil {
+			return nil, err
+		}
+	}
+	if projectID != "" {
+		if err := entity.RequireUUID("project_id", projectID); err != nil {
 			return nil, err
 		}
 	}
@@ -29,7 +34,7 @@ func (s *photoLister) List(ctx context.Context, actor, tenantID, albumID string)
 	if err != nil || len(ids) == 0 {
 		return []entity.Visible[entity.Photo]{}, err
 	}
-	photos, err := s.photos.ListByIDs(ctx, tenantID, ids, albumID)
+	photos, err := s.photos.ListByIDs(ctx, tenantID, ids, albumID, projectID)
 	if err != nil {
 		return nil, err
 	}

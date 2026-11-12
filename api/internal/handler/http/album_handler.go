@@ -43,7 +43,7 @@ func (h *AlbumHandler) Register(r Routes) {
 
 func albumView(a entity.Album) map[string]any {
 	return map[string]any{
-		"id": a.ID, "tenant_id": a.TenantID, "parent_id": a.ParentID, "name": a.Name, "is_private": a.IsPrivate,
+		"id": a.ID, "tenant_id": a.TenantID, "project_id": a.ProjectID, "parent_id": a.ParentID, "name": a.Name, "is_private": a.IsPrivate,
 		"created_by": a.CreatedBy, "created_at": a.CreatedAt,
 	}
 }
@@ -55,13 +55,14 @@ func visibleAlbumView(v entity.Visible[entity.Album]) map[string]any {
 }
 
 func (h *AlbumHandler) list(c *gin.Context) {
-	as, err := h.uc.Lister.List(c, actor(c), tenant(c))
+	as, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("project_id"))
 	respond(c, http.StatusOK, mapSlice(as, visibleAlbumView), err)
 }
 
 func (h *AlbumHandler) create(c *gin.Context) {
 	var body struct {
 		Name      string  `json:"name"`
+		ProjectID string  `json:"project_id"`
 		ParentID  *string `json:"parent_id"`
 		IsPrivate *bool   `json:"is_private"`
 	}
@@ -72,7 +73,7 @@ func (h *AlbumHandler) create(c *gin.Context) {
 		writeErr(c, entity.Invalid("is_private is required"))
 		return
 	}
-	a, err := h.uc.Creator.Create(c, actor(c), tenant(c), usecase.CreateAlbumInput{Name: body.Name, ParentID: body.ParentID, IsPrivate: *body.IsPrivate})
+	a, err := h.uc.Creator.Create(c, actor(c), tenant(c), usecase.CreateAlbumInput{ProjectID: body.ProjectID, Name: body.Name, ParentID: body.ParentID, IsPrivate: *body.IsPrivate})
 	respond(c, http.StatusCreated, albumView(a), err)
 }
 

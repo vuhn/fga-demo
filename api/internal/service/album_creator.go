@@ -10,6 +10,7 @@ import (
 )
 
 type albumCreator struct {
+	projects  gateway.ProjectGateway
 	albums    gateway.AlbumGateway
 	relations gateway.AlbumRelationGateway
 	authz     usecase.Authorizer
@@ -17,11 +18,11 @@ type albumCreator struct {
 	ids       gateway.IDGenerator
 }
 
-func NewAlbumCreator(albums gateway.AlbumGateway, relations gateway.AlbumRelationGateway, authz usecase.Authorizer, guard helper.WriteGuard, ids gateway.IDGenerator) usecase.AlbumCreator {
-	return &albumCreator{albums: albums, relations: relations, authz: authz, guard: guard, ids: ids}
+func NewAlbumCreator(projects gateway.ProjectGateway, albums gateway.AlbumGateway, relations gateway.AlbumRelationGateway, authz usecase.Authorizer, guard helper.WriteGuard, ids gateway.IDGenerator) usecase.AlbumCreator {
+	return &albumCreator{projects: projects, albums: albums, relations: relations, authz: authz, guard: guard, ids: ids}
 }
 
-// Create needs can_create_album on the tenant; a private album also needs
+// Create needs can_create_album on the project; a private album also needs
 // can_create_private_album (internal members); a subalbum also needs
 // can_edit on its parent, so an external admin can only nest inside content
 // they can already work in.
@@ -30,14 +31,8 @@ func (s *albumCreator) Create(ctx context.Context, actor, tenantID string, in us
 	if err != nil {
 		return entity.Album{}, err
 	}
-	if err := s.authz.Require(ctx, actor, "can_create_album", entity.ObjectTypeTenant, tenantID); err != nil {
-		return entity.Album{}, err
-	}
-	if in.IsPrivate {
-		if err := s.authz.Require(ctx, actor, "can_create_private_album", entity.ObjectTypeTenant, tenantID); err != nil {
-			return entity.Album{}, err
-		}
-	}
+	projectID := in.ProjectID
+	var parent *entity.Album
 	if in.ParentID != nil {
 		if err := entity.RequireUUID("parent_id", *in.ParentID); err != nil {
 			return entity.Album{}, err
@@ -45,12 +40,38 @@ func (s *albumCreator) Create(ctx context.Context, actor, tenantID string, in us
 		if err := checkAlbumDepth(ctx, s.albums, tenantID, *in.ParentID); err != nil {
 			return entity.Album{}, err
 		}
-		if err := s.authz.Require(ctx, actor, "can_edit", entity.ObjectTypeAlbum, *in.ParentID); err != nil {
+		p, err := loadAlbum(ctx, s.albums, tenantID, *in.ParentID)
+		if err != nil {
+			return entity.Album{}, err
+		}
+		parent = &p
+		if projectID != "" && projectID != p.ProjectID {
+			return entity.Album{}, entity.Invalid("project_id must match the parent's project")
+		}
+		projectID = p.ProjectID
+	} else {
+		if err := entity.RequireUUID("project_id", projectID); err != nil {
+			return entity.Album{}, err
+		}
+		if _, err := loadProject(ctx, s.projects, tenantID, projectID); err != nil {
+			return entity.Album{}, err
+		}
+	}
+	if err := s.authz.Require(ctx, actor, "can_create_album", entity.ObjectTypeProject, projectID); err != nil {
+		return entity.Album{}, err
+	}
+	if in.IsPrivate {
+		if err := s.authz.Require(ctx, actor, "can_create_private_album", entity.ObjectTypeProject, projectID); err != nil {
+			return entity.Album{}, err
+		}
+	}
+	if parent != nil {
+		if err := s.authz.Require(ctx, actor, "can_edit", entity.ObjectTypeAlbum, parent.ID); err != nil {
 			return entity.Album{}, err
 		}
 	}
 
-	a := entity.Album{ID: s.ids.NewID(), TenantID: tenantID, ParentID: in.ParentID, Name: name, CreatedBy: actor, IsPrivate: in.IsPrivate}
+	a := entity.Album{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: projectID, ParentID: in.ParentID, Name: name, CreatedBy: actor, IsPrivate: in.IsPrivate}
 	owner := entity.OwnerGrant(s.ids.NewID(), tenantID, entity.ObjectTypeAlbum, a.ID, actor)
 	if err := s.albums.Create(ctx, a, owner); err != nil {
 		return entity.Album{}, err

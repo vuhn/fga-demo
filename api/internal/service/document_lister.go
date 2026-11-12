@@ -19,9 +19,14 @@ func NewDocumentLister(documents gateway.DocumentGateway, authz usecase.Authoriz
 
 // List returns every visible document in the tenant, including documents
 // whose folder the actor cannot see ("Shared with me").
-func (s *documentLister) List(ctx context.Context, actor, tenantID, folderID string) ([]entity.Visible[entity.Document], error) {
+func (s *documentLister) List(ctx context.Context, actor, tenantID, folderID, projectID string) ([]entity.Visible[entity.Document], error) {
 	if folderID != "" {
 		if err := entity.RequireUUID("folder_id", folderID); err != nil {
+			return nil, err
+		}
+	}
+	if projectID != "" {
+		if err := entity.RequireUUID("project_id", projectID); err != nil {
 			return nil, err
 		}
 	}
@@ -29,7 +34,7 @@ func (s *documentLister) List(ctx context.Context, actor, tenantID, folderID str
 	if err != nil || len(ids) == 0 {
 		return []entity.Visible[entity.Document]{}, err
 	}
-	documents, err := s.documents.ListByIDs(ctx, tenantID, ids, folderID)
+	documents, err := s.documents.ListByIDs(ctx, tenantID, ids, folderID, projectID)
 	if err != nil {
 		return nil, err
 	}

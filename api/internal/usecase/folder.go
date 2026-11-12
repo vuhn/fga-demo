@@ -7,7 +7,8 @@ import (
 )
 
 type FolderLister interface {
-	List(ctx context.Context, actor, tenantID string) ([]entity.Visible[entity.Folder], error)
+	// List returns visible folders; projectID narrows to one project when not empty.
+	List(ctx context.Context, actor, tenantID, projectID string) ([]entity.Visible[entity.Folder], error)
 }
 
 type FolderGetter interface {
@@ -15,6 +16,8 @@ type FolderGetter interface {
 }
 
 type CreateFolderInput struct {
+	// ProjectID is required for a top-level folder; a subfolder takes its parent's.
+	ProjectID string
 	Name      string
 	ParentID  *string
 	IsPrivate bool

@@ -14,6 +14,8 @@ type CreateUserInput struct {
 	Email    string
 	Name     string
 	Password string
+	// CompanyID is the user's employer. Required.
+	CompanyID string
 }
 
 type UserCreator interface {

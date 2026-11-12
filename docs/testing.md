@@ -7,6 +7,8 @@ What the unit and integration tests assert.
 
 `role_relations_test.go` asserts custom-role tuples: two anchors on create, one `grant_*` userset per permission and no implied permission, and removal of anchors, grants, and assignees. `seed_roles_test.go` asserts the seeded Auditor and Vendor tuples exist and that the seed writes no `assignee` tuple.
 
+`project_integration_test.go` asserts the union (tenant role a+b plus project role c), that external members see nothing in a project they are not in, that internal members reach every project, and that stale project membership fails closed. `entity/company_test.go` asserts name keys and derived affiliation; `seed/world_test.go` asserts seed consistency.
+
 `model_integration_test.go` (build tag `integration`, skips without `OPENFGA_API_URL`) creates a throwaway store, writes `api/fga/model.fga` and the seed tuples from `api/internal/seed`, and asserts with Check and ListObjects:
 
 - Internal members (Bob, Cara) list every Acme folder, including private Company, Board, Specs, and Partners. Cara can edit Secret but not delete it, and cannot change visibility; Bob can.

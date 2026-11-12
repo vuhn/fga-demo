@@ -41,7 +41,7 @@ func (h *DocumentHandler) Register(r Routes) {
 
 func documentView(d entity.Document) map[string]any {
 	return map[string]any{
-		"id": d.ID, "tenant_id": d.TenantID, "folder_id": d.FolderID, "name": d.Name,
+		"id": d.ID, "tenant_id": d.TenantID, "project_id": d.ProjectID, "folder_id": d.FolderID, "name": d.Name,
 		"mime_type": d.MimeType, "byte_size": d.ByteSize, "created_by": d.CreatedBy, "created_at": d.CreatedAt,
 	}
 }
@@ -53,7 +53,7 @@ func visibleDocumentView(v entity.Visible[entity.Document]) map[string]any {
 }
 
 func (h *DocumentHandler) list(c *gin.Context) {
-	ds, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("folder_id"))
+	ds, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("folder_id"), c.Query("project_id"))
 	respond(c, http.StatusOK, mapSlice(ds, visibleDocumentView), err)
 }
 

@@ -16,6 +16,7 @@ func (r FolderRelations) Created(f entity.Folder) []entity.Tuple {
 	o := obj(entity.ObjectTypeFolder, f.ID)
 	ts := []entity.Tuple{
 		{User: obj(entity.ObjectTypeTenant, f.TenantID), Relation: "tenant", Object: o},
+		{User: obj(entity.ObjectTypeProject, f.ProjectID), Relation: "project", Object: o},
 		{User: userRef(f.CreatedBy), Relation: entity.RelOwner, Object: o},
 	}
 	if f.ParentID != nil {

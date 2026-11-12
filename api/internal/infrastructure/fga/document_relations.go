@@ -13,6 +13,7 @@ func (DocumentRelations) Created(d entity.Document) []entity.Tuple {
 	o := obj(entity.ObjectTypeDocument, d.ID)
 	return []entity.Tuple{
 		{User: obj(entity.ObjectTypeTenant, d.TenantID), Relation: "tenant", Object: o},
+		{User: obj(entity.ObjectTypeProject, d.ProjectID), Relation: "project", Object: o},
 		{User: obj(entity.ObjectTypeFolder, d.FolderID), Relation: "folder", Object: o},
 		{User: userRef(d.CreatedBy), Relation: entity.RelOwner, Object: o},
 	}

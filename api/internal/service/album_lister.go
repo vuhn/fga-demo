@@ -19,12 +19,17 @@ func NewAlbumLister(albums gateway.AlbumGateway, authz usecase.Authorizer) useca
 
 // List is ListObjects can_view, then a Postgres load of those ids in the
 // tenant, with the caller's permissions on each.
-func (s *albumLister) List(ctx context.Context, actor, tenantID string) ([]entity.Visible[entity.Album], error) {
+func (s *albumLister) List(ctx context.Context, actor, tenantID, projectID string) ([]entity.Visible[entity.Album], error) {
+	if projectID != "" {
+		if err := entity.RequireUUID("project_id", projectID); err != nil {
+			return nil, err
+		}
+	}
 	ids, err := s.authz.ListObjectIDs(ctx, actor, "can_view", entity.ObjectTypeAlbum)
 	if err != nil || len(ids) == 0 {
 		return []entity.Visible[entity.Album]{}, err
 	}
-	albums, err := s.albums.ListByIDs(ctx, tenantID, ids)
+	albums, err := s.albums.ListByIDs(ctx, tenantID, ids, projectID)
 	if err != nil {
 		return nil, err
 	}

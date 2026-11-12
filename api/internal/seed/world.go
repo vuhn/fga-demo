@@ -22,6 +22,25 @@ const (
 	AcmeAuditor  = "c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 	GlobexVendor = "c0bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
 
+	// Companies. CoAcme and CoGlobex are the tenants' own companies; the
+	// others were created by Acme on behalf of subcontractors that have no
+	// contract with the platform (unclaimed), plus the platform's own.
+	CoPlatform   = "90000000-0000-4000-8000-000000000001"
+	CoAcme       = "90000000-0000-4000-8000-000000000002"
+	CoGlobex     = "90000000-0000-4000-8000-000000000003"
+	CoBuildRight = "90000000-0000-4000-8000-000000000004"
+	CoSteelworks = "90000000-0000-4000-8000-000000000005"
+
+	// Projects. All seeded Acme content is in Tower; Annex holds one folder
+	// to show project boundaries and the tenant+project permission union.
+	ProjAcmeTower  = "a1a1a1a1-0000-4000-8000-000000000001"
+	ProjAcmeAnnex  = "a1a1a1a1-0000-4000-8000-000000000002"
+	ProjGlobexMain = "b1b1b1b1-0000-4000-8000-000000000001"
+
+	// Annex content
+	AcmeAnnexPlans = "f0000000-0000-4000-8000-0000000000a1" // private
+	AcmeAnnexSpec  = "d0000000-0000-4000-8000-0000000000a1"
+
 	// Acme folders
 	AcmeCompany  = "f1111111-1111-1111-1111-111111111111" // private
 	AcmeBoard    = "f2222222-2222-2222-2222-222222222222" // private
@@ -66,9 +85,10 @@ const (
 type Person struct {
 	ID, Name, Email string
 	SystemAdmin     bool
+	CompanyID       string
 }
 
-type TenantSeed struct{ ID, Slug, Name string }
+type TenantSeed struct{ ID, Slug, Name, CompanyID string }
 
 // FolderSeed and AlbumSeed carry their shares to external members;
 // TenantID/ObjectType/ObjectID are filled by Grants().
@@ -83,17 +103,70 @@ type AlbumSeed struct {
 }
 
 var People = []Person{
-	{Ada, "Ada", "ada@example.com", true},
-	{Bob, "Bob", "bob@example.com", false},
-	{Cara, "Cara", "cara@example.com", false},
-	{Dan, "Dan", "dan@example.com", false},
-	{Eve, "Eve", "eve@example.com", false},
-	{Fay, "Fay", "fay@example.com", false},
+	{Ada, "Ada", "ada@example.com", true, CoPlatform},
+	{Bob, "Bob", "bob@example.com", false, CoAcme},
+	{Cara, "Cara", "cara@example.com", false, CoAcme},
+	{Dan, "Dan", "dan@example.com", false, CoBuildRight},
+	{Eve, "Eve", "eve@example.com", false, CoGlobex},
+	{Fay, "Fay", "fay@example.com", false, CoSteelworks},
 }
 
 var Tenants = []TenantSeed{
-	{Acme, "acme", "Acme"},
-	{Globex, "globex", "Globex"},
+	{Acme, "acme", "Acme", CoAcme},
+	{Globex, "globex", "Globex", CoGlobex},
+}
+
+// Subcontractors are the companies that are not a tenant's own. The platform
+// company has no creator tenant; the others were created by Acme.
+var Subcontractors = []entity.Company{
+	{ID: CoPlatform, Name: "Platform"},
+	{ID: CoBuildRight, Name: "BuildRight Subcontractors", CreatedByTenantID: Acme},
+	{ID: CoSteelworks, Name: "Steelworks Ltd", CreatedByTenantID: Acme},
+}
+
+var Projects = []entity.Project{
+	{ID: ProjAcmeTower, TenantID: Acme, Name: "Tower A", CreatedBy: Bob},
+	{ID: ProjAcmeAnnex, TenantID: Acme, Name: "Annex", CreatedBy: Bob},
+	{ID: ProjGlobexMain, TenantID: Globex, Name: "Main", CreatedBy: Eve},
+}
+
+// ProjectMembers: externals need project membership to see anything.
+// Cara is an internal user in the tenant and an internal admin of Annex, so
+// in Annex she holds the union of both roles' permissions.
+var ProjectMembers = []entity.ProjectMember{
+	{ProjectID: ProjAcmeTower, TenantID: Acme, UserID: Dan, Affiliation: entity.AffiliationExternal, Role: entity.RoleExternalUser},
+	{ProjectID: ProjAcmeTower, TenantID: Acme, UserID: Fay, Affiliation: entity.AffiliationExternal, Role: entity.RoleExternalAdmin},
+	{ProjectID: ProjAcmeAnnex, TenantID: Acme, UserID: Cara, Affiliation: entity.AffiliationInternal, Role: entity.RoleInternalAdmin},
+	{ProjectID: ProjGlobexMain, TenantID: Globex, UserID: Bob, Affiliation: entity.AffiliationExternal, Role: entity.RoleExternalUser},
+}
+
+// defaultProject is the project of seeded content that names none.
+func defaultProject(tenant string) string {
+	if tenant == Acme {
+		return ProjAcmeTower
+	}
+	return ProjGlobexMain
+}
+
+// CompanyOf returns the company of a seeded person.
+func CompanyOf(userID string) string {
+	for _, p := range People {
+		if p.ID == userID {
+			return p.CompanyID
+		}
+	}
+	return ""
+}
+
+// AffiliationIn is the derived rule applied to the seed: internal iff the
+// person's company is the tenant's own company.
+func AffiliationIn(tenantID, userID string) string {
+	for _, t := range Tenants {
+		if t.ID == tenantID && t.CompanyID == CompanyOf(userID) {
+			return entity.AffiliationInternal
+		}
+	}
+	return entity.AffiliationExternal
 }
 
 var Roles = []entity.Role{
@@ -118,19 +191,19 @@ const (
 )
 
 func folder(id, tenant string, parent *string, name, owner string, isPrivate bool, shares ...entity.Grant) FolderSeed {
-	return FolderSeed{entity.Folder{ID: id, TenantID: tenant, ParentID: parent, Name: name, CreatedBy: owner, IsPrivate: isPrivate}, shares}
+	return FolderSeed{entity.Folder{ID: id, TenantID: tenant, ProjectID: defaultProject(tenant), ParentID: parent, Name: name, CreatedBy: owner, IsPrivate: isPrivate}, shares}
 }
 
 func album(id, tenant, name, owner string, isPrivate bool) AlbumSeed {
-	return AlbumSeed{Album: entity.Album{ID: id, TenantID: tenant, Name: name, CreatedBy: owner, IsPrivate: isPrivate}}
+	return AlbumSeed{Album: entity.Album{ID: id, TenantID: tenant, ProjectID: defaultProject(tenant), Name: name, CreatedBy: owner, IsPrivate: isPrivate}}
 }
 
 func document(id, tenant, folderID, name, owner string) entity.Document {
-	return entity.Document{ID: id, TenantID: tenant, FolderID: folderID, Name: name, MimeType: "text/plain", ByteSize: 128, CreatedBy: owner}
+	return entity.Document{ID: id, TenantID: tenant, ProjectID: defaultProject(tenant), FolderID: folderID, Name: name, MimeType: "text/plain", ByteSize: 128, CreatedBy: owner}
 }
 
 func photo(id, tenant, albumID, name, owner string) entity.Photo {
-	return entity.Photo{ID: id, TenantID: tenant, AlbumID: albumID, Name: name, MimeType: "image/jpeg", ByteSize: 2048, CreatedBy: owner}
+	return entity.Photo{ID: id, TenantID: tenant, ProjectID: defaultProject(tenant), AlbumID: albumID, Name: name, MimeType: "image/jpeg", ByteSize: 2048, CreatedBy: owner}
 }
 
 var Folders = []FolderSeed{
@@ -141,6 +214,8 @@ var Folders = []FolderSeed{
 	folder(AcmeSpecs, Acme, p(AcmeClient), "Specs", Bob, private),
 	folder(AcmePartners, Acme, nil, "Partners", Bob, private,
 		entity.Grant{Relation: entity.RelViewer, SubjectType: entity.SubjectUser, UserID: p(Dan)}),
+
+	{Folder: entity.Folder{ID: AcmeAnnexPlans, TenantID: Acme, ProjectID: ProjAcmeAnnex, Name: "Annex Plans", CreatedBy: Bob, IsPrivate: private}},
 
 	folder(GlobexCompany, Globex, nil, "Company", Eve, private),
 	folder(GlobexBoard, Globex, nil, "Board", Eve, private),
@@ -166,6 +241,8 @@ var Documents = []entity.Document{
 	document(AcmeVisitAgenda, Acme, AcmeClient, "Visit Agenda", Fay),
 	document(AcmePricing, Acme, AcmeSpecs, "Pricing", Bob),
 	document(AcmePartnerDeck, Acme, AcmePartners, "Partner Deck", Bob),
+
+	{ID: AcmeAnnexSpec, TenantID: Acme, ProjectID: ProjAcmeAnnex, FolderID: AcmeAnnexPlans, Name: "Annex Spec", MimeType: "text/plain", ByteSize: 128, CreatedBy: Bob},
 
 	document(GlobexHandbook, Globex, GlobexCompany, "Handbook", Eve),
 	document(GlobexSecret, Globex, GlobexBoard, "Secret", Eve),
@@ -236,6 +313,16 @@ func Tuples() ([]entity.Tuple, error) {
 	}
 	for _, m := range Members {
 		w, _, err := fga.MembershipRelations{}.AssignRole(m.TenantID, m.UserID, m.Affiliation, m.Role)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, w...)
+	}
+	for _, pr := range Projects {
+		out = append(out, fga.ProjectRelations{}.Created(pr)...)
+	}
+	for _, pm := range ProjectMembers {
+		w, _, err := fga.ProjectMemberRelations{}.AssignRole(pm.ProjectID, pm.UserID, pm.Affiliation, pm.Role)
 		if err != nil {
 			return nil, err
 		}

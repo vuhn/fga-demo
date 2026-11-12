@@ -10,6 +10,7 @@ import (
 )
 
 type folderCreator struct {
+	projects  gateway.ProjectGateway
 	folders   gateway.FolderGateway
 	relations gateway.FolderRelationGateway
 	authz     usecase.Authorizer
@@ -17,11 +18,11 @@ type folderCreator struct {
 	ids       gateway.IDGenerator
 }
 
-func NewFolderCreator(folders gateway.FolderGateway, relations gateway.FolderRelationGateway, authz usecase.Authorizer, guard helper.WriteGuard, ids gateway.IDGenerator) usecase.FolderCreator {
-	return &folderCreator{folders: folders, relations: relations, authz: authz, guard: guard, ids: ids}
+func NewFolderCreator(projects gateway.ProjectGateway, folders gateway.FolderGateway, relations gateway.FolderRelationGateway, authz usecase.Authorizer, guard helper.WriteGuard, ids gateway.IDGenerator) usecase.FolderCreator {
+	return &folderCreator{projects: projects, folders: folders, relations: relations, authz: authz, guard: guard, ids: ids}
 }
 
-// Create needs can_create_folder on the tenant; a private folder also needs
+// Create needs can_create_folder on the project; a private folder also needs
 // can_create_private_folder (internal members); a subfolder also needs
 // can_edit on its parent, so an external admin can only nest inside content
 // they can already work in.
@@ -30,14 +31,8 @@ func (s *folderCreator) Create(ctx context.Context, actor, tenantID string, in u
 	if err != nil {
 		return entity.Folder{}, err
 	}
-	if err := s.authz.Require(ctx, actor, "can_create_folder", entity.ObjectTypeTenant, tenantID); err != nil {
-		return entity.Folder{}, err
-	}
-	if in.IsPrivate {
-		if err := s.authz.Require(ctx, actor, "can_create_private_folder", entity.ObjectTypeTenant, tenantID); err != nil {
-			return entity.Folder{}, err
-		}
-	}
+	projectID := in.ProjectID
+	var parent *entity.Folder
 	if in.ParentID != nil {
 		if err := entity.RequireUUID("parent_id", *in.ParentID); err != nil {
 			return entity.Folder{}, err
@@ -45,12 +40,38 @@ func (s *folderCreator) Create(ctx context.Context, actor, tenantID string, in u
 		if err := checkFolderDepth(ctx, s.folders, tenantID, *in.ParentID); err != nil {
 			return entity.Folder{}, err
 		}
-		if err := s.authz.Require(ctx, actor, "can_edit", entity.ObjectTypeFolder, *in.ParentID); err != nil {
+		p, err := loadFolder(ctx, s.folders, tenantID, *in.ParentID)
+		if err != nil {
+			return entity.Folder{}, err
+		}
+		parent = &p
+		if projectID != "" && projectID != p.ProjectID {
+			return entity.Folder{}, entity.Invalid("project_id must match the parent's project")
+		}
+		projectID = p.ProjectID
+	} else {
+		if err := entity.RequireUUID("project_id", projectID); err != nil {
+			return entity.Folder{}, err
+		}
+		if _, err := loadProject(ctx, s.projects, tenantID, projectID); err != nil {
+			return entity.Folder{}, err
+		}
+	}
+	if err := s.authz.Require(ctx, actor, "can_create_folder", entity.ObjectTypeProject, projectID); err != nil {
+		return entity.Folder{}, err
+	}
+	if in.IsPrivate {
+		if err := s.authz.Require(ctx, actor, "can_create_private_folder", entity.ObjectTypeProject, projectID); err != nil {
+			return entity.Folder{}, err
+		}
+	}
+	if parent != nil {
+		if err := s.authz.Require(ctx, actor, "can_edit", entity.ObjectTypeFolder, parent.ID); err != nil {
 			return entity.Folder{}, err
 		}
 	}
 
-	f := entity.Folder{ID: s.ids.NewID(), TenantID: tenantID, ParentID: in.ParentID, Name: name, CreatedBy: actor, IsPrivate: in.IsPrivate}
+	f := entity.Folder{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: projectID, ParentID: in.ParentID, Name: name, CreatedBy: actor, IsPrivate: in.IsPrivate}
 	owner := entity.OwnerGrant(s.ids.NewID(), tenantID, entity.ObjectTypeFolder, f.ID, actor)
 	if err := s.folders.Create(ctx, f, owner); err != nil {
 		return entity.Folder{}, err

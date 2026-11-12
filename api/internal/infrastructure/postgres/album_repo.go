@@ -18,8 +18,8 @@ func NewAlbumRepo(pool *pgxpool.Pool) *AlbumRepo { return &AlbumRepo{pool: pool}
 
 func (r *AlbumRepo) Create(ctx context.Context, a entity.Album, owner entity.Grant) error {
 	return inTx(ctx, r.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `INSERT INTO albums (id, tenant_id, parent_id, name, is_private, created_by) VALUES ($1, $2, $3, $4, $5, $6)`,
-			a.ID, a.TenantID, a.ParentID, a.Name, a.IsPrivate, a.CreatedBy); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO albums (id, tenant_id, project_id, parent_id, name, is_private, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+			a.ID, a.TenantID, a.ProjectID, a.ParentID, a.Name, a.IsPrivate, a.CreatedBy); err != nil {
 			return err
 		}
 		return insertGrant(ctx, tx, entity.ObjectTypeAlbum, owner)
@@ -27,7 +27,7 @@ func (r *AlbumRepo) Create(ctx context.Context, a entity.Album, owner entity.Gra
 }
 
 func (r *AlbumRepo) query(ctx context.Context, where string, args ...any) ([]entity.Album, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id, tenant_id, parent_id, name, is_private, created_by, created_at FROM albums WHERE `+where+` ORDER BY name`, args...)
+	rows, err := r.pool.Query(ctx, `SELECT id, tenant_id, project_id, parent_id, name, is_private, created_by, created_at FROM albums WHERE `+where+` ORDER BY name`, args...)
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -35,7 +35,7 @@ func (r *AlbumRepo) query(ctx context.Context, where string, args ...any) ([]ent
 	out := []entity.Album{}
 	for rows.Next() {
 		var a entity.Album
-		if err := rows.Scan(&a.ID, &a.TenantID, &a.ParentID, &a.Name, &a.IsPrivate, &a.CreatedBy, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.TenantID, &a.ProjectID, &a.ParentID, &a.Name, &a.IsPrivate, &a.CreatedBy, &a.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -54,8 +54,8 @@ func (r *AlbumRepo) Get(ctx context.Context, id string) (entity.Album, error) {
 	return as[0], nil
 }
 
-func (r *AlbumRepo) ListByIDs(ctx context.Context, tenantID string, ids []string) ([]entity.Album, error) {
-	return r.query(ctx, `tenant_id = $1 AND id = ANY($2::uuid[])`, tenantID, ids)
+func (r *AlbumRepo) ListByIDs(ctx context.Context, tenantID string, ids []string, projectID string) ([]entity.Album, error) {
+	return r.query(ctx, `tenant_id = $1 AND id = ANY($2::uuid[]) AND ($3 = '' OR project_id::text = $3)`, tenantID, ids, projectID)
 }
 
 func (r *AlbumRepo) Rename(ctx context.Context, id, name string) (entity.Album, error) {

@@ -16,7 +16,7 @@ src/
   styles.css            small tweaks on Mantine CSS variables
 ```
 
-Pages: Login, Home, Users, Tenants, TenantDetail, Documents, Photos, Inspector. Documents and Photos are thin wrappers over one `ContentPage` that renders folders/albums as a tree. Page-by-page behavior: [web UI reference](../docs/web-ui.md).
+Pages: Login, Home, Users, Tenants, TenantDetail, Companies, Projects, ProjectDetail, Roles, RoleDetail, Inspector. Documents and Photos are not routes: they are tabs of ProjectDetail (thin wrappers over one `ContentPage` that takes the project as a prop and renders folders/albums as a tree). Page-by-page behavior: [web UI reference](../docs/web-ui.md).
 
 ## Data flow
 
@@ -30,8 +30,8 @@ The API computes permissions with OpenFGA; the UI renders them. It never decides
 
 - `PermissionsProvider` loads `GET /me/permissions` for the active tenant. Everything is denied while loading and revalidated when the tab regains focus.
 - Content rows carry a `permissions` object from the API (one server-side BatchCheck per page). Buttons read it through `ACTIONS` and `canAct`.
-- `FEATURES` maps feature names (menu entries, route guards, controls) to rules over `platform:` or `tenant:` permissions, as `{ all?, any? }`. Product menus need tenant membership and the product enabled.
-- Components use `useCan`, `useAllows`, `<Can>`, and `RequireFeature`. They never name an OpenFGA relation and never read `role` or `affiliation` to show a control; those are display labels (`RoleBadge`, `AffiliationBadge`).
+- `FEATURES` maps feature names (menu entries, route guards, controls) to rules over `platform:` or `tenant:` permissions, as `{ all?, any? }`. Product tabs of a project need tenant membership and the product enabled.
+- Components use `useCan`, `useAllows`, `<Can>`, and `RequireFeature`. They never name an OpenFGA relation and never read `role` or `affiliation` to show a control (project-scoped controls use `canProject`); the company chip (`CompanyBadge`) is display-only; those are display labels (`RoleBadge`, `AffiliationBadge`).
 - `/tenants/:id` is guarded against the tenant in the URL (`usePermissionSet(id)`), not the active one, because system admins open tenants they are not members of. `/tenants/:id/roles` and `/tenants/:id/roles/:roleId` use `tenant.roles.manage` (`can_manage_platform`). Members are assigned a custom role from the member role list.
 - The top menu is a config array of `{label, to, feature}` filtered by feature.
 

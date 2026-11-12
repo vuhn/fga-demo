@@ -13,7 +13,7 @@ type DocumentGateway interface {
 	Get(ctx context.Context, id string) (entity.Document, error)
 	// ListByIDs loads the given ids, restricted to the tenant and, when
 	// folderID is not empty, to that folder.
-	ListByIDs(ctx context.Context, tenantID string, ids []string, folderID string) ([]entity.Document, error)
+	ListByIDs(ctx context.Context, tenantID string, ids []string, folderID, projectID string) ([]entity.Document, error)
 	Rename(ctx context.Context, id, name string) (entity.Document, error)
 	// Delete removes the document and its grants in one transaction.
 	Delete(ctx context.Context, id string) error

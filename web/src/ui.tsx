@@ -2,9 +2,9 @@
 import { Badge, Group, Stack, Text, Title } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconCheck } from "@tabler/icons-react";
+import { IconAlertCircle, IconBuilding, IconCheck } from "@tabler/icons-react";
 import type { ReactNode } from "react";
-import { ApiError } from "./api";
+import { ApiError, type CompanyRef } from "./api";
 
 export function notifyError(err: unknown) {
   const title = err instanceof ApiError ? errorTitle(err) : "Something went wrong";
@@ -99,6 +99,19 @@ export function AffiliationBadge({ affiliation }: { affiliation?: string }) {
   return (
     <Badge variant="dot" color={affiliation === "internal" ? "indigo" : "orange"}>
       {affiliation}
+    </Badge>
+  );
+}
+
+/**
+ * The employer of a person. Shown wherever user info is displayed so an
+ * external member is never anonymous. Display only: it decides nothing.
+ */
+export function CompanyBadge({ company, affiliation }: { company?: CompanyRef; affiliation?: string }) {
+  if (!company?.name) return null;
+  return (
+    <Badge variant="outline" size="sm" color={affiliation === "external" ? "orange" : "gray"} leftSection={<IconBuilding size={10} />}>
+      {company.name}
     </Badge>
   );
 }

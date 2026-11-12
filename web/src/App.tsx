@@ -1,14 +1,13 @@
-import { AppShell, Avatar, Burger, Center, EmptyState, Group, Loader, Menu, NavLink as MantineNavLink, Stack, Text, ThemeIcon, UnstyledButton, useMantineColorScheme } from "@mantine/core";
+import { AppShell, Avatar, Burger, Center, Group, Loader, Menu, NavLink as MantineNavLink, Stack, Text, ThemeIcon, UnstyledButton, useMantineColorScheme } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+  IconBriefcase,
   IconBuilding,
+  IconBuildingFactory2,
   IconChevronDown,
-  IconFileText,
   IconHome,
   IconLogout,
   IconMoon,
-  IconPhoto,
-  IconPower,
   IconShieldCheck,
   IconShieldLock,
   IconSun,
@@ -19,7 +18,7 @@ import {
 import { lazy, Suspense } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth";
-import { RequireFeature, useAllows, useCan, type Feature } from "./permissions";
+import { RequireFeature, useAllows, type Feature } from "./permissions";
 import TenantSwitcher from "./components/TenantSwitcher";
 import Login from "./pages/Login";
 
@@ -28,10 +27,11 @@ const Home = lazy(() => import("./pages/Home"));
 const Users = lazy(() => import("./pages/Users"));
 const Tenants = lazy(() => import("./pages/Tenants"));
 const TenantDetail = lazy(() => import("./pages/TenantDetail"));
+const Projects = lazy(() => import("./pages/Projects"));
+const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
+const Companies = lazy(() => import("./pages/Companies"));
 const Roles = lazy(() => import("./pages/Roles"));
 const RoleDetail = lazy(() => import("./pages/RoleDetail"));
-const Documents = lazy(() => import("./pages/Documents"));
-const Photos = lazy(() => import("./pages/Photos"));
 const Inspector = lazy(() => import("./pages/Inspector"));
 
 /** Menu entries. `feature` is resolved against the active tenant; omit it for always-visible entries. */
@@ -39,12 +39,12 @@ type NavItem = { label: string; icon: Icon; to: (tenantId: string | null) => str
 
 const NAV: NavItem[] = [
   { section: "workspace", label: "Home", icon: IconHome, to: () => "/" },
-  { section: "workspace", label: "Documents", icon: IconFileText, to: () => "/documents", feature: "nav.documents" },
-  { section: "workspace", label: "Photos", icon: IconPhoto, to: () => "/photos", feature: "nav.photos" },
+  { section: "workspace", label: "Projects", icon: IconBriefcase, to: () => "/projects", feature: "nav.projects" },
   { section: "workspace", label: "Members", icon: IconUsersGroup, to: (t) => `/tenants/${t}`, feature: "nav.members" },
   { section: "workspace", label: "Access inspector", icon: IconShieldCheck, to: () => "/inspector" },
   { section: "platform", label: "Users", icon: IconUsers, to: () => "/users", feature: "nav.users" },
   { section: "platform", label: "Tenants", icon: IconBuilding, to: () => "/tenants", feature: "nav.tenants" },
+  { section: "platform", label: "Companies", icon: IconBuildingFactory2, to: () => "/companies", feature: "nav.companies" },
 ];
 
 function Navigation({ onNavigate }: { onNavigate: () => void }) {
@@ -83,23 +83,6 @@ function Navigation({ onNavigate }: { onNavigate: () => void }) {
       {section("workspace", "Workspace")}
       {section("platform", "Platform")}
     </Stack>
-  );
-}
-
-/** Denied state for a product page: explains a switched-off product to members. */
-function ProductUnavailable({ product }: { product: string }) {
-  const member = useCan("tenant.member");
-  return (
-    <EmptyState
-      mt="xl"
-      icon={<IconPower size={28} />}
-      title={member ? `${product} is turned off for this tenant` : "Not available"}
-      description={
-        member
-          ? "The content is kept, but every content Check fails until a tenant admin or system admin enables the product again."
-          : "You do not have access to this page with your current relationships."
-      }
-    />
   );
 }
 
@@ -189,13 +172,14 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/users" element={<RequireFeature feature="nav.users"><Users /></RequireFeature>} />
+          <Route path="/projects" element={<RequireFeature feature="nav.projects"><Projects /></RequireFeature>} />
+          <Route path="/projects/:id" element={<ProjectDetail />} />
+          <Route path="/companies" element={<RequireFeature feature="nav.companies"><Companies /></RequireFeature>} />
           <Route path="/tenants" element={<RequireFeature feature="nav.tenants"><Tenants /></RequireFeature>} />
           {/* Guarded inside, against the tenant in the URL rather than the active one. */}
           <Route path="/tenants/:id" element={<TenantDetail />} />
           <Route path="/tenants/:id/roles" element={<Roles />} />
           <Route path="/tenants/:id/roles/:roleId" element={<RoleDetail />} />
-          <Route path="/documents" element={<RequireFeature feature="nav.documents" denied={<ProductUnavailable product="Documents" />}><Documents /></RequireFeature>} />
-          <Route path="/photos" element={<RequireFeature feature="nav.photos" denied={<ProductUnavailable product="Photos" />}><Photos /></RequireFeature>} />
           <Route path="/inspector" element={<Inspector />} />
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Text>Not found.</Text>} />

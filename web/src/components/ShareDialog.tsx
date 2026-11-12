@@ -118,7 +118,7 @@ export default function ShareDialog({
                   value={userId}
                   onChange={setUserId}
                   // Candidates are external members only: internal members already see everything.
-                  data={members.map((m) => ({ value: m.user_id, label: `${m.name} · ${m.role.replace("_", " ")}` }))}
+                  data={members.map((m) => ({ value: m.user_id, label: `${m.name} · ${m.company?.name ?? "?"} · ${m.role.replace("_", " ")}` }))}
                   nothingFoundMessage="No external members"
                 />
               )}

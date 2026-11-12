@@ -8,8 +8,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/vuhn/fga-demo/api/internal/infrastructure/fga"
 	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/infrastructure/fga"
 
 	. "github.com/vuhn/fga-demo/api/internal/seed"
 )
@@ -26,6 +26,7 @@ const (
 	do = "document"
 	al = "album"
 	ph = "photo"
+	pr = "project"
 )
 
 func assertRows(t *testing.T, ctx context.Context, c *fga.Client, label string, rows []row) {
@@ -119,18 +120,50 @@ func TestModelAgainstSeed(t *testing.T) {
 		{Bob, "can_view_products", tn, Globex, false},
 		{Eve, "can_read_tenant", tn, Acme, false},
 		// Folder creation: contributors may create; only internal members may create private ones.
-		{Bob, "can_create_folder", tn, Acme, true},
-		{Cara, "can_create_folder", tn, Acme, true},
-		{Cara, "can_create_private_folder", tn, Acme, true},
-		{Fay, "can_create_folder", tn, Acme, true},
-		{Fay, "can_create_private_folder", tn, Acme, false},
-		{Fay, "can_create_album", tn, Acme, true},
-		{Dan, "can_create_folder", tn, Acme, false},
+		{Bob, "can_manage_projects", tn, Acme, true},
+		{Cara, "can_manage_projects", tn, Acme, false},
+		{Bob, "can_manage_projects", tn, Globex, false},
+	})
+
+	// Folder creation is a project check now.
+	assertRows(t, ctx, c, "project creation", []row{
+		{Bob, "can_create_folder", pr, ProjAcmeTower, true},
+		{Cara, "can_create_folder", pr, ProjAcmeTower, true},
+		{Cara, "can_create_private_folder", pr, ProjAcmeTower, true},
+		{Fay, "can_create_folder", pr, ProjAcmeTower, true},
+		{Fay, "can_create_private_folder", pr, ProjAcmeTower, false},
+		{Fay, "can_create_album", pr, ProjAcmeTower, true},
+		{Dan, "can_create_folder", pr, ProjAcmeTower, false},
+		// Not a project member: an external admin gets nothing in Annex.
+		{Fay, "can_view", pr, ProjAcmeAnnex, false},
+		{Fay, "can_create_folder", pr, ProjAcmeAnnex, false},
+		{Dan, "can_view", pr, ProjAcmeAnnex, false},
+		{Dan, "can_view", pr, ProjAcmeTower, true},
+		// Internal members reach every project of their tenant.
+		{Cara, "can_view", pr, ProjAcmeAnnex, true},
+		{Eve, "can_view", pr, ProjAcmeTower, false},
+		{Bob, "can_view", pr, ProjGlobexMain, true}, // external member of Globex, in the project
+	})
+	listed(t, ctx, c, Fay, pr, ProjAcmeTower)
+	listed(t, ctx, c, Cara, pr, ProjAcmeTower, ProjAcmeAnnex)
+	listed(t, ctx, c, Bob, pr, ProjAcmeTower, ProjAcmeAnnex, ProjGlobexMain)
+
+	// Project admin role adds to the tenant role: Cara is an internal user
+	// in the tenant and an internal admin of Annex only.
+	assertRows(t, ctx, c, "project admin union", []row{
+		{Cara, "can_manage_members", pr, ProjAcmeAnnex, true},
+		{Cara, "can_manage_members", pr, ProjAcmeTower, false},
+		{Bob, "can_manage_members", pr, ProjAcmeTower, true}, // tenant admin manages every project
+		{Fay, "can_manage_members", pr, ProjAcmeAnnex, false},
+		{Cara, "can_manage", fo, AcmeAnnexPlans, true},
+		{Cara, "can_delete", do, AcmeAnnexSpec, true},
+		{Cara, "can_manage", fo, AcmeCompany, false}, // Tower: tenant role only
+		{Cara, "can_delete", do, AcmeSecret, false},
 	})
 
 	// Requirement 3: internal members see every folder; private ones are internal-only.
-	listed(t, ctx, c, Cara, fo, AcmeCompany, AcmeBoard, AcmeLegal, AcmeClient, AcmeSpecs, AcmePartners)
-	listed(t, ctx, c, Bob, fo, AcmeCompany, AcmeBoard, AcmeLegal, AcmeClient, AcmeSpecs, AcmePartners, GlobexClient)
+	listed(t, ctx, c, Cara, fo, AcmeCompany, AcmeBoard, AcmeLegal, AcmeClient, AcmeSpecs, AcmePartners, AcmeAnnexPlans)
+	listed(t, ctx, c, Bob, fo, AcmeCompany, AcmeBoard, AcmeLegal, AcmeClient, AcmeSpecs, AcmePartners, AcmeAnnexPlans, GlobexClient)
 	assertRows(t, ctx, c, "internal members", []row{
 		{Cara, "can_view", do, AcmeSecret, true},
 		{Cara, "can_edit", do, AcmeSecret, true},    // internal users contribute everywhere
@@ -182,7 +215,7 @@ func TestModelAgainstSeed(t *testing.T) {
 	})
 
 	// Bob is an external user of Globex: public content only, read-only.
-	listed(t, ctx, c, Bob, do, AcmeHandbook, AcmeSecret, AcmeQ3Plan, AcmeLegalHold, AcmeClientBrief, AcmeVisitAgenda, AcmePricing, AcmePartnerDeck, GlobexClientBrief)
+	listed(t, ctx, c, Bob, do, AcmeHandbook, AcmeSecret, AcmeQ3Plan, AcmeLegalHold, AcmeClientBrief, AcmeVisitAgenda, AcmePricing, AcmePartnerDeck, AcmeAnnexSpec, GlobexClientBrief)
 	assertRows(t, ctx, c, "bob in globex", []row{
 		{Bob, "can_view", fo, GlobexClient, true},
 		{Bob, "can_view", fo, GlobexCompany, false},
@@ -236,7 +269,7 @@ func TestModelAgainstSeed(t *testing.T) {
 	assertRows(t, ctx, c, "photos off", []row{
 		{Bob, "can_view", ph, AcmeKickoff, false},
 		{Dan, "can_view", ph, AcmeLobby, false},
-		{Fay, "can_create_album", tn, Acme, false},
+		{Fay, "can_create_album", pr, ProjAcmeTower, false},
 		{Bob, "can_view", fo, AcmeCompany, true},
 	})
 	kick, err := c.ReadTuples(ctx, "photo", AcmeKickoff)
