@@ -9,6 +9,7 @@ import {
   Group,
   Loader,
   Modal,
+  PasswordInput,
   SegmentedControl,
   Select,
   SimpleGrid,
@@ -25,10 +26,10 @@ import { useDisclosure } from "@mantine/hooks";
 import { IconFileText, IconPhoto, IconShield, IconTrash, IconUserPlus, IconUsers } from "@tabler/icons-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, memberRoleOptions, type CustomRole, type Member, type Product, type Tenant, type User } from "../api";
+import { api, memberRoleOptions, type Company, type CustomRole, type Member, type Product, type Tenant } from "../api";
 import { useAuth } from "../auth";
 import { allows, RequireFeature, usePermissionSet } from "../permissions";
-import { AffiliationBadge, confirmDanger, notifyError, PageHeader, RoleBadge, run } from "../ui";
+import { AffiliationBadge, CompanyBadge, confirmDanger, notifyError, notifySuccess, PageHeader, RoleBadge, run } from "../ui";
 
 // Permissions are evaluated for the tenant in the URL, which may differ from
 // the active tenant (a system admin opens any tenant from the directory).
@@ -43,14 +44,13 @@ export default function TenantDetail() {
           products: allows(loaded.set, "tenant.products.manage"),
           members: allows(loaded.set, "tenant.members.manage"),
           roles: allows(loaded.set, "tenant.roles.manage"),
-          directory: allows(loaded.set, "nav.users"),
         }}
       />
     </RequireFeature>
   );
 }
 
-type PagePerms = { products: boolean; members: boolean; roles: boolean; directory: boolean };
+type PagePerms = { products: boolean; members: boolean; roles: boolean };
 
 const PRODUCT_META: Record<string, { label: string; icon: typeof IconFileText }> = {
   documents: { label: "Documents", icon: IconFileText },
@@ -64,7 +64,7 @@ function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [roles, setRoles] = useState<CustomRole[]>([]);
   const [filter, setFilter] = useState("all");
-  const [users, setUsers] = useState<User[] | null>(null);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [adding, { open: openAdd, close: closeAdd }] = useDisclosure();
 
   const load = useCallback(async () => {
@@ -81,13 +81,12 @@ function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {
       setProducts(ps);
       setMembers(ms);
       setRoles(rs);
-      // Only someone who can manage the platform can list identities; others invite by user id.
-      if (perms.directory) api<User[]>("GET", "/users").then(setUsers, () => setUsers(null));
-      else setUsers(null);
+      // Member managers place a new member in a company they manage: the tenant’s own or a subcontractor.
+      if (perms.members) api<Company[]>("GET", `/tenants/${id}/companies`).then(setCompanies, () => setCompanies([]));
     } catch (e) {
       notifyError(e);
     }
-  }, [id, filter, me, perms.directory, perms.members]);
+  }, [id, filter, me, perms.members]);
 
   useEffect(() => {
     void load();
@@ -202,6 +201,7 @@ function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Member</Table.Th>
+                  <Table.Th>Company</Table.Th>
                   <Table.Th>Affiliation</Table.Th>
                   <Table.Th>Role</Table.Th>
                   {perms.members && <Table.Th />}
@@ -224,6 +224,9 @@ function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {
                           </Text>
                         </div>
                       </Group>
+                    </Table.Td>
+                    <Table.Td>
+                      <CompanyBadge company={m.company} affiliation={m.affiliation} />
                     </Table.Td>
                     <Table.Td>
                       <AffiliationBadge affiliation={m.affiliation} />
@@ -277,9 +280,10 @@ function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {
       <AddMemberModal
         opened={adding}
         onClose={closeAdd}
-        users={users}
-        members={members}
+        tenantId={id}
+        companies={companies}
         roles={roles}
+        onCompanyCreated={(c) => setCompanies((cs) => [...cs, c])}
         onAdd={async (b) => {
           if (await act(() => api("POST", `/tenants/${id}/members`, b), "Member added")) closeAdd();
         }}
@@ -288,75 +292,115 @@ function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {
   );
 }
 
+type AddMemberBody = { email: string; name: string; password: string; company_id: string; role: string };
+
+/**
+ * Adds a person by email. A known email reuses the one account; an unknown one
+ * creates it in the chosen company. Affiliation is not chosen here: it follows
+ * the company (the tenant's own company means internal), and the role must
+ * match it.
+ */
 function AddMemberModal({
   opened,
   onClose,
-  users,
-  members,
+  tenantId,
+  companies,
   roles,
+  onCompanyCreated,
   onAdd,
 }: {
   opened: boolean;
   onClose: () => void;
-  users: User[] | null;
-  members: Member[];
+  tenantId: string;
+  companies: Company[];
   roles: CustomRole[];
-  onAdd: (b: { user_id: string; affiliation: string; role: string }) => void;
+  onCompanyCreated: (c: Company) => void;
+  onAdd: (b: AddMemberBody) => void;
 }) {
-  const [affiliation, setAffiliation] = useState("internal");
-  const [role, setRole] = useState("internal_user");
-  const [userId, setUserId] = useState("");
-  const candidates = users?.filter((u) => !members.some((m) => m.user_id === u.id)) ?? [];
+  const [form, setForm] = useState<AddMemberBody>({ email: "", name: "", password: "", company_id: "", role: "" });
+  const [newCompany, setNewCompany] = useState("");
+  const company = companies.find((c) => c.id === form.company_id);
+  const affiliation = company ? (company.tenant_id === tenantId ? "internal" : "external") : null;
+
+  const pickCompany = (id: string | null) => {
+    const c = companies.find((x) => x.id === id);
+    const aff = c?.tenant_id === tenantId ? "internal" : "external";
+    setForm({ ...form, company_id: id ?? "", role: c ? `${aff}_user` : "" });
+  };
+
+  const createCompany = async () => {
+    const name = newCompany.trim();
+    if (!name) return;
+    try {
+      const created = await api<Company>("POST", `/tenants/${tenantId}/companies`, { name });
+      notifySuccess(`Created ${name}`);
+      onCompanyCreated(created);
+      setNewCompany("");
+      setForm({ ...form, company_id: created.id, role: "external_user" });
+    } catch (e) {
+      notifyError(e);
+    }
+  };
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    onAdd({ user_id: userId.trim(), affiliation, role });
+    onAdd(form);
   };
 
   return (
     <Modal opened={opened} onClose={onClose} title="Add member">
       <form onSubmit={submit}>
         <Stack>
-          <div>
-            <Text size="sm" fw={500} mb={4}>
-              Affiliation
-            </Text>
-            <SegmentedControl
-              fullWidth
-              value={affiliation}
-              onChange={(v) => {
-                setAffiliation(v);
-                setRole("internal_user");
-                if (v === "external") setRole("external_user");
-              }}
-              data={[
-                { value: "internal", label: "Internal (staff)" },
-                { value: "external", label: "External (guest)" },
-              ]}
+          <TextInput
+            label="Email"
+            description="One email is one account. If it already exists, that person is added as they are."
+            required
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.currentTarget.value })}
+          />
+          <Select
+            label="Company"
+            description="Where the person works. Their company decides internal or external."
+            placeholder="Choose a company"
+            searchable
+            required
+            value={form.company_id || null}
+            onChange={pickCompany}
+            data={companies.map((c) => ({ value: c.id, label: c.tenant_id === tenantId ? `${c.name} (this tenant)` : c.name }))}
+          />
+          <Group align="flex-end" gap="xs" wrap="nowrap">
+            <TextInput
+              style={{ flex: 1 }}
+              label="New subcontractor company"
+              placeholder="Company name"
+              value={newCompany}
+              onChange={(e) => setNewCompany(e.currentTarget.value)}
             />
-            <Text size="xs" c="dimmed" mt={4}>
-              Fixed once added. Roles never cross affiliation.
-            </Text>
-          </div>
-          <Select label="Role" allowDeselect={false} value={role} onChange={(v) => v && setRole(v)} data={memberRoleOptions(affiliation, roles)} />
-          {users ? (
+            <Button variant="default" onClick={createCompany} disabled={!newCompany.trim()}>
+              Create
+            </Button>
+          </Group>
+          {affiliation && (
             <Select
-              label="User"
-              placeholder="Choose a user"
-              searchable
-              value={userId || null}
-              onChange={(v) => setUserId(v ?? "")}
-              data={candidates.map((u) => ({ value: u.id, label: `${u.name} (${u.email})` }))}
-              nothingFoundMessage="Everyone is already a member"
+              label={`Role (${affiliation})`}
+              allowDeselect={false}
+              value={form.role}
+              onChange={(v) => v && setForm({ ...form, role: v })}
+              data={memberRoleOptions(affiliation, roles)}
             />
-          ) : (
-            <TextInput label="User id" description="Ask a system admin for the user's UUID" value={userId} onChange={(e) => setUserId(e.currentTarget.value)} />
           )}
+          <TextInput label="Name" description="Only used when this email is new." value={form.name} onChange={(e) => setForm({ ...form, name: e.currentTarget.value })} />
+          <PasswordInput
+            label="Password"
+            description="Only used when this email is new. 8 to 72 characters."
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.currentTarget.value })}
+          />
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!userId}>
+            <Button type="submit" disabled={!form.email || !form.company_id || !form.role}>
               Add member
             </Button>
           </Group>

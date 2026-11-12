@@ -30,11 +30,14 @@ func (h *UserHandler) list(c *gin.Context) {
 }
 
 func (h *UserHandler) create(c *gin.Context) {
-	var body struct{ Email, Name, Password string }
+	var body struct {
+		Email, Name, Password string
+		CompanyID             string `json:"company_id"`
+	}
 	if !bind(c, &body) {
 		return
 	}
-	u, err := h.creator.Create(c, actor(c), usecase.CreateUserInput{Email: body.Email, Name: body.Name, Password: body.Password})
+	u, err := h.creator.Create(c, actor(c), usecase.CreateUserInput{Email: body.Email, Name: body.Name, Password: body.Password, CompanyID: body.CompanyID})
 	respond(c, http.StatusCreated, userView(u), err)
 }
 

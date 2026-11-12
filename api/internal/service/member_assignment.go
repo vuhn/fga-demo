@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
@@ -18,7 +19,11 @@ type roleAssignment struct {
 }
 
 func assignMemberRole(ctx context.Context, roles gateway.RoleGateway, memberRels gateway.MembershipRelationGateway, roleRels gateway.RoleRelationGateway, tenantID, userID, affiliation, role, previousCustomID string) (roleAssignment, error) {
-	if err := entity.CheckAffiliationRole(affiliation, role); err == nil {
+	err := entity.CheckAffiliationRole(affiliation, role)
+	if errors.Is(err, entity.ErrAffiliationRoleMismatch) {
+		return roleAssignment{}, err
+	}
+	if err == nil {
 		writes, deletes, err := memberRels.AssignRole(tenantID, userID, affiliation, role)
 		if err != nil {
 			return roleAssignment{}, err

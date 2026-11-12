@@ -9,7 +9,7 @@ import (
 type PhotoLister interface {
 	// List returns every visible photo in the tenant, or only those in
 	// albumID when it is not empty.
-	List(ctx context.Context, actor, tenantID, albumID string) ([]entity.Visible[entity.Photo], error)
+	List(ctx context.Context, actor, tenantID, albumID, projectID string) ([]entity.Visible[entity.Photo], error)
 }
 
 type PhotoGetter interface {

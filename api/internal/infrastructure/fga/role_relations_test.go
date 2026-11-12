@@ -14,8 +14,8 @@ func TestRoleCreated(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []entity.Tuple{
-		{User: "tenant:" + tT, Relation: "tenant", Object: "role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"},
-		{User: "role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", Relation: "internal_role", Object: "tenant:" + tT},
+		{User: "tenant:" + tT, Relation: "tenant", Object: "tenant_role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"},
+		{User: "tenant_role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", Relation: "internal_role", Object: "tenant:" + tT},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("created = %v", got)
@@ -28,8 +28,8 @@ func TestRolePermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []entity.Tuple{
-		{User: "role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#assignee", Relation: "grant_view", Object: "tenant:" + tT},
-		{User: "role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#assignee", Relation: "grant_manage_members", Object: "tenant:" + tT},
+		{User: "tenant_role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#assignee", Relation: "grant_view", Object: "tenant:" + tT},
+		{User: "tenant_role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#assignee", Relation: "grant_manage_members", Object: "tenant:" + tT},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("permissions = %v", got)

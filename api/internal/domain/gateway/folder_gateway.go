@@ -11,8 +11,9 @@ type FolderGateway interface {
 	// Create inserts the folder and its owner grant in one transaction.
 	Create(ctx context.Context, f entity.Folder, owner entity.Grant) error
 	Get(ctx context.Context, id string) (entity.Folder, error)
-	// ListByIDs loads the given ids, restricted to the tenant.
-	ListByIDs(ctx context.Context, tenantID string, ids []string) ([]entity.Folder, error)
+	// ListByIDs loads the given ids, restricted to the tenant and, when
+	// projectID is not empty, to that project.
+	ListByIDs(ctx context.Context, tenantID string, ids []string, projectID string) ([]entity.Folder, error)
 	Rename(ctx context.Context, id, name string) (entity.Folder, error)
 	// SetPrivate stores the display flag and returns the previous value.
 	SetPrivate(ctx context.Context, id string, isPrivate bool) (prev bool, err error)

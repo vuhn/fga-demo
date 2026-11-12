@@ -1,7 +1,7 @@
 import { Alert, Avatar, Badge, Card, Code, EmptyState, Group, SimpleGrid, Stack, Table, Text, ThemeIcon, Title } from "@mantine/core";
 import { IconBuilding, IconInfoCircle, IconShieldCheck, IconUserShield } from "@tabler/icons-react";
 import { useAuth } from "../auth";
-import { AffiliationBadge, PageHeader, RoleBadge } from "../ui";
+import { AffiliationBadge, CompanyBadge, PageHeader, RoleBadge } from "../ui";
 
 export default function Home() {
   const { me, tenantId } = useAuth();
@@ -21,6 +21,9 @@ export default function Home() {
               <Text size="sm" c="dimmed" truncate>
                 {me.user.email}
               </Text>
+              <div>
+                <CompanyBadge company={me.user.company} />
+              </div>
             </Stack>
           </Group>
           <Code mt="md" block fz="xs" style={{ wordBreak: "break-all", whiteSpace: "pre-wrap" }}>
@@ -102,7 +105,7 @@ export default function Home() {
           Internal members work for the tenant and see every folder and album, private or public; they can add and edit content,
           and the internal admin also manages members, products, and every file. External members are invited guests: they see
           public folders (and anything shared with them). An external admin can also create public folders and add or edit
-          content in them; an external user can only view. Affiliation is fixed when the person is added.
+          content in them; an external user can only view. Affiliation is not stored: a member is internal when their company is the tenant&rsquo;s own company. Content lives in projects; external members need to be added to a project first.
         </Alert>
         <Alert variant="light" color="teal" title="How this UI decides what to show" icon={<IconShieldCheck />}>
           Every menu and button is shown from OpenFGA Check results returned by the API, never from the role labels above. The API

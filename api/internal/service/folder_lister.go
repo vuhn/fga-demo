@@ -19,12 +19,17 @@ func NewFolderLister(folders gateway.FolderGateway, authz usecase.Authorizer) us
 
 // List is ListObjects can_view, then a Postgres load of those ids in the
 // tenant, with the caller's permissions on each.
-func (s *folderLister) List(ctx context.Context, actor, tenantID string) ([]entity.Visible[entity.Folder], error) {
+func (s *folderLister) List(ctx context.Context, actor, tenantID, projectID string) ([]entity.Visible[entity.Folder], error) {
+	if projectID != "" {
+		if err := entity.RequireUUID("project_id", projectID); err != nil {
+			return nil, err
+		}
+	}
 	ids, err := s.authz.ListObjectIDs(ctx, actor, "can_view", entity.ObjectTypeFolder)
 	if err != nil || len(ids) == 0 {
 		return []entity.Visible[entity.Folder]{}, err
 	}
-	folders, err := s.folders.ListByIDs(ctx, tenantID, ids)
+	folders, err := s.folders.ListByIDs(ctx, tenantID, ids, projectID)
 	if err != nil {
 		return nil, err
 	}

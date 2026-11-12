@@ -18,8 +18,8 @@ func NewFolderRepo(pool *pgxpool.Pool) *FolderRepo { return &FolderRepo{pool: po
 
 func (r *FolderRepo) Create(ctx context.Context, f entity.Folder, owner entity.Grant) error {
 	return inTx(ctx, r.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `INSERT INTO folders (id, tenant_id, parent_id, name, is_private, created_by) VALUES ($1, $2, $3, $4, $5, $6)`,
-			f.ID, f.TenantID, f.ParentID, f.Name, f.IsPrivate, f.CreatedBy); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO folders (id, tenant_id, project_id, parent_id, name, is_private, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+			f.ID, f.TenantID, f.ProjectID, f.ParentID, f.Name, f.IsPrivate, f.CreatedBy); err != nil {
 			return err
 		}
 		return insertGrant(ctx, tx, entity.ObjectTypeFolder, owner)
@@ -27,7 +27,7 @@ func (r *FolderRepo) Create(ctx context.Context, f entity.Folder, owner entity.G
 }
 
 func (r *FolderRepo) query(ctx context.Context, where string, args ...any) ([]entity.Folder, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id, tenant_id, parent_id, name, is_private, created_by, created_at FROM folders WHERE `+where+` ORDER BY name`, args...)
+	rows, err := r.pool.Query(ctx, `SELECT id, tenant_id, project_id, parent_id, name, is_private, created_by, created_at FROM folders WHERE `+where+` ORDER BY name`, args...)
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -35,7 +35,7 @@ func (r *FolderRepo) query(ctx context.Context, where string, args ...any) ([]en
 	out := []entity.Folder{}
 	for rows.Next() {
 		var f entity.Folder
-		if err := rows.Scan(&f.ID, &f.TenantID, &f.ParentID, &f.Name, &f.IsPrivate, &f.CreatedBy, &f.CreatedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.TenantID, &f.ProjectID, &f.ParentID, &f.Name, &f.IsPrivate, &f.CreatedBy, &f.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, f)
@@ -54,8 +54,8 @@ func (r *FolderRepo) Get(ctx context.Context, id string) (entity.Folder, error) 
 	return fs[0], nil
 }
 
-func (r *FolderRepo) ListByIDs(ctx context.Context, tenantID string, ids []string) ([]entity.Folder, error) {
-	return r.query(ctx, `tenant_id = $1 AND id = ANY($2::uuid[])`, tenantID, ids)
+func (r *FolderRepo) ListByIDs(ctx context.Context, tenantID string, ids []string, projectID string) ([]entity.Folder, error) {
+	return r.query(ctx, `tenant_id = $1 AND id = ANY($2::uuid[]) AND ($3 = '' OR project_id::text = $3)`, tenantID, ids, projectID)
 }
 
 func (r *FolderRepo) Rename(ctx context.Context, id, name string) (entity.Folder, error) {

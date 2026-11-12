@@ -10,7 +10,7 @@ type RoleRelations struct{}
 
 var _ gateway.RoleRelationGateway = RoleRelations{}
 
-func roleObj(id string) string         { return obj(entity.ObjectTypeRole, id) }
+func roleObj(id string) string         { return obj(entity.ObjectTypeTenantRole, id) }
 func assigneeSet(roleID string) string { return roleObj(roleID) + "#assignee" }
 
 func roleLink(affiliation string) (string, error) {

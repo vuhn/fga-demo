@@ -9,6 +9,7 @@ const ObjectTypeDocument = "document"
 type Document struct {
 	ID        string
 	TenantID  string
+	ProjectID string
 	FolderID  string
 	Name      string
 	MimeType  string

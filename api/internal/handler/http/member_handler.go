@@ -36,14 +36,17 @@ func (h *MemberHandler) list(c *gin.Context) {
 
 func (h *MemberHandler) add(c *gin.Context) {
 	var body struct {
-		UserID      string `json:"user_id"`
-		Affiliation string `json:"affiliation"`
-		Role        string `json:"role"`
+		UserID    string `json:"user_id"`
+		Email     string `json:"email"`
+		Name      string `json:"name"`
+		Password  string `json:"password"`
+		CompanyID string `json:"company_id"`
+		Role      string `json:"role"`
 	}
 	if !pathUUID(c, "id") || !bind(c, &body) {
 		return
 	}
-	m, err := h.adder.Add(c, actor(c), c.Param("id"), usecase.AddMemberInput{UserID: body.UserID, Affiliation: body.Affiliation, Role: body.Role})
+	m, err := h.adder.Add(c, actor(c), c.Param("id"), usecase.AddMemberInput{UserID: body.UserID, Email: body.Email, Name: body.Name, Password: body.Password, CompanyID: body.CompanyID, Role: body.Role})
 	respond(c, http.StatusCreated, memberView(m), err)
 }
 

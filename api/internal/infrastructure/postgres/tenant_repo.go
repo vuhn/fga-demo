@@ -21,7 +21,12 @@ func (r *TenantRepo) Create(ctx context.Context, t entity.Tenant) error {
 		if _, err := tx.Exec(ctx, `INSERT INTO tenants (id, slug, name) VALUES ($1, $2, $3)`, t.ID, t.Slug, t.Name); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO tenant_products (tenant_id, product, enabled) VALUES ($1, 'documents', false), ($1, 'photos', false)`, t.ID)
+		if _, err := tx.Exec(ctx, `INSERT INTO tenant_products (tenant_id, product, enabled) VALUES ($1, 'documents', false), ($1, 'photos', false)`, t.ID); err != nil {
+			return err
+		}
+		// Every tenant owns one company; its members are the internal members.
+		_, err := tx.Exec(ctx, `INSERT INTO companies (id, name, name_key, created_by_tenant_id, tenant_id, claimed_at)
+			VALUES (COALESCE(NULLIF($4, '')::uuid, gen_random_uuid()), $2, $3, $1, $1, now())`, t.ID, t.Name, entity.CompanyNameKey(t.Name), t.CompanyID)
 		return err
 	})
 }

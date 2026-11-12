@@ -4,10 +4,10 @@ Single place for "where are we". Read at session start, update at session end.
 
 ## Current verified state
 
-- Static tier: `make check` passes (vet, unit tests, architecture rules, docs/model sync, web build). Verified 2026-10-23 on `main` (ae789fc + uncommitted harness changes).
-- Live tier: `make test-integration` passes against live OpenFGA (TestModelAgainstSeed, TestInternalAdminCoversInternalUser, TestCustomRoleGrant, TestSeedCustomRolesHaveNoAssignees). Verified 2026-10-23.
-- README script coverage: steps 2-11 and the custom-role behavior are asserted by `TestModelAgainstSeed`, `TestInternalAdminCoversInternalUser`, `TestCustomRoleGrant`. Step 1 (platform admin lists tenants, creates users) has no automated test (gap). No README step has been walked in the UI yet.
-- Active task: none.
+- Static tier: `make check` passes (vet, unit tests, architecture rules, docs/model sync, web build). Verified 2026-11-12 on `main` with uncommitted companies/projects work.
+- Live tier: `make verify-live` passes against live compose (TestModelAgainstSeed, TestProjectRoleUnion, TestProjectMembershipFailsClosed, TestInternalAdminCoversInternalUser, TestCustomRoleGrant, TestSeedCustomRolesHaveNoAssignees). Verified 2026-11-12.
+- README script: asserted by the integration tests above; steps 1 and the UI walk are not automated (gap).
+- Active task: companies/projects/project roles implemented (migration 00005); docs aligned; authz-reviewer ran once (Revise: live tier, now done; re-review pending).
 
 ## Last session
 

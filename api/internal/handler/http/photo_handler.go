@@ -41,7 +41,7 @@ func (h *PhotoHandler) Register(r Routes) {
 
 func photoView(p entity.Photo) map[string]any {
 	return map[string]any{
-		"id": p.ID, "tenant_id": p.TenantID, "album_id": p.AlbumID, "name": p.Name,
+		"id": p.ID, "tenant_id": p.TenantID, "project_id": p.ProjectID, "album_id": p.AlbumID, "name": p.Name,
 		"mime_type": p.MimeType, "byte_size": p.ByteSize, "created_by": p.CreatedBy, "created_at": p.CreatedAt,
 	}
 }
@@ -53,7 +53,7 @@ func visiblePhotoView(v entity.Visible[entity.Photo]) map[string]any {
 }
 
 func (h *PhotoHandler) list(c *gin.Context) {
-	ps, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("album_id"))
+	ps, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("album_id"), c.Query("project_id"))
 	respond(c, http.StatusOK, mapSlice(ps, visiblePhotoView), err)
 }
 

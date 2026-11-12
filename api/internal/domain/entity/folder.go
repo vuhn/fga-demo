@@ -6,10 +6,11 @@ import "time"
 const ObjectTypeFolder = "folder"
 
 type Folder struct {
-	ID       string
-	TenantID string
-	ParentID *string
-	Name     string
+	ID        string
+	TenantID  string
+	ProjectID string
+	ParentID  *string
+	Name      string
 	// IsPrivate hides the folder from external members unless shared.
 	// A folder is externally visible only if it and every ancestor are public.
 	IsPrivate bool

@@ -5,7 +5,10 @@ import (
 	"time"
 )
 
-const ObjectTypeRole = "role"
+const (
+	ObjectTypeTenantRole  = "tenant_role"
+	ObjectTypeProjectRole = "project_role"
+)
 
 // Fixed permission catalog. The OpenFGA model cannot grow a new relation per
 // tenant, so a custom role is an object and each permission is one grant_*
@@ -34,7 +37,7 @@ var CustomPermissions = []string{
 	PermViewProducts,
 }
 
-// GrantRelation is the tenant relation a permission writes.
+// GrantRelation is the tenant (or project) relation a permission writes.
 func GrantRelation(permission string) (string, bool) {
 	switch permission {
 	case PermView, PermEdit, PermManage, PermChangeVisibility, PermContribute, PermCreatePrivate, PermManageMembers, PermViewProducts:

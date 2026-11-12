@@ -18,7 +18,15 @@ No tuple. A user is an identity until some command relates them to an object.
 
 #### Create tenant
 
-Insert `tenants`. Insert `tenant_products` rows for `documents` and `photos`, both `enabled = false`. No tuples. Products start disabled, which means the wildcard tuples are absent.
+Insert `tenants`, the tenant's own `companies` row (`tenant_id` set), and `tenant_products` rows for `documents` and `photos`, both `enabled = false`. No tuples. Products start disabled, which means the wildcard tuples are absent.
+
+#### Companies
+
+No tuples, ever. Creating a subcontractor company inserts a `companies` row; claiming merges rows and re-points `users.company_id`. A company decides a member's affiliation when the member is added, and that choice is the only thing that reaches OpenFGA (the `internal_*` or `external_*` role tuple). Claiming changes no tuple: users of the merged companies are external in every tenant they already belong to, and the claim is refused when one of them is already a member of the claiming tenant.
+
+#### Create project
+
+Insert `projects`, then write `project:P#tenant@tenant:T` (Postgres first; compensate by deleting the row). Content created in the project carries `project:P#project` links (below).
 
 #### Set product
 
@@ -32,7 +40,7 @@ Write the wildcard only. Do not write `documents_enabled` for a concrete user. D
 
 #### Assign role
 
-The body carries `affiliation` and `role` on create. A role change carries `role` only. Legal pairs:
+The body carries `role` (and the person by `user_id` or `email`). The affiliation is derived from the person's company (internal iff it is the tenant's own company) and is never sent. A role change carries `role` only. Legal pairs:
 
 | Affiliation | Roles |
 | --- | --- |
@@ -52,45 +60,54 @@ One OpenFGA Write. Write the new role tuple and delete the other three role tupl
 
 Do not also write the implied relation. `internal_admin` already satisfies `internal_user`, and `external_admin` already satisfies `external_user`.
 
-Upsert `memberships.affiliation` and `memberships.role` on create. Update `role` only on change.
+Insert `tenant_members.role` (and `tenant_role_id`) on create. Update `role` only on change. When the email is new the user is created first in a company the tenant manages (its own, or a subcontractor it created); a known email reuses the one account.
 
 Reject the change with 409 when it would leave the tenant with zero rows where `role = internal_admin`. External admins do not count. That count is a stored invariant, not an authorization check.
 
 #### Remove member
 
-Load the membership and the user's `resource_grants` rows for that tenant. One OpenFGA Write deletes the tuples below. Then one Postgres transaction deletes those grant rows and the `memberships` row. Revocations go to OpenFGA first, so a failure between the two steps leaves less access, not more. The tuples are:
+Load the membership and the user's `resource_grants` rows for that tenant. One OpenFGA Write deletes the tuples below. Then one Postgres transaction deletes those grant rows and the `tenant_members` row. Revocations go to OpenFGA first, so a failure between the two steps leaves less access, not more. The tuples are:
 
 - `tenant:T#internal_admin@user:U`, `tenant:T#internal_user@user:U`, `tenant:T#external_admin@user:U`, and `tenant:T#external_user@user:U` (the authz gateway ignores the three that do not exist)
 - every direct grant: `folder|document|album|photo:<id>#<relation>@user:U`
+
+Delete the person's project membership tuples too (`project:P#<built-in role>@user:U` for each project of the tenant, and `project_role:R#assignee@user:U`); Postgres cascades the `project_members` rows with the tenant membership.
 
 Do not delete tuples whose user is `tenant:T#external_user` or `tenant:T#external_admin`, nor `root`/`public` markers.
 
 The same last-internal-admin 409 applies.
 
-Also delete each `role:R#assignee@user:U` for custom roles in this tenant that name the user, and delete the matching `role_assignees` rows in the same Postgres transaction as the membership. Do not delete the role itself or its `grant_*` tuples; other assignees keep them.
+Also delete each `tenant_role:R#assignee@user:U` for custom roles in this tenant that name the user, and drop the member's role in the same Postgres transaction as the membership. Do not delete the role itself or its `grant_*` tuples; other assignees keep them.
 
 #### Custom roles
 
-Check is `can_manage_platform` for create, rename, permissions, and delete. List and get are also allowed by `can_manage_members`. The four built-in roles are not rows in `roles`. Affiliation is `internal` or `external` and does not change.
+Check is `can_manage_platform` for create, rename, permissions, and delete. List and get are also allowed by `can_manage_members`. The four built-in roles are not rows in `tenant_roles`. Affiliation is `internal` or `external` and does not change.
 
-Create writes two tuples and inserts `roles`:
+Create writes two tuples and inserts `tenant_roles`:
 
-- `role:R#tenant@tenant:T`
-- `tenant:T#internal_role@role:R` or `tenant:T#external_role@role:R`
+- `tenant_role:R#tenant@tenant:T`
+- `tenant:T#internal_role@tenant_role:R` or `tenant:T#external_role@tenant_role:R`
 
-Rename updates `roles.name` only.
+Rename updates `tenant_roles.name` only.
 
-Set permissions replaces `role_permissions`. For each removed permission, delete `tenant:T#grant_<permission>@role:R#assignee` in OpenFGA first, then delete the row. For each added permission, insert the row, then write that tuple. Do not write the implied permissions. The relation names are `grant_view`, `grant_edit`, `grant_manage`, `grant_change_visibility`, `grant_contribute`, `grant_create_private`, `grant_manage_members`, and `grant_view_products`.
+Set permissions replaces `tenant_role_permissions`. For each removed permission, delete `tenant:T#grant_<permission>@role:R#assignee` in OpenFGA first, then delete the row. For each added permission, insert the row, then write that tuple. Do not write the implied permissions. The relation names are `grant_view`, `grant_edit`, `grant_manage`, `grant_change_visibility`, `grant_contribute`, `grant_create_private`, `grant_manage_members`, and `grant_view_products`.
 
-Assigning the role to a member is the member add or role-change command. It writes `role:R#assignee@user:U`, deletes the four built-in role tuples, and sets `memberships.custom_role_id`. Switching back to a built-in role deletes the assignee tuple and writes the built-in tuple. One person holds one role.
+Assigning the role to a member is the member add or role-change command. It writes `tenant_role:R#assignee@user:U`, deletes the four built-in role tuples, and sets `tenant_members.tenant_role_id`. Switching back to a built-in role deletes the assignee tuple and writes the built-in tuple. One person holds one role.
 
-Delete role is refused with 409 while a membership still points at it. Otherwise it deletes the anchor and grant tuples in OpenFGA first, then the `roles` row. Permissions cascade.
+Delete role is refused with 409 while a membership still points at it. Otherwise it deletes the anchor and grant tuples in OpenFGA first, then the `tenant_roles` row. Permissions cascade.
+
+#### Project roles and members
+
+Project roles mirror tenant custom roles, scoped to one project. Check is `can_manage_platform` for create, permissions, and delete; project member managers may list. Create writes `project_role:R#project@project:P` and `project:P#internal_role|external_role@project_role:R`, and inserts `project_roles`. Permissions write `project:P#grant_<permission>@project_role:R#assignee` (same catalog, same order of Postgres and OpenFGA as tenant roles). Delete is 409 while a member holds it.
+
+Adding a project member (a tenant member only; role matches their derived affiliation) inserts `project_members` then writes `project:P#<built-in role>@user:U` (deleting the other three) or `project_role:R#assignee@user:U`. Changing the role and removing the member follow the tenant member rules: grants Postgres first, revocations OpenFGA first, restoring exactly the tuples that existed.
 
 #### Create folder
 
-Body carries `is_private` (required). Insert `folders` (with `is_private`) and an owner `resource_grants` row (`subject_type=user`, `relation=owner`). Tuples:
+Body carries `project_id` (required for a top-level folder; a subfolder takes its parent's) and `is_private` (required). Insert `folders` (with `project_id` and `is_private`) and an owner `resource_grants` row (`subject_type=user`, `relation=owner`). Tuples:
 
 - `folder:F#tenant@tenant:T`
+- `folder:F#project@project:P`
 - `folder:F#owner@user:actor`
 - `folder:F#parent@folder:parent` when `parent_id` is set, otherwise `folder:F#root@tenant:T`
 - `folder:F#public@tenant:T` when `is_private` is false
@@ -106,6 +123,7 @@ Creating an album is the same with type `album`.
 Insert `documents` and an owner grant. Tuples:
 
 - `document:D#tenant@tenant:T`
+- `document:D#project@project:P` (the folder's project)
 - `document:D#folder@folder:F`
 - `document:D#owner@user:actor`
 

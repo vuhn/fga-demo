@@ -19,8 +19,10 @@ const Zed = "77777777-7777-7777-7777-777777777777"
 // the can_* relations instead, so comparing raw grant relations is meaningless.
 // The API decides only on these relations (see the decision catalog).
 var relationsByType = map[string][]string{
-	"tenant": {"internal_user", "can_read_tenant", "can_contribute", "can_manage_members", "can_view_products",
-		"can_create_folder", "can_create_album", "can_create_private_folder", "can_create_private_album", "documents_enabled", "photos_enabled"},
+	"tenant": {"internal_user", "can_read_tenant", "can_contribute", "can_manage_members", "can_manage_projects", "can_view_products",
+		"documents_enabled", "photos_enabled"},
+	"project": {"can_view", "can_manage_members", "can_contribute",
+		"can_create_folder", "can_create_album", "can_create_private_folder", "can_create_private_album"},
 	"folder":   {"can_view", "can_edit", "can_manage", "can_delete", "can_share", "can_change_visibility", "can_create_document"},
 	"document": {"can_view", "can_edit", "can_manage", "can_delete", "can_share"},
 	"album":    {"can_view", "can_edit", "can_manage", "can_delete", "can_share", "can_change_visibility", "can_create_photo"},
@@ -37,7 +39,7 @@ func TestInternalAdminCoversInternalUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	objects := [][2]string{{"tenant", Acme}}
+	objects := [][2]string{{"tenant", Acme}, {"project", ProjAcmeTower}, {"project", ProjAcmeAnnex}}
 	for _, s := range Folders {
 		if s.Folder.TenantID == Acme {
 			objects = append(objects, [2]string{"folder", s.Folder.ID})
@@ -105,7 +107,7 @@ func TestCustomRoleGrant(t *testing.T) {
 	assertRows(t, ctx, c, "before auditor", before)
 
 	write(t, ctx, c, []entity.Tuple{{
-		User: "user:" + Dan, Relation: "assignee", Object: "role:" + AcmeAuditor,
+		User: "user:" + Dan, Relation: "assignee", Object: "tenant_role:" + AcmeAuditor,
 	}}, nil)
 
 	assertRows(t, ctx, c, "auditor assigned", []row{
@@ -117,6 +119,6 @@ func TestCustomRoleGrant(t *testing.T) {
 		{Dan, "can_manage", fo, AcmeCompany, false},
 		{Dan, "can_contribute", tn, Acme, false},
 		{Dan, "can_manage_members", tn, Acme, false},
-		{Dan, "can_create_private_folder", tn, Acme, false},
+		{Dan, "can_create_private_folder", pr, ProjAcmeTower, false},
 	})
 }

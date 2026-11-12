@@ -1,6 +1,8 @@
 // Thin client for the Go API. The JWT and selected tenant live in sessionStorage.
 
-export type User = { id: string; email: string; name: string; is_system_admin: boolean };
+/** The employer shown next to a person everywhere user info is displayed. */
+export type CompanyRef = { id: string; name: string };
+export type User = { id: string; email: string; name: string; is_system_admin: boolean; company: CompanyRef };
 export type Product = { product: "documents" | "photos"; enabled: boolean; updated_at: string };
 export type Tenant = {
   id: string;
@@ -12,7 +14,40 @@ export type Tenant = {
   role?: string;
   role_name?: string;
 };
-export type Member = { user_id: string; email: string; name: string; affiliation: string; role: string; role_name?: string };
+export type Member = {
+  user_id: string;
+  email: string;
+  name: string;
+  /** Derived from the member's company: internal when it is the tenant's own company. */
+  affiliation: string;
+  role: string;
+  role_name?: string;
+  company: CompanyRef;
+};
+export type Company = {
+  id: string;
+  name: string;
+  tax_id?: string;
+  created_by_tenant_id?: string;
+  /** Set on a tenant's own company. */
+  tenant_id?: string;
+  claimed: boolean;
+  claimed_at: string | null;
+  member_count: number;
+  created_at: string;
+};
+export type Project = { id: string; tenant_id: string; name: string; created_by?: string; created_at: string; permissions?: Perms };
+export type ProjectMember = Member;
+export type ProjectRole = {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  name: string;
+  affiliation: "internal" | "external";
+  permissions: string[];
+  assignees: RoleAssignee[];
+  created_at: string;
+};
 export type RoleAssignee = { user_id: string; email: string; name: string };
 export type CustomRole = {
   id: string;
@@ -24,8 +59,8 @@ export type CustomRole = {
   created_at: string;
 };
 
-/** Built-in roles plus this tenant's custom roles of the same affiliation. */
-export function memberRoleOptions(affiliation: string, roles: CustomRole[]) {
+/** Built-in roles plus the custom roles of the same affiliation (tenant roles or project roles). */
+export function memberRoleOptions(affiliation: string, roles: { id: string; name: string; affiliation: string }[]) {
   const builtin = (ROLES[affiliation] ?? []).map((role) => ({ value: role, label: role.replaceAll("_", " ") }));
   const custom = roles.filter((role) => role.affiliation === affiliation).map((role) => ({ value: role.id, label: role.name }));
   return [...builtin, ...custom];
@@ -44,6 +79,7 @@ export const CUSTOM_PERMISSIONS: { value: string; label: string; hint: string }[
 export type Container = {
   id: string;
   tenant_id: string;
+  project_id: string;
   parent_id: string | null;
   name: string;
   /** Private containers are visible to internal members only, unless shared. */
@@ -55,6 +91,7 @@ export type Container = {
 export type Item = {
   id: string;
   tenant_id: string;
+  project_id: string;
   name: string;
   mime_type: string;
   byte_size: number;

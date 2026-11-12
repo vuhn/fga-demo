@@ -40,9 +40,9 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { api, type Container, type Item } from "../api";
+import { api, type Container, type Item, type Project } from "../api";
 import { useAuth } from "../auth";
-import { canAct, Can, useCan, type Feature, type ObjectType } from "../permissions";
+import { canAct, canProject, type ObjectType, type ProjectAction } from "../permissions";
 import { confirmDanger, formatBytes, notifyError, PageHeader, run } from "../ui";
 import ShareDialog from "./ShareDialog";
 
@@ -52,10 +52,10 @@ export type Kind = {
   container: "folder" | "album";
   item: "document" | "photo";
   containerRef: "folder_id" | "album_id";
-  /** Feature that allows creating a top-level container. */
-  createFeature: Feature;
-  /** Feature that allows creating a private container (internal members). */
-  createPrivateFeature: Feature;
+  /** Project action that allows creating a top-level container. */
+  createAction: ProjectAction;
+  /** Project action that allows creating a private container (internal members). */
+  createPrivateAction: ProjectAction;
   defaultMime: string;
 };
 
@@ -68,27 +68,30 @@ type Dialog =
   | { mode: "rename"; target: Target }
   | null;
 
-export default function ContentPage({ kind }: { kind: Kind }) {
+/** Content of one project: the project is fixed by the page that hosts it (Project detail tabs). */
+export default function ContentPage({ kind, project }: { kind: Kind; project: Project }) {
   const { me, tenantId } = useAuth();
   const [containers, setContainers] = useState<Container[] | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [share, setShare] = useState<Target | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const canPrivate = useCan(kind.createPrivateFeature);
+  const projectId = project.id;
+  const canPrivate = canProject(project, kind.createPrivateAction);
 
   const load = useCallback(async () => {
     if (!me || !tenantId) return;
     try {
       // Each row carries the caller's permissions, computed server-side.
-      const [cs, its] = await Promise.all([api<Container[]>("GET", `/${kind.container}s`), api<Item[]>("GET", `/${kind.item}s`)]);
+      const q = `?project_id=${projectId}`;
+      const [cs, its] = await Promise.all([api<Container[]>("GET", `/${kind.container}s${q}`), api<Item[]>("GET", `/${kind.item}s${q}`)]);
       setContainers(cs);
       setItems(its);
     } catch (e) {
       notifyError(e);
       setContainers([]);
     }
-  }, [me, tenantId, kind]);
+  }, [me, tenantId, projectId, kind]);
 
   useEffect(() => {
     setContainers(null);
@@ -266,11 +269,13 @@ export default function ContentPage({ kind }: { kind: Kind }) {
         title={kind.title}
         description={`${kind.container[0].toUpperCase()}${kind.container.slice(1)}s and ${kind.item}s you can see through your relationships.`}
         actions={
-          <Can feature={kind.createFeature}>
-            <Button leftSection={<IconPlus size={16} />} onClick={() => setDialog({ mode: "container" })}>
-              New {kind.container}
-            </Button>
-          </Can>
+          <Group gap="sm">
+            {canProject(project, kind.createAction) && (
+              <Button leftSection={<IconPlus size={16} />} onClick={() => setDialog({ mode: "container" })}>
+                New {kind.container}
+              </Button>
+            )}
+          </Group>
         }
       />
 
@@ -302,6 +307,7 @@ export default function ContentPage({ kind }: { kind: Kind }) {
 
       <NameModal
         kind={kind}
+        projectId={projectId}
         dialog={dialog}
         parents={containers.filter((c) => canAct(c, kind.container, "addChild"))}
         canPrivate={canPrivate}
@@ -354,6 +360,7 @@ function VisibilityBadge({ container, hidden }: { container: Container; hidden: 
 
 function NameModal({
   kind,
+  projectId,
   dialog,
   parents,
   canPrivate,
@@ -361,6 +368,7 @@ function NameModal({
   act,
 }: {
   kind: Kind;
+  projectId: string | null;
   dialog: Dialog;
   /** Containers the actor may create a child in. */
   parents: Container[];
@@ -389,7 +397,7 @@ function NameModal({
     const n = name.trim();
     let ok = false;
     if (dialog.mode === "container") {
-      ok = await act(() => api("POST", `/${kind.container}s`, { name: n, parent_id: parent, is_private: isPrivate }), `Created ${n}`);
+      ok = await act(() => api("POST", `/${kind.container}s`, { project_id: projectId, name: n, parent_id: parent, is_private: isPrivate }), `Created ${n}`);
     } else if (dialog.mode === "item") {
       // Metadata only: the demo stores name, type, and size, never file bytes.
       ok = await act(

@@ -11,8 +11,9 @@ type AlbumGateway interface {
 	// Create inserts the album and its owner grant in one transaction.
 	Create(ctx context.Context, a entity.Album, owner entity.Grant) error
 	Get(ctx context.Context, id string) (entity.Album, error)
-	// ListByIDs loads the given ids, restricted to the tenant.
-	ListByIDs(ctx context.Context, tenantID string, ids []string) ([]entity.Album, error)
+	// ListByIDs loads the given ids, restricted to the tenant and, when
+	// projectID is not empty, to that project.
+	ListByIDs(ctx context.Context, tenantID string, ids []string, projectID string) ([]entity.Album, error)
 	Rename(ctx context.Context, id, name string) (entity.Album, error)
 	// SetPrivate stores the display flag and returns the previous value.
 	SetPrivate(ctx context.Context, id string, isPrivate bool) (prev bool, err error)

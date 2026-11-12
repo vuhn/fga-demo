@@ -7,7 +7,7 @@ import (
 )
 
 type AlbumLister interface {
-	List(ctx context.Context, actor, tenantID string) ([]entity.Visible[entity.Album], error)
+	List(ctx context.Context, actor, tenantID, projectID string) ([]entity.Visible[entity.Album], error)
 }
 
 type AlbumGetter interface {
@@ -15,7 +15,9 @@ type AlbumGetter interface {
 }
 
 type CreateAlbumInput struct {
-	Name      string
+	Name string
+	// ProjectID is required for a top-level album; a subalbum takes its parent's.
+	ProjectID string
 	ParentID  *string
 	IsPrivate bool
 }

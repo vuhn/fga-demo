@@ -9,7 +9,7 @@ import (
 type DocumentLister interface {
 	// List returns every visible document in the tenant, or only those in
 	// folderID when it is not empty.
-	List(ctx context.Context, actor, tenantID, folderID string) ([]entity.Visible[entity.Document], error)
+	List(ctx context.Context, actor, tenantID, folderID, projectID string) ([]entity.Visible[entity.Document], error)
 }
 
 type DocumentGetter interface {

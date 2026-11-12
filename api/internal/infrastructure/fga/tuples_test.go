@@ -12,6 +12,7 @@ import (
 const (
 	tT = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 	tU = "33333333-3333-3333-3333-333333333333"
+	tP = "a1a1a1a1-0000-4000-8000-000000000001"
 )
 
 func ptr(s string) *string { return &s }
@@ -73,9 +74,10 @@ func TestProductEnabled(t *testing.T) {
 }
 
 func TestDocumentCreated(t *testing.T) {
-	ts := DocumentRelations{}.Created(entity.Document{ID: "d1", TenantID: tT, FolderID: "f1", CreatedBy: tU})
+	ts := DocumentRelations{}.Created(entity.Document{ID: "d1", TenantID: tT, ProjectID: tP, FolderID: "f1", CreatedBy: tU})
 	want := []entity.Tuple{
 		{User: "tenant:" + tT, Relation: "tenant", Object: "document:d1"},
+		{User: "project:" + tP, Relation: "project", Object: "document:d1"},
 		{User: "folder:f1", Relation: "folder", Object: "document:d1"},
 		{User: "user:" + tU, Relation: "owner", Object: "document:d1"},
 	}
@@ -85,9 +87,10 @@ func TestDocumentCreated(t *testing.T) {
 }
 
 func TestPhotoCreated(t *testing.T) {
-	ts := PhotoRelations{}.Created(entity.Photo{ID: "p1", TenantID: tT, AlbumID: "a1", CreatedBy: tU})
+	ts := PhotoRelations{}.Created(entity.Photo{ID: "p1", TenantID: tT, ProjectID: tP, AlbumID: "a1", CreatedBy: tU})
 	want := []entity.Tuple{
 		{User: "tenant:" + tT, Relation: "tenant", Object: "photo:p1"},
+		{User: "project:" + tP, Relation: "project", Object: "photo:p1"},
 		{User: "album:a1", Relation: "album", Object: "photo:p1"},
 		{User: "user:" + tU, Relation: "owner", Object: "photo:p1"},
 	}
@@ -98,20 +101,20 @@ func TestPhotoCreated(t *testing.T) {
 
 func TestAlbumCreated(t *testing.T) {
 	// Private child: linked to its parent, no public marker.
-	ts := AlbumRelations{}.Created(entity.Album{ID: "a2", TenantID: tT, ParentID: ptr("a1"), CreatedBy: tU, IsPrivate: true})
-	if !reflect.DeepEqual(rels(ts), []string{"tenant", "owner", "parent"}) || ts[2].User != "album:a1" {
+	ts := AlbumRelations{}.Created(entity.Album{ID: "a2", TenantID: tT, ProjectID: tP, ParentID: ptr("a1"), CreatedBy: tU, IsPrivate: true})
+	if !reflect.DeepEqual(rels(ts), []string{"tenant", "project", "owner", "parent"}) || ts[3].User != "album:a1" {
 		t.Fatalf("private child: got %v", ts)
 	}
 }
 
 func TestFolderCreated(t *testing.T) {
 	// Public top level: root anchor plus public marker, both on the tenant.
-	ts := FolderRelations{}.Created(entity.Folder{ID: "f1", TenantID: tT, CreatedBy: tU})
-	if !reflect.DeepEqual(rels(ts), []string{"tenant", "owner", "root", "public"}) || ts[2].User != "tenant:"+tT || ts[3].User != "tenant:"+tT {
+	ts := FolderRelations{}.Created(entity.Folder{ID: "f1", TenantID: tT, ProjectID: tP, CreatedBy: tU})
+	if !reflect.DeepEqual(rels(ts), []string{"tenant", "project", "owner", "root", "public"}) || ts[3].User != "tenant:"+tT || ts[4].User != "tenant:"+tT {
 		t.Fatalf("public root: got %v", ts)
 	}
-	ts = FolderRelations{}.Created(entity.Folder{ID: "f2", TenantID: tT, ParentID: ptr("f1"), CreatedBy: tU, IsPrivate: true})
-	if !reflect.DeepEqual(rels(ts), []string{"tenant", "owner", "parent"}) || ts[2].User != "folder:f1" {
+	ts = FolderRelations{}.Created(entity.Folder{ID: "f2", TenantID: tT, ProjectID: tP, ParentID: ptr("f1"), CreatedBy: tU, IsPrivate: true})
+	if !reflect.DeepEqual(rels(ts), []string{"tenant", "project", "owner", "parent"}) || ts[3].User != "folder:f1" {
 		t.Fatalf("private child: got %v", ts)
 	}
 }
@@ -184,5 +187,49 @@ func TestRemoval(t *testing.T) {
 		if strings.HasPrefix(x.User, "tenant:") {
 			t.Fatalf("deleted a userset tuple: %v", x)
 		}
+	}
+}
+
+func TestProjectCreated(t *testing.T) {
+	ts := ProjectRelations{}.Created(entity.Project{ID: tP, TenantID: tT})
+	want := []entity.Tuple{{User: "tenant:" + tT, Relation: "tenant", Object: "project:" + tP}}
+	if !reflect.DeepEqual(ts, want) {
+		t.Fatalf("got %v", ts)
+	}
+}
+
+func TestProjectAssignRole(t *testing.T) {
+	w, d, err := ProjectMemberRelations{}.AssignRole(tP, tU, "external", "external_admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := entity.Tuple{User: "user:" + tU, Relation: "external_admin", Object: "project:" + tP}
+	if len(w) != 1 || w[0] != want || len(d) != 3 {
+		t.Fatalf("writes %v deletes %v", w, d)
+	}
+	// The role-type rule: an internal role never reaches an external member.
+	if _, _, err := (ProjectMemberRelations{}).AssignRole(tP, tU, "external", "internal_user"); !errors.Is(err, entity.ErrAffiliationRoleMismatch) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestProjectRoleTuples(t *testing.T) {
+	const r = "c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	created, err := ProjectRoleRelations{}.Created(tP, r, "external")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(created, []entity.Tuple{
+		{User: "project:" + tP, Relation: "project", Object: "project_role:" + r},
+		{User: "project_role:" + r, Relation: "external_role", Object: "project:" + tP},
+	}) {
+		t.Fatalf("created = %v", created)
+	}
+	perms, err := ProjectRoleRelations{}.Permissions(tP, r, []string{"view", "contribute"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(perms) != 2 || perms[0].User != "project_role:"+r+"#assignee" || perms[0].Relation != "grant_view" || perms[1].Relation != "grant_contribute" || perms[1].Object != "project:"+tP {
+		t.Fatalf("perms = %v", perms)
 	}
 }

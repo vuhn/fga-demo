@@ -9,6 +9,7 @@ const ObjectTypePhoto = "photo"
 type Photo struct {
 	ID        string
 	TenantID  string
+	ProjectID string
 	AlbumID   string
 	Name      string
 	MimeType  string

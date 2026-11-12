@@ -19,6 +19,7 @@ type CheckRequest struct {
 
 const ObjectTypePlatform = "platform"
 const ObjectTypeTenant = "tenant"
+const ObjectTypeProject = "project"
 
 // PermissionRelations is the permission relations (never raw grant relations)
 // per object type. It is the inspector whitelist and the set reported in
@@ -26,8 +27,9 @@ const ObjectTypeTenant = "tenant"
 var PermissionRelations = map[string][]string{
 	ObjectTypePlatform: {"can_manage_platform"},
 	ObjectTypeTenant: sorted("can_manage_members", "can_view_products", "can_contribute", "can_read_tenant",
-		"can_create_folder", "can_create_album", "can_create_private_folder", "can_create_private_album",
-		"documents_enabled", "photos_enabled"),
+		"can_manage_projects", "documents_enabled", "photos_enabled"),
+	ObjectTypeProject: sorted("can_view", "can_manage_members", "can_contribute",
+		"can_create_folder", "can_create_album", "can_create_private_folder", "can_create_private_album"),
 	ObjectTypeFolder:   sorted("can_view", "can_edit", "can_manage", "can_delete", "can_share", "can_change_visibility", "can_create_document"),
 	ObjectTypeDocument: sorted("can_view", "can_edit", "can_manage", "can_delete", "can_share"),
 	ObjectTypeAlbum:    sorted("can_view", "can_edit", "can_manage", "can_delete", "can_share", "can_change_visibility", "can_create_photo"),
