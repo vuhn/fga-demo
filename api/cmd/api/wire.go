@@ -9,6 +9,7 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	httph "github.com/vuhn/fga-demo/api/internal/handler/http"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/auth"
+	"github.com/vuhn/fga-demo/api/internal/infrastructure/blueprintengine"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/config"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/fga"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/idgen"
@@ -38,6 +39,8 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		albumGrant     = postgres.NewAlbumGrantRepo(pool)
 		photos         = postgres.NewPhotoRepo(pool)
 		photoGrant     = postgres.NewPhotoGrantRepo(pool)
+		blueprints     = postgres.NewBlueprintRepo(pool)
+		bpGrant        = postgres.NewBlueprintGrantRepo(pool)
 
 		memberRels        = fga.MembershipRelations{}
 		roleRels          = fga.RoleRelations{}
@@ -49,6 +52,9 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		documentRels      = fga.DocumentRelations{}
 		albumRels         = fga.AlbumRelations{}
 		photoRels         = fga.PhotoRelations{}
+		blueprintRels     = fga.BlueprintRelations{}
+
+		engine = blueprintengine.New(cfg.BlueprintEngine)
 
 		tokens = auth.JWT{Secret: []byte(cfg.JWTSecret), TTL: cfg.JWTTTL}
 		hasher = auth.Bcrypt{}
@@ -59,7 +65,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 	authz := service.NewAuthorizer(authzStore)
 	guard := service.NewWriteGuard(authzStore, log)
 	policy := service.NewSharePolicy(authz)
-	objectTenants := service.NewObjectTenantResolver(folders, documents, albums, photos, projects)
+	objectTenants := service.NewObjectTenantResolver(folders, documents, albums, photos, projects, blueprints)
 	myTenants := service.NewMyTenantLister(tenants, members, authz)
 
 	handlers := []httph.RouteRegistrar{
@@ -170,6 +176,25 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 			CandidateLister: service.NewPhotoShareCandidateLister(photos, members, authz),
 			Sharer:          service.NewPhotoSharer(photos, photoGrant, photoRels, authz, policy, guard, ids),
 			ShareRevoker:    service.NewPhotoShareRevoker(photos, photoGrant, photoRels, authz, policy, guard),
+		}),
+		httph.NewBlueprintHandler(httph.BlueprintUsecases{
+			Lister:          service.NewBlueprintLister(blueprints, authz),
+			Getter:          service.NewBlueprintGetter(blueprints, authz),
+			Drafter:         service.NewBlueprintDrafter(projects, engine, authz),
+			SketchDrafter:   service.NewBlueprintSketchDrafter(projects, engine, authz),
+			Creator:         service.NewBlueprintCreator(projects, blueprints, blueprintRels, engine, authz, guard, ids),
+			Reviser:         service.NewBlueprintReviser(blueprints, engine, authz),
+			Reviewer:        service.NewBlueprintReviewer(blueprints, engine, authz),
+			BriefUpdater:    service.NewBlueprintBriefUpdater(blueprints, engine, authz),
+			VersionLister:   service.NewBlueprintVersionLister(blueprints, authz),
+			Restorer:        service.NewBlueprintVersionRestorer(blueprints, authz),
+			Renderer:        service.NewBlueprintDrawingRenderer(blueprints, engine, authz),
+			Renamer:         service.NewBlueprintRenamer(blueprints, authz),
+			Deleter:         service.NewBlueprintDeleter(blueprints, authz, guard),
+			GrantLister:     service.NewBlueprintGrantLister(blueprints, bpGrant, authz),
+			CandidateLister: service.NewBlueprintShareCandidateLister(blueprints, members, authz),
+			Sharer:          service.NewBlueprintSharer(blueprints, bpGrant, blueprintRels, authz, policy, guard, ids),
+			ShareRevoker:    service.NewBlueprintShareRevoker(blueprints, bpGrant, blueprintRels, authz, policy, guard),
 		}),
 	}
 	return httph.NewRouter(service.NewTokenVerifier(tokens), cfg.CORSOrigin, log, handlers...)

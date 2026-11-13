@@ -86,6 +86,18 @@ func TestDocumentCreated(t *testing.T) {
 	}
 }
 
+func TestBlueprintCreated(t *testing.T) {
+	ts := BlueprintRelations{}.Created(entity.Blueprint{ID: "b1", TenantID: tT, ProjectID: tP, CreatedBy: tU, CurrentVersion: 3})
+	want := []entity.Tuple{
+		{User: "tenant:" + tT, Relation: "tenant", Object: "blueprint:b1"},
+		{User: "project:" + tP, Relation: "project", Object: "blueprint:b1"},
+		{User: "user:" + tU, Relation: "owner", Object: "blueprint:b1"},
+	}
+	if !reflect.DeepEqual(ts, want) {
+		t.Fatalf("got %v", ts)
+	}
+}
+
 func TestPhotoCreated(t *testing.T) {
 	ts := PhotoRelations{}.Created(entity.Photo{ID: "p1", TenantID: tT, ProjectID: tP, AlbumID: "a1", CreatedBy: tU})
 	want := []entity.Tuple{
@@ -161,7 +173,7 @@ func TestGrant(t *testing.T) {
 		}
 	}
 	// Each content type names its own object type.
-	for _, b := range []func(entity.Grant) (entity.Tuple, error){DocumentRelations{}.Grant, AlbumRelations{}.Grant, PhotoRelations{}.Grant} {
+	for _, b := range []func(entity.Grant) (entity.Tuple, error){DocumentRelations{}.Grant, AlbumRelations{}.Grant, PhotoRelations{}.Grant, BlueprintRelations{}.Grant} {
 		tup, err := b(g("viewer", "user", ptr(tU)))
 		if err != nil || strings.HasPrefix(tup.Object, "folder:") {
 			t.Errorf("grant object = %v %v", tup, err)

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-OpenFGA multi-tenant authorization demo: Go API in `api/` (its own module, Gin, pgx, goose) + OpenFGA + React admin panel in `web/`. Postgres is the display record; OpenFGA makes every allow/deny decision.
+OpenFGA multi-tenant authorization demo: Go API in `api/` (its own module, Gin, pgx, goose) + OpenFGA + React admin panel in `web/` + `blueprint-engine/` (Python FastAPI sidecar, uv, local Ollama; stateless, no auth, only the API calls it). Postgres is the display record; OpenFGA makes every allow/deny decision.
 
 ## Source of truth
 
@@ -19,6 +19,8 @@ make compose-up         # Postgres :5432, OpenFGA :8080 (gRPC :8081, Playground 
 make seed               # RESETS everything: truncates app tables, recreates the fga-demo store, writes the seed
 make api                # :8088 — migrates, opens existing store + newest model; never seeds
 make web                # Vite :5173, proxies /api -> :8088
+make engine             # blueprint-engine :8090 (needs Ollama: qwen3:latest, qwen2.5vl:7b for sketches)
+make engine-test        # engine pytest (no LLM); make engine-eval runs golden prompts on the live LLM
 make test               # cd api && go test ./... (pure tuple builders)
 make test-integration   # live OpenFGA: model vs README script, internal_admin ⊇ internal_user
 cd web && npm run build # tsc --noEmit + vite build
@@ -31,7 +33,7 @@ Restart `cmd/api` after every reseed (the store id changes). Seed accounts: ada,
 - Layers under `api/internal`: `domain/entity` (stdlib only) and `domain/gateway` (data-access interfaces) -> `usecase` (one interface per operation, e.g. `FolderCreator`) and `usecase/helper` (shared rule interfaces) -> `service` (implementations, one file per operation: `folder_creator.go`) -> `infrastructure/{postgres,fga,auth,idgen,config}` implements gateways -> `handler/http`. `domain`, `usecase`, and `service` never import Gin, pgx, or the OpenFGA SDK.
 - DI everywhere: constructors take interfaces; services hold no concrete types. `api/cmd/api/wire.go` is the only place that builds the graph. Add a new operation as usecase interface + service file + constructor wiring.
 - Services read as business logic: validate, Check via `usecase.Authorizer`, read/write via gateways, order stores via `helper.WriteGuard`. Tuple formatting lives only in `infrastructure/fga` (pure `*Relations` builders behind `*RelationGateway`); services pass `entity.Tuple` through.
-- Each domain is fully separate in every backend layer: folder, document, album, photo (and user, tenant, product, member) each own their entity, gateways, repos (literal table names), relation builder, usecases, services, handler, and routes. Never merge them back behind a shared `Kind`-style abstraction or a generic service/handler; keep their behavior identical unless the spec says otherwise. Shared code is only cross-domain rules in `service/helper.go` and SQL plumbing in `postgres/grant_rows.go`. The web UI still uses one `ContentPage.tsx` for both products, rendered as tabs inside the project page (no top-level Documents/Photos routes).
+- Each domain is fully separate in every backend layer: folder, document, album, photo, blueprint (and user, tenant, product, member) each own their entity, gateways, repos (literal table names), relation builder, usecases, services, handler, and routes. Never merge them back behind a shared `Kind`-style abstraction or a generic service/handler; keep their behavior identical unless the spec says otherwise. Shared code is only cross-domain rules in `service/helper.go` and SQL plumbing in `postgres/grant_rows.go`. The web UI still uses one `ContentPage.tsx` for documents and photos, rendered as tabs inside the project page (no top-level Documents/Photos routes); Blueprints is its own tab page (`Blueprints.tsx`) because it has no containers.
 - Handlers: decode, read actor (JWT `sub`) and tenant (`X-Tenant-ID` header), call one usecase method, map errors via `writeErr`. Each handler registers its own routes (`Register(Routes)`). Tenant is never a JWT claim.
 
 ## Authorization invariants (do not break)
@@ -49,6 +51,7 @@ Restart `cmd/api` after every reseed (the store id changes). Seed accounts: ada,
 - Inspector derives the tenant from the object, never from the request body.
 - Write ordering is fail-closed: grants = Postgres then OpenFGA (compensate Postgres); revocations = OpenFGA delete then Postgres (restore *exactly* the tuples that existed). See `WriteGuard.Grant` / `WriteGuard.Revoke` in `api/internal/service/helper.go`.
 - No raw tuple route; no outbox/workers.
+- Blueprints: no public chain; externals reach one only via a share or a custom-role `grant_*`. Deliberate exception to "external admins contribute only in externally visible content": an external admin who is a project member may create blueprints (`can_create_blueprint = can_contribute …`); they own and see their own, nobody else's unless shared; the LLM only edits the JSON brief, the engine does all geometry. Services Check before calling the engine and call it before any write; versions are Postgres-only and guarded by `base_version` (409). The engine never sees tenant or user ids.
 
 ## OpenFGA gotchas (learned the hard way)
 
@@ -68,9 +71,9 @@ Restart `cmd/api` after every reseed (the store id changes). Seed accounts: ada,
 
 ## Conventions
 
-- Versions: Go 1.26 (current goose/x/* require it), `openfga/openfga:v1.22.0`, `go-sdk v0.8.3`, React 19.3 (Mantine 9 requires React 19.2+), Mantine 9.7.3, `@tabler/icons-react` 3.49, react-router-dom 6.30.6, Vite 8, TypeScript 5.9. Pin exact versions (`npm install --save-exact`).
+- Versions: Go 1.26 (current goose/x/* require it), `openfga/openfga:v1.22.0`, `go-sdk v0.8.3`, React 19.3 (Mantine 9 requires React 19.2+), Mantine 9.7.3, `@tabler/icons-react` 3.49, react-router-dom 6.30.6, Vite 8, TypeScript 5.9; engine: Python 3.13, FastAPI 0.162.5, ezdxf 1.4.5, Shapely 2.2.0, Pydantic 2.14.3, ifcopenshell 0.9.0.post1 (exact pins in `blueprint-engine/pyproject.toml`, locked by `uv.lock`). Pin exact versions (`npm install --save-exact`).
 - JSON snake_case, RFC3339; creates 201, deletes/revokes 204. GET-by-id with a failed Check is 404; writes are 403 with `{"error","check":{relation,object}}`.
-- Non-goals stay out (SSO, file bytes, cross-tenant shares, pagination, ownership transfer, system_admin API). Don't scaffold them.
+- Non-goals stay out (SSO, file bytes (a blueprint sketch is passed to the engine and discarded), cross-tenant shares, pagination, ownership transfer, system_admin API). Don't scaffold them.
 - UI kit is Mantine (plain CSS, no CSS-in-JS runtime). Use Mantine components and props before writing CSS; `web/src/styles.css` is only for small tweaks using `--mantine-*` variables. Don't add a second UI library.
 - Shared UI helpers live in `web/src/ui.tsx`: `run(fn, successMsg)` for mutations (toast on success or error), `notifyError`, `confirmDanger`, `PageHeader`, `RoleBadge`/`AffiliationBadge` (display only). Use them instead of inline error state.
 - Pages are `React.lazy` routes; vendor chunks are split in `vite.config.ts`. Keep icon imports named (`import { IconX } from "@tabler/icons-react"`) so they tree-shake.

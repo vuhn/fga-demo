@@ -1,6 +1,6 @@
 # Architecture
 
-A multi-tenant authorization demo. A Go API owns users, tenants, documents, and photos; [OpenFGA](https://openfga.dev) makes every allow/deny decision; a React admin panel is the clickable proof. [README.md](README.md) tells the story and the click script.
+A multi-tenant authorization demo. A Go API owns users, tenants, documents, photos, and blueprints; [OpenFGA](https://openfga.dev) makes every allow/deny decision; a React admin panel is the clickable proof. [README.md](README.md) tells the story and the click script.
 
 This file is the system overview. Each part has its own:
 
@@ -17,8 +17,8 @@ browser :5173  (Vite dev server)
 Go API :8088
     |                    \
     v                     v
-Postgres :5432          OpenFGA :8080  (gRPC :8081, Playground :3000)
-  db fgademo              store "fga-demo"
+Postgres :5432          OpenFGA :8080  (gRPC :8081, Playground :3000)     blueprint-engine :8090 --> Ollama :11434
+  db fgademo              store "fga-demo"                                  (stateless, host)        (host)
   db openfga  <-----------'  (OpenFGA's own datastore)
 ```
 
@@ -28,7 +28,8 @@ Postgres :5432          OpenFGA :8080  (gRPC :8081, Playground :3000)
 | API (`api/`) | The only authenticated edge. Validates, asks OpenFGA, reads and writes Postgres. |
 | Postgres `fgademo` | Display record: names, membership labels, file metadata, grant rows. Never decides access. |
 | OpenFGA | Relationship tuples. Answers Check, BatchCheck, ListObjects. Allow-only model. |
-| `deploy/` | Docker Compose for Postgres and OpenFGA. The API and Vite run on the host. |
+| `blueprint-engine/` | Python FastAPI sidecar for the Blueprints product. A local LLM (Ollama) turns a prompt, sketch, or chat message into a JSON brief; deterministic code makes the floor plan, the DXF/SVG/PDF sheets, and an IFC4 BIM model; an LLM reviewer can propose brief fixes for failed checks. No auth, no storage: only the API calls it, after its Checks. See [blueprint-engine/README.md](blueprint-engine/README.md). |
+| `deploy/` | Docker Compose for Postgres and OpenFGA. The API, engine, and Vite run on the host. |
 
 ## Core principles
 
@@ -41,7 +42,7 @@ Postgres :5432          OpenFGA :8080  (gRPC :8081, Playground :3000)
 
 ## Authorization at a glance
 
-Three layers of objects: `platform` (system admins), `tenant` (internal/external roles, product entitlements), and content (`folder`/`document`, `album`/`photo`) that inherits through containers.
+Three layers of objects: `platform` (system admins), `tenant` (internal/external roles, product entitlements), and content (`folder`/`document`, `album`/`photo`) that inherits through containers, plus `blueprint`, which sits directly in a project with no public flag (externals reach it through a share or a custom-role `grant_*`, never through a public flag).
 
 - Internal members see and edit all tenant content. External members see a container only when it and every ancestor are public, plus anything explicitly shared with them.
 - The system admin manages tenants, users, products, and memberships but is not a tenant member and sees no content.
@@ -60,13 +61,15 @@ web  --Bearer JWT + X-Tenant-ID-->  handler  -->  usecase/service
 
 In scope: ReBAC across platform, tenant, and resource layers; affiliation-based defaults; private/public containers; direct shares to external members; product entitlements; an admin panel that performs the README script.
 
-Out of scope (do not scaffold): SSO or password flows beyond login, file bytes or object storage, cross-tenant shares, conditions or `but not`, an API to grant `system_admin`, deleting users or tenants, outbox or background workers, pagination, ownership transfer.
+Out of scope (do not scaffold): SSO or password flows beyond login, file bytes or object storage (a blueprint sketch upload is passed to the engine and discarded; only its name, type, and size are kept), cross-tenant shares, conditions or `but not`, an API to grant `system_admin`, deleting users or tenants, outbox or background workers, pagination, ownership transfer.
 
 ## Repository layout
 
 ```text
 api/        Go service            -> api/ARCHITECTURE.md
 web/        React admin panel     -> web/ARCHITECTURE.md
+blueprint-engine/  Python floor-plan engine -> blueprint-engine/README.md
+prds/       Proposals and plans (prds/plans/text2blueprint-poc.md)
 deploy/     Docker Compose, Postgres init
 docs/       Detailed reference
 Makefile    compose-up, seed, api, web, test, test-integration

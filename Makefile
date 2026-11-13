@@ -10,6 +10,15 @@ api:
 web:
 	cd web && npm install && npm run dev
 
+engine:
+	cd blueprint-engine && uv run uvicorn blueprint_engine.app:app --port 8090 --reload
+
+engine-test:
+	cd blueprint-engine && uv run pytest -q
+
+engine-eval:
+	cd blueprint-engine && uv run python eval/run.py
+
 test:
 	cd api && go test ./...
 
@@ -19,6 +28,7 @@ test-integration:
 check:
 	cd api && go vet ./... && go vet -tags=integration ./... && go test ./...
 	bash scripts/check-architecture.sh
+	cd blueprint-engine && uv run pytest -q
 	cd web && npm run build
 
 verify-live: compose-up seed test-integration
@@ -26,4 +36,4 @@ verify-live: compose-up seed test-integration
 init:
 	bash scripts/init.sh
 
-.PHONY: compose-up seed api web test test-integration check verify-live init
+.PHONY: compose-up seed api web engine engine-test engine-eval test test-integration check verify-live init

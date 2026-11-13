@@ -39,6 +39,12 @@ Object ids below are bare. The fga infrastructure formats them.
 | Share or revoke on a folder or document | actor | `can_share` | that object |
 | Album and photo verbs | actor | the album or photo relation with the same name as the folder or document verb | that album or photo |
 | Delete folder or album | actor | `can_delete` | that folder or album |
+| Draft a blueprint brief (text or sketch), create a blueprint | actor | `can_create_blueprint` | that project |
+| List blueprints | actor | ListObjects `can_view` | type `blueprint` |
+| Get a blueprint, list its versions, render its drawing | actor | `can_view` (404 when denied) | that blueprint |
+| Revise by chat, fix issues with AI (review), edit the brief, restore a version, rename a blueprint | actor | `can_edit` | that blueprint |
+| Delete a blueprint | actor | `can_delete` | that blueprint |
+| Share or revoke on a blueprint, list its grants or share candidates | actor | `can_share` | that blueprint |
 
 OR in the table means the service calls Check twice (`Authorizer.PlatformOr`) and allows the action when either call is true. That composition stays in the service layer. It is not a role test, and it is not a new OpenFGA relation that would make a system admin a tenant member.
 
@@ -56,7 +62,7 @@ WHERE tenant_id = $tenant AND id = ANY($ids)
 
 `$ids` is the ListObjects result. When `$ids` is empty, return an empty JSON array and do not query the table. After the query, drop nothing further except ids ListObjects returned that are not in this tenant. Never `SELECT` every row in the tenant and filter in Go.
 
-The same shape applies to folders, albums, and photos.
+The same shape applies to folders, albums, photos, and blueprints.
 
 Parent folder for `POST /documents`: the folder row's `tenant_id` must equal `X-Tenant-ID`. Otherwise 404.
 

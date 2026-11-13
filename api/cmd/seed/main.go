@@ -72,7 +72,7 @@ func run() error {
 		if err := tenants.Create(ctx, entity.Tenant{ID: t.ID, Slug: t.Slug, Name: t.Name, CompanyID: t.CompanyID}); err != nil {
 			return fmt.Errorf("tenant %s: %w", t.Name, err)
 		}
-		for _, prod := range entity.AllProducts {
+		for _, prod := range t.Products {
 			if _, err := products.Set(ctx, t.ID, prod, true); err != nil {
 				return err
 			}

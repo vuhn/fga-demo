@@ -25,6 +25,7 @@ func NewAccessReporter(authzStore gateway.AuthzGateway, members gateway.Membersh
 var contentTypes = map[string]bool{
 	entity.ObjectTypeFolder: true, entity.ObjectTypeDocument: true,
 	entity.ObjectTypeAlbum: true, entity.ObjectTypePhoto: true,
+	entity.ObjectTypeBlueprint: true,
 }
 
 // Report lists the direct tuples on an object and evaluates every tenant
@@ -32,7 +33,7 @@ var contentTypes = map[string]bool{
 // of the object, or the tenant's member manager may ask.
 func (s *accessReporter) Report(ctx context.Context, actor, objectType, objectID string) (usecase.AccessReport, error) {
 	if !contentTypes[objectType] {
-		return usecase.AccessReport{}, entity.Invalid("object_type must be folder, document, album, or photo")
+		return usecase.AccessReport{}, entity.Invalid("object_type must be folder, document, album, photo, or blueprint")
 	}
 	tenantID, err := s.tenants.TenantOf(ctx, objectType, objectID)
 	if err != nil {

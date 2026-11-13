@@ -39,3 +39,13 @@ Why the repo is shaped this way. One entry per decision; add new ones at the top
 - Claim = platform admin merges unclaimed companies into the claiming tenant's own company (409 on conflicts). Proof is out of band.
 - Affiliation derived from company; FGA relation chosen at add time.
 - Go names kept for tenant roles (`Role*`); project roles are `ProjectRole*`. Roles and project roles are created by the platform admin.
+
+## 2026-11: Blueprints product (prds/plans/text2blueprint-poc.md)
+
+- **Brief is the only editable source.** The LLM produces or edits a JSON brief; deterministic engine code makes all geometry. Rejected: LLM-generated geometry, tool calling (flaky on small local models; one structured-output call instead).
+- **Python sidecar, stateless, no auth.** Go does every Check, storage, and versioning; the engine never sees tenant or user ids. The engine is called after the Check and before any write. Rejected: Go-native geometry (no ezdxf/Shapely equivalent).
+- **Blueprint sits directly in a project, no public chain.** Externals reach one only through a share or a custom-role `grant_*`. External admins who are project members may create (and own) blueprints: a deliberate exception to "externals contribute only in externally visible content", since blueprints have no visibility regime; they see only their own unless shared. Rejected: putting blueprints in folders (would couple to the documents product).
+- **Versions are append-only Postgres rows, optimistic `base_version` (409).** No OpenFGA tuples per version. Restore copies an old version forward.
+- **Sketch bytes are transient.** Passed to the engine and discarded; only name, type, size are kept (respects the "no file bytes" non-goal).
+- **Seed enables blueprints on Acme only** so Globex shows the product-off state; no blueprints are seeded (seed must not depend on the engine).
+

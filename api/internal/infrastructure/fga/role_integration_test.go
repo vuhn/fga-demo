@@ -20,9 +20,9 @@ const Zed = "77777777-7777-7777-7777-777777777777"
 // The API decides only on these relations (see the decision catalog).
 var relationsByType = map[string][]string{
 	"tenant": {"internal_user", "can_read_tenant", "can_contribute", "can_manage_members", "can_manage_projects", "can_view_products",
-		"documents_enabled", "photos_enabled"},
+		"documents_enabled", "photos_enabled", "blueprints_enabled"},
 	"project": {"can_view", "can_manage_members", "can_contribute",
-		"can_create_folder", "can_create_album", "can_create_private_folder", "can_create_private_album"},
+		"can_create_folder", "can_create_album", "can_create_private_folder", "can_create_private_album", "can_create_blueprint"},
 	"folder":   {"can_view", "can_edit", "can_manage", "can_delete", "can_share", "can_change_visibility", "can_create_document"},
 	"document": {"can_view", "can_edit", "can_manage", "can_delete", "can_share"},
 	"album":    {"can_view", "can_edit", "can_manage", "can_delete", "can_share", "can_change_visibility", "can_create_photo"},
