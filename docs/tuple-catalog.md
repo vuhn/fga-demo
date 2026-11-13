@@ -131,6 +131,16 @@ Creating a photo is the same with `photo:P#album@album:A`.
 
 The creator becomes the owner. Do not also write `editor` or `viewer` for the creator. Those are implied.
 
+#### Create blueprint
+
+Check `can_create_blueprint` on the project, then call the engine; nothing is written if it cannot build the brief. Insert `blueprints`, version 1 in `blueprint_versions`, and an owner grant in one transaction. Tuples:
+
+- `blueprint:B#tenant@tenant:T`
+- `blueprint:B#project@project:P`
+- `blueprint:B#owner@user:actor`
+
+There is no `root` or `public` tuple: a blueprint is not externally visible by flag, only by share. Revisions, brief edits, and restores append `blueprint_versions` rows and write no tuples. Share, revoke, delete, and rename follow the document rules (rename requires `can_edit`).
+
 #### Share
 
 Body `{relation, subject, user_id?}`. `relation` is `viewer` or `editor`. `subject` is `user`, `external_users`, or `external_admins`. `user_id` is required when `subject` is `user` and must be absent otherwise.
@@ -159,7 +169,7 @@ Before a user grant, Check `can_read_tenant` for the target user on `T`. A false
 
 Body is the share shape. Delete the matching tuple, then the matching `resource_grants` row. Revoke of an owner row is 400. A missing grant is 404.
 
-#### Delete document or photo
+#### Delete document, photo, or blueprint
 
 Check `can_delete`. Read every tuple for that object, delete them in one Write, then delete the grants and the row in one Postgres transaction. If Postgres fails, write the tuples back.
 
