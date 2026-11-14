@@ -56,7 +56,7 @@ Role tuples, and no implied duplicate:
 - `tenant:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb#internal_admin@user:55555555-5555-5555-5555-555555555555`
 - `tenant:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb#external_user@user:22222222-2222-2222-2222-222222222222`
 
-Documents and photos are enabled on both tenants; blueprints are enabled on Acme only, so Globex shows the product-off state. Five wildcard tuples exist (`documents_enabled` and `photos_enabled` on both, `blueprints_enabled` on Acme). No blueprints are seeded: the seed must not depend on the engine.
+Both products enabled on both tenants, which means all four wildcard tuples exist.
 
 #### Custom roles
 
@@ -125,5 +125,5 @@ All in the project Main.
 | photo | Offsite Shot | `e4444444-4444-4444-4444-444444444444` | Offsite | | Eve |
 | photo | Lobby | `e8888888-8888-8888-8888-888888888888` | Client visit | | Eve |
 
-Every container gets the tuples from "Create folder": `tenant`, `project`, `owner`, `parent` or `root`, and `public` when public. Every item gets `tenant`, `project`, its container, and `owner`. The one share is `folder:faaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#viewer@user:44444444-4444-4444-4444-444444444444` (Partners to Dan). All five product wildcards exist (see above). The ids, rows, and tuples live in `api/internal/seed/world.go` (one slice per domain: `Folders`, `Albums`, `Documents`, `Photos`, plus `Subcontractors`, `Projects`, `ProjectMembers`); this table describes them.
+Every container gets the tuples from "Create folder": `tenant`, `project`, `owner`, `parent` or `root`, and `public` when public. Every item gets `tenant`, `project`, its container, and `owner`. The one share is `folder:faaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#viewer@user:44444444-4444-4444-4444-444444444444` (Partners to Dan). All four product wildcards exist. The ids, rows, and tuples live in `api/internal/seed/world.go` (one slice per domain: `Folders`, `Albums`, `Documents`, `Photos`, plus `Subcontractors`, `Projects`, `ProjectMembers`); this table describes them.
 

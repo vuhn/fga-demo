@@ -43,7 +43,6 @@ const FEATURES = {
   "nav.tenants": { all: ["platform:can_manage_platform"] },
   "nav.documents": { all: ["tenant:can_read_tenant", "tenant:documents_enabled"] },
   "nav.photos": { all: ["tenant:can_read_tenant", "tenant:photos_enabled"] },
-  "nav.blueprints": { all: ["tenant:can_read_tenant", "tenant:blueprints_enabled"] },
   // Members is the tenant administration page (products, roster, roles): internal admins only.
   // It is a menu entry for the active tenant; platform admins reach tenants via the directory.
   "nav.members": { all: ["tenant:can_manage_members"] },
@@ -84,15 +83,13 @@ export function allows(set: PermissionSet, feature: Feature): boolean {
 
 // ---- Object actions ----
 
-export type ObjectType = "folder" | "document" | "album" | "photo" | "blueprint";
+export type ObjectType = "folder" | "document" | "album" | "photo";
 
 /** Which relation on a content object enables each action button. */
 const ACTIONS = {
-  rename: { folder: "can_manage", album: "can_manage", document: "can_edit", photo: "can_edit", blueprint: "can_edit" },
-  delete: { folder: "can_delete", album: "can_delete", document: "can_delete", photo: "can_delete", blueprint: "can_delete" },
-  share: { folder: "can_share", album: "can_share", document: "can_share", photo: "can_share", blueprint: "can_share" },
-  /** Blueprint chat revision, brief form save, and version restore. */
-  revise: { blueprint: "can_edit" },
+  rename: { folder: "can_manage", album: "can_manage", document: "can_edit", photo: "can_edit" },
+  delete: { folder: "can_delete", album: "can_delete", document: "can_delete", photo: "can_delete" },
+  share: { folder: "can_share", album: "can_share", document: "can_share", photo: "can_share" },
   addItem: { folder: "can_create_document", album: "can_create_photo" },
   /** Create a subfolder/subalbum inside this container. */
   addChild: { folder: "can_edit", album: "can_edit" },
@@ -119,7 +116,6 @@ const PROJECT_ACTIONS = {
   createAlbum: "can_create_album",
   createPrivateFolder: "can_create_private_folder",
   createPrivateAlbum: "can_create_private_album",
-  createBlueprint: "can_create_blueprint",
   manageMembers: "can_manage_members",
 } as const satisfies Record<string, string>;
 

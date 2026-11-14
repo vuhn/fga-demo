@@ -21,7 +21,6 @@ cmd/api/wire.go builds infrastructure, services, handlers and injects them
 | `service` | Implementations, one file per operation (`folder_creator.go`). Business logic only. |
 | `infrastructure/postgres` | pgx repos: the display record. |
 | `infrastructure/fga` | OpenFGA client, model bootstrap, and pure tuple builders. The only place tuples are formatted. |
-| `infrastructure/blueprintengine` | HTTP client for the stateless blueprint engine (`gateway.BlueprintEngine`). |
 | `infrastructure/{auth,idgen,config}` | JWT and bcrypt, UUIDs, environment config. |
 | `handler/http` | Gin handlers (decode, call one usecase, map errors) and middleware. |
 | `seed` | The fixed demo world, shared by `cmd/seed` and the integration tests. |
@@ -30,7 +29,7 @@ Rules:
 
 - `domain`, `usecase`, and `service` never import Gin, pgx, or the OpenFGA SDK.
 - Constructors take interfaces; `cmd/api/wire.go` is the only place that names concrete types. A new operation is a usecase interface, a service file, and wiring.
-- **Each domain is separate in every layer.** Folder, document, album, photo, blueprint (and user, tenant, product, member, role) own their entity, gateways, repos, relation builder, usecases, services, handler, and routes. Do not merge them behind a shared abstraction. The only shared code is cross-domain rules in `service/helper.go` and SQL plumbing in `postgres/grant_rows.go`. Member removal also drops that person's custom-role assignee tuples.
+- **Each domain is separate in every layer.** Folder, document, album, photo (and user, tenant, product, member, role) own their entity, gateways, repos, relation builder, usecases, services, handler, and routes. Do not merge them behind a shared abstraction. The only shared code is cross-domain rules in `service/helper.go` and SQL plumbing in `postgres/grant_rows.go`. Member removal also drops that person's custom-role assignee tuples.
 
 ## Request lifecycle
 
@@ -39,7 +38,6 @@ Rules:
 3. The service validates, then authorizes through `usecase.Authorizer` (`Require` 403, `RequireVisible` 404, `PlatformOr`, `Permissions`).
 4. Reads: ListObjects, then `WHERE tenant_id = $1 AND id = ANY($2)`. Never load a whole tenant and filter in Go.
 5. Writes: Postgres rows and OpenFGA tuples, ordered by `WriteGuard`.
-6. Blueprints: the engine (LLM and geometry) is called after the Check and before any write, so a slow or failed LLM call writes nothing. Versions are Postgres rows guarded by `base_version` (409 when stale); they never touch OpenFGA.
 
 "Platform admin OR tenant relation" is two Checks composed in the service, never a model relation that makes system admins tenant members.
 
@@ -62,7 +60,7 @@ There is no transaction across Postgres and OpenFGA. Ordering keeps failures saf
 
 ## Data
 
-Postgres tables: users, companies, platform_admins, tenants, tenant_members, tenant_roles, projects, project_members, project_roles, tenant_products, one container and one item table per product, `blueprints` with append-only `blueprint_versions`, and `resource_grants`. Postgres ids and OpenFGA object ids are the same UUIDs (the platform object is `main`). Schema: [database schema](../docs/database-schema.md). Migrations are embedded and applied on startup.
+Postgres tables: users, companies, platform_admins, tenants, tenant_members, tenant_roles, projects, project_members, project_roles, tenant_products, one container and one item table per product, and `resource_grants`. Postgres ids and OpenFGA object ids are the same UUIDs (the platform object is `main`). Schema: [database schema](../docs/database-schema.md). Migrations are embedded and applied on startup.
 
 ## Entry points
 

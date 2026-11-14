@@ -10,17 +10,15 @@ import (
 
 // objectTenantResolver reads a content object's tenant from its own gateway.
 type objectTenantResolver struct {
-	folders    gateway.FolderGateway
-	documents  gateway.DocumentGateway
-	albums     gateway.AlbumGateway
-	photos     gateway.PhotoGateway
-	projects   gateway.ProjectGateway
-	blueprints gateway.BlueprintGateway
+	folders   gateway.FolderGateway
+	documents gateway.DocumentGateway
+	albums    gateway.AlbumGateway
+	photos    gateway.PhotoGateway
+	projects  gateway.ProjectGateway
 }
 
-func NewObjectTenantResolver(folders gateway.FolderGateway, documents gateway.DocumentGateway, albums gateway.AlbumGateway, photos gateway.PhotoGateway,
-	projects gateway.ProjectGateway, blueprints gateway.BlueprintGateway) helper.ObjectTenantResolver {
-	return &objectTenantResolver{folders: folders, documents: documents, albums: albums, photos: photos, projects: projects, blueprints: blueprints}
+func NewObjectTenantResolver(folders gateway.FolderGateway, documents gateway.DocumentGateway, albums gateway.AlbumGateway, photos gateway.PhotoGateway, projects gateway.ProjectGateway) helper.ObjectTenantResolver {
+	return &objectTenantResolver{folders: folders, documents: documents, albums: albums, photos: photos, projects: projects}
 }
 
 func (r *objectTenantResolver) TenantOf(ctx context.Context, objectType, objectID string) (string, error) {
@@ -43,9 +41,6 @@ func (r *objectTenantResolver) TenantOf(ctx context.Context, objectType, objectI
 	case entity.ObjectTypePhoto:
 		p, err := r.photos.Get(ctx, objectID)
 		return p.TenantID, err
-	case entity.ObjectTypeBlueprint:
-		b, err := r.blueprints.Get(ctx, objectID)
-		return b.TenantID, err
 	}
 	return "", entity.Invalid("unknown object type %q", objectType)
 }

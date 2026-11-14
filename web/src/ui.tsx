@@ -9,13 +9,7 @@ import { ApiError, type CompanyRef } from "./api";
 export function notifyError(err: unknown) {
   const title = err instanceof ApiError ? errorTitle(err) : "Something went wrong";
   const message =
-    err instanceof ApiError && err.code === "engine_unavailable"
-      ? "The blueprint engine or its local model is not running (make engine, ollama). Try again in a moment."
-      : err instanceof ApiError && err.check
-        ? `${err.check.relation} on ${err.check.object}`
-        : err instanceof Error
-          ? err.message
-          : String(err);
+    err instanceof ApiError && err.check ? `${err.check.relation} on ${err.check.object}` : err instanceof Error ? err.message : String(err);
   notifications.show({ color: "red", title, message, icon: <IconAlertCircle size={18} /> });
 }
 
@@ -39,8 +33,6 @@ function errorTitle(err: ApiError): string {
       return "Role does not match affiliation";
     case "validation":
       return "Invalid input";
-    case "engine_unavailable":
-      return "Blueprint engine unavailable";
     default:
       return `Error: ${err.code}`;
   }

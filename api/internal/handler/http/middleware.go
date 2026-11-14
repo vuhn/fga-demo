@@ -93,7 +93,6 @@ var errorCatalog = []struct {
 	{entity.ErrNotFound, http.StatusNotFound},
 	{entity.ErrConflict, http.StatusConflict},
 	{entity.ErrTupleWriteFailed, http.StatusInternalServerError},
-	{entity.ErrEngineUnavailable, http.StatusBadGateway},
 }
 
 func writeErr(c *gin.Context, err error) {
