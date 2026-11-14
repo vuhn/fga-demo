@@ -70,6 +70,10 @@ type BlueprintEngine interface {
 	// becomes edits on the stored model (rename, fixtures, door and window widths).
 	RevisePlan(ctx context.Context, model []byte, message string, history []string) (entity.BlueprintOutcome, error)
 	RevisePlanStream(ctx context.Context, model []byte, message string, history []string, onProgress func(entity.BlueprintProgress)) (entity.BlueprintOutcome, error)
+	// EditPlan applies explicit operations (JSON, no LLM) to an imported plan's model.
+	EditPlan(ctx context.Context, model, ops []byte) (entity.BlueprintOutcome, error)
+	// PatchDXF writes the differences between base (the plan as imported) and current into the original file.
+	PatchDXF(ctx context.Context, original entity.Upload, base, current []byte) (entity.PatchedFile, error)
 	// Review lets the engine's reviewer fix the brief's failed checks in up
 	// to three rounds, keeping a round only when the issue score drops.
 	Review(ctx context.Context, brief, previous []byte, history []string) (entity.BlueprintOutcome, error)

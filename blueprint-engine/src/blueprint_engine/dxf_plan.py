@@ -26,7 +26,7 @@ from shapely.geometry.polygon import orient
 from shapely.ops import polygonize, unary_union
 
 from .edits import EditError
-from .schemas import FIXTURE_KINDS, BuildingModel, Opening, PlacedFixture, PlacedRoom, Side, Wall
+from .schemas import FIXTURE_KINDS, BuildingModel, Opening, Origin, PlacedFixture, PlacedRoom, Side, Wall
 
 # $INSUNITS code -> metres per unit
 INSUNITS = {1: 0.0254, 2: 0.3048, 4: 0.001, 5: 0.01, 6: 1.0, 9: 2.54e-8, 10: 0.9144}
@@ -129,6 +129,7 @@ class _Marker:
     layer: str
     whole: bool = False  # a block reference is one complete symbol; loose lines and arcs are grouped by touching
     anchor: tuple[float, float] | None = None  # a block's insertion point: on the wall for most door/window blocks
+    handles: list[str] = field(default_factory=list)  # entity handles in the file (top-level entities only)
 
 
 @dataclass
@@ -136,13 +137,14 @@ class _Fixture:
     kind: str
     geom: Polygon  # bounding box of the block, metres
     name: str
+    src: list[str] = field(default_factory=list)
 
 
 @dataclass
 class _Raw:
     walls: list[LineString] = field(default_factory=list)
     markers: list[_Marker] = field(default_factory=list)
-    texts: list[tuple[str, float, float]] = field(default_factory=list)
+    texts: list[tuple[str, float, float, str]] = field(default_factory=list)  # text, x, y, source handle ("" if none)
     fixtures: list[_Fixture] = field(default_factory=list)
     skipped: dict[str, int] = field(default_factory=dict)  # unsupported things dropped, by description
     dims: list[float] = field(default_factory=list)  # DIMENSION measurements in drawing units
@@ -235,6 +237,14 @@ def _extents_poly(entities, tol: float) -> Polygon | None:
     return box(min(xs), min(ys), max(xs), max(ys))
 
 
+def _handles(e, depth: int, kind: str = "") -> list[str]:
+    """The entity's handle when it is a top-level entity of the file (entities from an exploded block have none)."""
+    if depth != 0:
+        return []
+    h = getattr(e.dxf, "handle", None)
+    return [h] if h else []
+
+
 def _walk(msp, depth: int = 0, parent_layer: str | None = None):
     """Model-space entities, with block references either yielded (door/window layers) or exploded."""
     for e in msp:
@@ -272,7 +282,7 @@ def collect(doc, scale_hint: float) -> _Raw:
             try:
                 txt = e.plain_text() if t == "MTEXT" else e.dxf.text
                 p = e.dxf.insert
-                raw.texts.append((txt, float(p.x), float(p.y)))
+                raw.texts.append((txt, float(p.x), float(p.y), _handles(e, depth, t)[0] if _handles(e, depth, t) else ""))
             except Exception:
                 pass
             return
@@ -284,7 +294,8 @@ def collect(doc, scale_hint: float) -> _Raw:
                 except Exception:
                     poly = None
                 if poly is not None:
-                    raw.markers.append(_Marker(kind, poly, layer, whole=True, anchor=(float(e.dxf.insert.x), float(e.dxf.insert.y))))
+                    raw.markers.append(_Marker(kind, poly, layer, whole=True, anchor=(float(e.dxf.insert.x), float(e.dxf.insert.y)),
+                                               handles=_handles(e, depth)))
                     raw.layers_used.add(layer)
                 return
             if depth == 0:
@@ -301,7 +312,7 @@ def collect(doc, scale_hint: float) -> _Raw:
                     except Exception:
                         poly = None
                     if poly is not None:
-                        raw.fixtures.append(_Fixture(kind, poly, e.dxf.name))
+                        raw.fixtures.append(_Fixture(kind, poly, e.dxf.name, _handles(e, depth)))
                         raw.layers_used.add(layer)
                         return
                 if role == "ignore":
@@ -311,7 +322,9 @@ def collect(doc, scale_hint: float) -> _Raw:
             if _has(layer, ("iden", "text", "label", "room", "name")) and "dim" not in _norm(layer):
                 for att in getattr(e, "attribs", []):
                     try:
-                        raw.texts.append((att.dxf.text, float(att.dxf.insert.x), float(att.dxf.insert.y)))
+                        hh = _handles(e, depth)
+                        raw.texts.append((att.dxf.text, float(att.dxf.insert.x), float(att.dxf.insert.y),
+                                          f"{hh[0]}:{att.dxf.tag}" if hh else ""))
                     except Exception:
                         pass
             if depth < 3 and role != "ignore":
@@ -326,7 +339,7 @@ def collect(doc, scale_hint: float) -> _Raw:
         if role in ("door", "window"):
             poly = _extents_poly([e], tol)
             if poly is not None:
-                raw.markers.append(_Marker(role, poly, layer))
+                raw.markers.append(_Marker(role, poly, layer, handles=_handles(e, depth)))
                 raw.layers_used.add(layer)
             return
         for pts in _polylines(e, tol):
@@ -389,11 +402,11 @@ def _scaled(raw: _Raw, k: float) -> _Raw:
     from shapely import affinity
 
     out = _Raw(layers_used=raw.layers_used, layers_ignored=raw.layers_ignored, dims=raw.dims, skipped=raw.skipped)
-    out.fixtures = [_Fixture(f.kind, affinity.scale(f.geom, k, k, origin=(0, 0)), f.name) for f in raw.fixtures]
+    out.fixtures = [_Fixture(f.kind, affinity.scale(f.geom, k, k, origin=(0, 0)), f.name, f.src) for f in raw.fixtures]
     out.walls = [affinity.scale(w, k, k, origin=(0, 0)) for w in raw.walls]
     out.markers = [_Marker(m.kind, affinity.scale(m.geom, k, k, origin=(0, 0)), m.layer, m.whole,
-                      (m.anchor[0] * k, m.anchor[1] * k) if m.anchor else None) for m in raw.markers]
-    out.texts = [(t, x * k, y * k) for t, x, y in raw.texts]
+                      (m.anchor[0] * k, m.anchor[1] * k) if m.anchor else None, m.handles) for m in raw.markers]
+    out.texts = [(t, x * k, y * k, h) for t, x, y, h in raw.texts]
     return out
 
 
@@ -480,25 +493,30 @@ class _Door:
     width: float
     kind: str
     patch: Polygon | None
+    src: list[str] = field(default_factory=list)
 
 
-def _symbols(markers: list[_Marker]) -> list[tuple[str, tuple[float, float, float, float], tuple[float, float]]]:
-    """One bounding box per symbol: loose pieces of one door (leaf + swing) are grouped by proximity."""
-    out: list[tuple[str, tuple[float, float, float, float], tuple[float, float]]] = []
+def _symbols(markers: list[_Marker]) -> list[tuple[str, tuple[float, float, float, float], tuple[float, float], list[str]]]:
+    """One bounding box per symbol: loose pieces of one door (leaf + swing) are grouped by proximity.
+    The last item is the handles of the file entities that draw it."""
+    out: list[tuple[str, tuple[float, float, float, float], tuple[float, float], list[str]]] = []
     for kind in ("door", "window"):
         for m in markers:
             if m.kind == kind and m.whole:
                 b = m.geom.bounds
-                out.append((kind, b, m.anchor if m.anchor and m.geom.buffer(0.3).contains(Point(m.anchor)) else ((b[0] + b[2]) / 2, (b[1] + b[3]) / 2)))
+                out.append((kind, b, m.anchor if m.anchor and m.geom.buffer(0.3).contains(Point(m.anchor)) else ((b[0] + b[2]) / 2, (b[1] + b[3]) / 2), m.handles))
         ms = [m for m in markers if m.kind == kind and not m.whole]
         if not ms:
             continue
         merged = unary_union([m.geom.buffer(0.04) for m in ms])
         for comp in (merged.geoms if hasattr(merged, "geoms") else [merged]):
-            members = [m.geom for m in ms if m.geom.buffer(0.04).intersects(comp)]
+            group = [m for m in ms if m.geom.buffer(0.04).intersects(comp)]
+            members = [m.geom for m in group]
             bb = (min(g.bounds[0] for g in members), min(g.bounds[1] for g in members),
                   max(g.bounds[2] for g in members), max(g.bounds[3] for g in members))
-            out.append((kind, bb, ((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2)))
+            hs = [h for m in group for h in m.handles]
+            # a piece with no handle (inside a nested block) makes the symbol unpatchable as a whole
+            out.append((kind, bb, ((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2), hs if all(m.handles for m in group) else []))
     return out
 
 
@@ -509,7 +527,7 @@ def _door_bars(solids, markers: list[_Marker]) -> list[LineString]:
     bars: list[LineString] = []
     if solids is None or solids.is_empty:
         return bars
-    for kind, bb, anchor in _symbols(markers):
+    for kind, bb, anchor, _ in _symbols(markers):
         fit = _fit_axis(solids, anchor, bb)
         if fit is None or fit[2] > 1.5:
             continue
@@ -524,7 +542,7 @@ def _door_bars(solids, markers: list[_Marker]) -> list[LineString]:
 def _place_markers(markers: list[_Marker], solids, t_est: float) -> list[_Door]:
     """Fit each symbol onto the nearest wall solid."""
     out: list[_Door] = []
-    for kind, (minx, miny, maxx, maxy), anchor in _symbols(markers):
+    for kind, (minx, miny, maxx, maxy), anchor, handles in _symbols(markers):
         if True:
             c = Point(anchor)
             near = _fit_axis(solids, anchor, (minx, miny, maxx, maxy))
@@ -560,7 +578,7 @@ def _place_markers(markers: list[_Marker], solids, t_est: float) -> list[_Door]:
                                  (cx + d[0] * hw - nx * ht, cy + d[1] * hw - ny * ht),
                                  (cx + d[0] * hw + nx * ht, cy + d[1] * hw + ny * ht),
                                  (cx - d[0] * hw + nx * ht, cy - d[1] * hw + ny * ht)])
-            out.append(_Door((cx, cy), d, round(width, 3), kind, patch))
+            out.append(_Door((cx, cy), d, round(width, 3), kind, patch, handles))
     return out
 
 
@@ -654,8 +672,9 @@ def _side_of(n: tuple[float, float]) -> Side:
     return "north" if n[1] > 0 else "south"
 
 
-def _build_plan(index: int, rooms: list[Polygon], solids, doors: list[_Door], texts: list[tuple[str, float, float]],
-                t_est: float, report: ImportReport, fixtures: list[_Fixture] | None = None) -> ImportedPlan | None:
+def _build_plan(index: int, rooms: list[Polygon], solids, doors: list[_Door], texts: list[tuple[str, float, float, str]],
+                t_est: float, report: ImportReport, fixtures: list[_Fixture] | None = None,
+                scale: float = 1.0) -> ImportedPlan | None:
     from shapely import affinity
 
     region = unary_union([*rooms, solids])
@@ -663,13 +682,14 @@ def _build_plan(index: int, rooms: list[Polygon], solids, doors: list[_Door], te
     shift = lambda g: affinity.translate(g, -minx, -miny)  # noqa: E731
     rooms = [shift(r) for r in rooms]
     solids = shift(solids)
-    doors = [_Door((d.center[0] - minx, d.center[1] - miny), d.d, d.width, d.kind, None) for d in doors]
-    texts = [(t, x - minx, y - miny) for t, x, y in texts]
-    fixtures = [_Fixture(f.kind, shift(f.geom), f.name) for f in fixtures or []]
+    doors = [_Door((d.center[0] - minx, d.center[1] - miny), d.d, d.width, d.kind, None, d.src) for d in doors]
+    texts = [(t, x - minx, y - miny, h) for t, x, y, h in texts]
+    fixtures = [_Fixture(f.kind, shift(f.geom), f.name, f.src) for f in fixtures or []]
 
     # label rooms
     labels: dict[int, list[str]] = {i: [] for i in range(len(rooms))}
-    for t, x, y in texts:
+    label_src: dict[int, list[str]] = {i: [] for i in range(len(rooms))}
+    for t, x, y, h in texts:
         pt = Point(x, y)
         hit = [i for i, r in enumerate(rooms) if r.buffer(0.05).contains(pt)]
         if not hit:
@@ -679,6 +699,8 @@ def _build_plan(index: int, rooms: list[Polygon], solids, doors: list[_Door], te
             txt = line.strip()
             if txt and not NUMERIC_TEXT.match(txt):
                 labels[hit[0]].append(txt)
+                if h and h not in label_src[hit[0]]:
+                    label_src[hit[0]].append(h)
     order = sorted(range(len(rooms)), key=lambda i: (round(rooms[i].centroid.y, 1) * -1, rooms[i].centroid.x))
     placed: list[PlacedRoom] = []
     poly_of: dict[str, Polygon] = {}
@@ -701,7 +723,7 @@ def _build_plan(index: int, rooms: list[Polygon], solids, doors: list[_Door], te
         coords = [(round(x, 3), round(y, 3)) for x, y in list(r.exterior.coords)[:-1]]
         placed.append(PlacedRoom(id=rid, name=name[:60], type=typ, rect=(x0, y0, x1, y1), net_rect=(x0, y0, x1, y1),
                                  net_area=round(r.area, 2), target_area=round(r.area, 2), exterior_sides=[],
-                                 polygon=coords))
+                                 polygon=coords, src=label_src[i]))
         poly_of[rid] = r
     report.unlabeled_rooms += unlabeled
 
@@ -750,7 +772,8 @@ def _build_plan(index: int, rooms: list[Polygon], solids, doors: list[_Door], te
             swing = min(inside, key=lambda s: poly_of[s].area) if inside else None
             n_door += 1
         openings.append(Opening(id="", kind=kind, wall_id=wall.id, center=(round(pc.x, 3), round(pc.y, 3)),
-                                width=min(dd.width, max(0.5, line.length - 0.3)), rooms=conn, swing_into=swing))
+                                width=min(dd.width, max(0.5, line.length - 0.3)), rooms=conn, swing_into=swing,
+                                src=dd.src))
     placed_fixtures = _place_fixtures(fixtures, poly_of, report)
 
     # only one entrance: the first stays, further exterior doors become plain doors
@@ -788,6 +811,7 @@ def _build_plan(index: int, rooms: list[Polygon], solids, doors: list[_Door], te
     model = BuildingModel(
         footprint=(round(ox0, 3), round(oy0, 3), round(ox1, 3), round(oy1, 3)), outline=outline_pts,
         lot=(round(ox1 - ox0, 2), round(oy1 - oy0, 2)), entrance_side=entrance_side, source="imported",
+        origin=Origin(scale=scale, dx=-minx, dy=-miny),
         rooms=placed, walls=walls, openings=openings, fixtures=placed_fixtures)
     area = round(sum(p.net_area for p in placed if p.type != "balcony"), 1)
     return ImportedPlan(index=index, name=f"Plan {index}", model=model, room_count=len(placed), net_area=area)
@@ -814,7 +838,7 @@ def _place_fixtures(fixtures: list[_Fixture], poly_of: dict[str, Polygon], repor
         facing: Side = {"south": "north", "north": "south", "west": "east", "east": "west"}[wall_side]  # type: ignore[assignment]
         counts[f.kind] = counts.get(f.kind, 0) + 1
         out.append(PlacedFixture(id=f"{rid}-{f.kind}-{counts[f.kind]}", kind=f.kind, room_id=rid,  # type: ignore[arg-type]
-                                 rect=(round(x0, 3), round(y0, 3), round(x1, 3), round(y1, 3)), facing=facing))
+                                 rect=(round(x0, 3), round(y0, 3), round(x1, 3), round(y1, 3)), facing=facing, src=f.src))
     report.fixtures += len(out)
     return out
 
@@ -886,9 +910,9 @@ def import_dxf(data: bytes, unit: str | None = None) -> ImportResult:
             continue
         sol = solids.intersection(zc) if not solids.is_empty else Polygon()
         ds = [d for d in doors if zc.contains(Point(d.center))]
-        txt = [(t, x, y) for t, x, y in raw.texts if zc.contains(Point(x, y))]
+        txt = [(t, x, y, h) for t, x, y, h in raw.texts if zc.contains(Point(x, y))]
         fx = [f for f in raw.fixtures if zc.contains(f.geom.centroid)]
-        plan = _build_plan(len(plans) + 1, in_rooms, sol, ds, txt, t_est, report, fx)
+        plan = _build_plan(len(plans) + 1, in_rooms, sol, ds, txt, t_est, report, fx, k)
         if plan is not None:
             plans.append(plan)
     report.plans_found = len(plans)

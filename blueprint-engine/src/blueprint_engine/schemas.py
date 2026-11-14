@@ -183,6 +183,9 @@ class PlacedRoom(_Strict):
     # Net floor outline (counter-clockwise, world). None = the rectangle net_rect. Imported plans
     # set it; generated plans never do.
     polygon: list[Point] | None = None
+    # Imported plans: handles of the label TEXT/MTEXT entities (or "handle:TAG" for a block attribute)
+    # in the original CAD file that name this room, so an edited DXF can be patched in place.
+    src: list[str] = Field(default_factory=list)
 
     def net_polygon(self) -> list[Point]:
         if self.polygon:
@@ -207,6 +210,7 @@ class Opening(_Strict):
     width: float
     rooms: list[str]  # rooms it connects; "outside" for exterior side
     swing_into: str | None = None  # room id the door leaf swings into
+    src: list[str] = Field(default_factory=list)  # imported: handles of the symbol's entities in the CAD file
 
 
 class PlacedFixture(_Strict):
@@ -215,6 +219,15 @@ class PlacedFixture(_Strict):
     room_id: str
     rect: tuple[float, float, float, float]  # world, axis-aligned footprint
     facing: Side  # direction the fixture's front faces (away from the wall it stands on)
+    src: list[str] = Field(default_factory=list)  # imported: handle of the block reference in the CAD file
+
+
+class Origin(_Strict):
+    """How an imported plan sits in its CAD file: model = file * scale + (dx, dy), in metres."""
+
+    scale: float
+    dx: float
+    dy: float
 
 
 class BuildingModel(_Strict):
@@ -225,6 +238,7 @@ class BuildingModel(_Strict):
     # "generated" plans come from a brief; "imported" plans come from a CAD file and have no brief,
     # so they are drawn and checked as they are and only edited by geometry, never regenerated.
     source: Literal["generated", "imported"] = "generated"
+    origin: Origin | None = None
     rooms: list[PlacedRoom]
     walls: list[Wall]
     openings: list[Opening]

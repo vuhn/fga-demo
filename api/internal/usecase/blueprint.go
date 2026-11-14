@@ -132,6 +132,17 @@ type BlueprintImporter interface {
 	Import(ctx context.Context, actor, tenantID string, in ImportBlueprintInput) (BlueprintDetail, error)
 }
 
+// BlueprintPlanEditor applies explicit edits (no LLM) to an imported plan as a new version.
+type BlueprintPlanEditor interface {
+	Edit(ctx context.Context, actor, tenantID, id string, ops json.RawMessage, baseVersion int) (BlueprintDetail, error)
+}
+
+// BlueprintOriginalExporter returns the original file of an imported plan with the edits of a version
+// (0 = current) written back into it.
+type BlueprintOriginalExporter interface {
+	Export(ctx context.Context, actor, tenantID, id string, version int) (entity.PatchedFile, error)
+}
+
 // BlueprintOriginalGetter returns the stored original of the current (or a given) version.
 type BlueprintOriginalGetter interface {
 	GetOriginal(ctx context.Context, actor, tenantID, id string, version int) (entity.BlueprintOriginal, error)

@@ -1,12 +1,14 @@
 import { ActionIcon, Badge, Box, Button, Checkbox, Divider, Group, Paper, ScrollArea, SimpleGrid, Stack, Text } from "@mantine/core";
 import { IconEye, IconEyeOff, IconFocusCentered } from "@tabler/icons-react";
 import { useMemo, useRef, useState, type PointerEvent, type WheelEvent } from "react";
-import type { ModelOpening, ModelRoom, PlanModel, Pt } from "../blueprintModel";
+import type { ModelOpening, ModelRoom, PlanModel, PlanOp, Pt } from "../blueprintModel";
+import PlanEditPanel from "./PlanEditPanel";
 
 /**
- * Read-only plan viewer: the model drawn as SVG (pan, zoom), layer toggles, a browser of every item with
- * show/hide, and click-to-select with a properties panel. Everything here is client state; nothing is sent
- * to the API. Items are keyed "kind:id".
+ * Plan viewer: the model drawn as SVG (pan, zoom), layer toggles, a browser of every item with show/hide, and
+ * click-to-select with a properties panel. Viewing is client state only. When `onEdit` is given (an editor
+ * looking at the current version of an imported plan) the panel also edits the selected item; each edit is sent
+ * to the API, which decides. Items are keyed "kind:id".
  */
 const LAYERS = [
   { key: "rooms", label: "Rooms" },
@@ -57,7 +59,7 @@ function openingRect(o: ModelOpening, ang: number, thick: number, top: number) {
   return { transform: `translate(${cx} ${cy}) rotate(${deg})`, w: o.width, h: thick };
 }
 
-export default function PlanViewer({ model }: { model: PlanModel }) {
+export default function PlanViewer({ model, onEdit, busy = false }: { model: PlanModel; onEdit?: (ops: PlanOp[]) => Promise<boolean>; busy?: boolean }) {
   const [x0, y0, x1, y1] = model.footprint;
   const top = y1 + y0; // flip about the footprint's middle so the plan keeps its place
   const pad = 1;
@@ -205,7 +207,7 @@ export default function PlanViewer({ model }: { model: PlanModel }) {
             <IconFocusCentered size={14} />
           </ActionIcon>
         </Paper>
-        <Details model={model} selected={selected} rooms={rooms} walls={walls} hidden={hidden} onToggle={toggle} />
+        <Details model={model} selected={selected} rooms={rooms} walls={walls} hidden={hidden} onToggle={toggle} onEdit={onEdit} busy={busy} />
       </Box>
 
       <Stack gap="xs">
@@ -253,13 +255,15 @@ export default function PlanViewer({ model }: { model: PlanModel }) {
   );
 }
 
-function Details({ model, selected, rooms, walls, hidden, onToggle }: {
+function Details({ model, selected, rooms, walls, hidden, onToggle, onEdit, busy }: {
   model: PlanModel;
   selected: string | null;
   rooms: Map<string, PlanModel["rooms"][number]>;
   walls: Map<string, PlanModel["walls"][number]>;
   hidden: Set<string>;
   onToggle: (k: string) => void;
+  onEdit?: (ops: PlanOp[]) => Promise<boolean>;
+  busy: boolean;
 }) {
   if (!selected) {
     return (
@@ -316,6 +320,12 @@ function Details({ model, selected, rooms, walls, hidden, onToggle }: {
           </Group>
         ))}
       </SimpleGrid>
+      {onEdit && (
+        <>
+          <Divider my={6} />
+          <PlanEditPanel model={model} selected={selected} busy={busy} onEdit={onEdit} />
+        </>
+      )}
     </Paper>
   );
 }

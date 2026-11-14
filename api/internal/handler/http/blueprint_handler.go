@@ -1,6 +1,7 @@
 package http
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,6 +26,8 @@ type BlueprintUsecases struct {
 	ImportPreviewer usecase.BlueprintDXFImportPreviewer
 	Importer        usecase.BlueprintImporter
 	OriginalGetter  usecase.BlueprintOriginalGetter
+	OriginalExport  usecase.BlueprintOriginalExporter
+	PlanEditor      usecase.BlueprintPlanEditor
 	Creator         usecase.BlueprintCreator
 	Reviser         usecase.BlueprintReviser
 	ReviseStreamer  usecase.BlueprintReviseStreamer
@@ -52,6 +55,8 @@ func (h *BlueprintHandler) Register(r Routes) {
 	g.POST("/blueprint-drafts/dxf-import", h.previewImport)
 	g.POST("/blueprints/import", h.importDXF)
 	g.GET("/blueprints/:id/source", h.source)
+	g.GET("/blueprints/:id/source/edited", h.editedSource)
+	g.POST("/blueprints/:id/plan-edits", h.planEdit)
 	g.GET("/blueprints", h.list)
 	g.POST("/blueprints", h.create)
 	g.GET("/blueprints/:id", h.get)
@@ -264,6 +269,65 @@ func (h *BlueprintHandler) source(c *gin.Context) {
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Cache-Control", "private, no-store")
 	c.Data(http.StatusOK, o.MimeType, o.Data)
+}
+
+// editedSource downloads the original file with the plan's edits written back into it. can_edit only.
+// The report (applied, added, skipped) travels base64-encoded in X-Export-Report.
+func (h *BlueprintHandler) editedSource(c *gin.Context) {
+	version := 0
+	if v := c.Query("version"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			writeErr(c, entity.Invalid("version must be a positive integer"))
+			return
+		}
+		version = n
+	}
+	f, err := h.uc.OriginalExport.Export(c, actor(c), tenant(c), c.Param("id"), version)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": f.Name}))
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Cache-Control", "private, no-store")
+	c.Header("X-Export-Report", base64.StdEncoding.EncodeToString(boundedReport(f.Report)))
+	c.Data(http.StatusOK, f.MimeType, f.Data)
+}
+
+// boundedReport keeps the export report small enough for a response header: at most 20 lines per list
+// (a proxy or browser drops headers of around 8 KB), with a last line counting the rest.
+func boundedReport(raw json.RawMessage) json.RawMessage {
+	var r map[string][]string
+	if json.Unmarshal(raw, &r) != nil {
+		return json.RawMessage(`{}`)
+	}
+	for k, v := range r {
+		if len(v) > 20 {
+			r[k] = append(append([]string{}, v[:20]...), fmt.Sprintf("… and %d more", len(v)-20))
+		}
+		for i, s := range r[k] {
+			if rs := []rune(s); len(rs) > 200 {
+				r[k][i] = string(rs[:200]) + "…"
+			}
+		}
+	}
+	out, _ := json.Marshal(r)
+	return out
+}
+
+// planEdit applies explicit edits (no LLM) to an imported plan as a new version.
+func (h *BlueprintHandler) planEdit(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 64<<10+4096)
+	var body struct {
+		Ops         json.RawMessage `json:"ops"`
+		BaseVersion int             `json:"base_version"`
+	}
+	if !bind(c, &body) {
+		return
+	}
+	d, err := h.uc.PlanEditor.Edit(c, actor(c), tenant(c), c.Param("id"), body.Ops, body.BaseVersion)
+	respond(c, http.StatusCreated, blueprintDetailView(d), err)
 }
 
 func (h *BlueprintHandler) list(c *gin.Context) {

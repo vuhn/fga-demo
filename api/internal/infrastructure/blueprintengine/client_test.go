@@ -193,3 +193,52 @@ func TestRevisePlanSendsTheModelNotABrief(t *testing.T) {
 		t.Fatalf("a plan edit has no brief, got %s", out.Brief)
 	}
 }
+
+func TestEditPlanSendsModelAndOpsWithoutAMessage(t *testing.T) {
+	var path string
+	var body map[string]json.RawMessage
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		json.NewDecoder(r.Body).Decode(&body)
+		io.WriteString(w, `{"result":{"model":{"a":1},"checks":[],"issues":[],"ok":true,"notes":[]},"notes":["edited: x"],"llm_attempts":0}`)
+	}))
+	defer srv.Close()
+	out, err := New(srv.URL).EditPlan(context.Background(), []byte(`{"rooms":[]}`), []byte(`{"ops":[{"op":"rename_room"}]}`))
+	if err != nil || !out.Built() || path != "/v1/plan/edit" || string(body["ops"]) != `{"ops":[{"op":"rename_room"}]}` || body["message"] != nil {
+		t.Fatalf("%v %s %v %+v", err, path, body, out)
+	}
+	if strings.Join(out.Notes, ",") != "edited: x" {
+		t.Fatalf("notes %v", out.Notes)
+	}
+}
+
+func TestPatchDXFSendsTheFileAndBothModelsAndDecodesTheResult(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/export/dxf-patch" {
+			t.Errorf("path %s", r.URL.Path)
+		}
+		if err := r.ParseMultipartForm(1 << 20); err != nil {
+			t.Fatal(err)
+		}
+		f, _, err := r.FormFile("file")
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(f)
+		if string(b) != "ORIG" || r.FormValue("base") != `{"v":1}` || r.FormValue("current") != `{"v":2}` {
+			t.Errorf("body %q base %q current %q", b, r.FormValue("base"), r.FormValue("current"))
+		}
+		io.WriteString(w, `{"dxf":"UEFUQ0hFRA==","report":{"applied":["a"],"added":[],"skipped":[]}}`)
+	}))
+	defer srv.Close()
+	f, err := New(srv.URL).PatchDXF(context.Background(), entity.Upload{Name: "original.dxf", MimeType: entity.DXFMimeType, Data: []byte("ORIG")}, []byte(`{"v":1}`), []byte(`{"v":2}`))
+	if err != nil || string(f.Data) != "PATCHED" || !strings.Contains(string(f.Report), `"applied":["a"]`) {
+		t.Fatalf("%v %+v", err, f)
+	}
+
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, `{"dxf":"","report":{}}`) }))
+	defer bad.Close()
+	if _, err := New(bad.URL).PatchDXF(context.Background(), entity.Upload{Name: "a.dxf", Data: []byte("x")}, nil, nil); !errors.Is(err, entity.ErrEngineUnavailable) {
+		t.Fatalf("empty file: got %v", err)
+	}
+}

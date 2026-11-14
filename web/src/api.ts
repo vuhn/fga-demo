@@ -211,6 +211,13 @@ export async function apiBlob(path: string): Promise<Blob> {
   return res.blob();
 }
 
+/** GETs a binary response and keeps its headers (the edited-DXF export reports what it wrote in one). */
+export async function apiDownload(path: string): Promise<{ blob: Blob; headers: Headers }> {
+  const res = await fetch(`/api/v1${path}`, { headers: authHeaders() });
+  if (!res.ok) throw await toError(res);
+  return { blob: await res.blob(), headers: res.headers };
+}
+
 // ---- Blueprints (the engine owns the brief schema; these mirror it) ----
 
 export type Side = "north" | "east" | "south" | "west";
@@ -263,6 +270,8 @@ export type BlueprintCheck = {
   elements?: string[];
   hint?: string;
 };
+/** What writing a plan's edits back into its original CAD file did (X-Export-Report). */
+export type ExportReport = { applied: string[]; added: string[]; skipped: string[] };
 export type BlueprintSource = { name: string; mime_type: string; byte_size: number };
 export type BlueprintVersionSummary = { version: number; kind: "create" | "revise" | "review" | "edit" | "restore" | "import"; message: string; ok: boolean; created_by: string; created_at: string };
 /** brief is null for an imported plan: its geometry came from a DXF and has no program to regenerate. */

@@ -5,6 +5,7 @@ Run: uv run uvicorn blueprint_engine.app:app --port 8090
 
 from __future__ import annotations
 
+import base64
 import json
 import queue
 import threading
@@ -15,7 +16,7 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import dxf_plan, llm_steps, pipeline, progress
+from . import dxf_patch, dxf_plan, llm_steps, pipeline, plan_edits, progress
 from .checks import failed, run_imported_checks
 from .draw import TitleBlock, build_dxf, to_dxf_bytes, to_pdf, to_svg
 from .edits import EditError
@@ -73,6 +74,16 @@ class RenderIn(BaseModel):
     model: BuildingModel
     format: Literal["svg", "dxf", "pdf", "ifc"] = "svg"
     title_block: TitleBlockIn = TitleBlockIn()
+
+
+class PlanEditIn(BaseModel):
+    model: BuildingModel
+    ops: plan_edits.PlanOps
+
+
+class PatchOut(BaseModel):
+    dxf: str  # base64 of the patched file
+    report: dxf_patch.PatchReport
 
 
 class ImportPlanOut(dxf_plan.ImportedPlan):
@@ -197,6 +208,24 @@ def create_app(llm: LLMClient | None = None) -> FastAPI:
         if not body.message.strip():
             raise EditError("say what to change")
         return llm_steps.revise_plan(app.state.llm, body.model, body.message[:2000], body.history)
+
+    @app.post("/v1/plan/edit", response_model=llm_steps.PlanStep)
+    def plan_edit(body: PlanEditIn) -> llm_steps.PlanStep:
+        """Direct edit of an imported plan: explicit ops, no LLM. Deterministic and checked like a chat edit."""
+        return llm_steps.edit_plan(body.model, body.ops)
+
+    @app.post("/v1/export/dxf-patch", response_model=PatchOut)
+    async def export_dxf_patch(file: UploadFile = File(...), base: str = Form(...), current: str = Form(...)) -> PatchOut:
+        """The original CAD file with the changes between the imported plan (`base`) and now applied to it."""
+        data = await file.read(dxf_plan.MAX_BYTES + 1)
+        if len(data) > dxf_plan.MAX_BYTES:
+            raise EditError("the original file is too large")
+        try:
+            b, c = BuildingModel.model_validate_json(base), BuildingModel.model_validate_json(current)
+            out, report = dxf_patch.patch_dxf(data, b, c)
+        except ValueError as e:  # includes pydantic's ValidationError
+            raise EditError(str(e)) from e
+        return PatchOut(dxf=base64.b64encode(out).decode("ascii"), report=report)
 
     @app.post("/v1/plan/revise/stream")
     def plan_revise_stream(body: PlanReviseIn) -> StreamingResponse:

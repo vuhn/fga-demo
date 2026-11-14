@@ -423,6 +423,15 @@ def revise_plan(llm: LLMClient, model: BuildingModel, message: str, history: lis
                     llm_attempts=tries)
 
 
+def edit_plan(model: BuildingModel, ops: plan_edits.PlanOps) -> PlanStep:
+    """Direct edit of an imported plan: the ops come from a person (the viewer), not from the LLM."""
+    new_model = plan_edits.apply_plan_ops(model, ops)
+    checks = run_imported_checks(new_model)
+    desc = "; ".join(plan_edits.describe(o) for o in ops.ops)
+    return PlanStep(result=PlanResult(model=new_model, checks=checks, ok=not failed(checks)),
+                    notes=["edited: " + desc], ops=ops, llm_attempts=0)
+
+
 def review(llm: LLMClient, brief: Brief, previous: BuildingModel | None, history: list[str] | None = None,
            *, max_rounds: int = 3, start: GenerateResult | None = None) -> StepResult:
     """Text2BIM's Reviewer loop over our checker. Each round proposes edit ops for the failed

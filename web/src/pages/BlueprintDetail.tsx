@@ -10,6 +10,7 @@ import {
   Group,
   List,
   Loader,
+  Modal,
   Paper,
   SegmentedControl,
   ScrollArea,
@@ -41,17 +42,17 @@ import {
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, apiBlob, apiStream, type Progress, type BlueprintDetail as Detail, type BlueprintVersionSummary, type Brief } from "../api";
+import { api, apiBlob, apiDownload, apiStream, type ExportReport, type Progress, type BlueprintDetail as Detail, type BlueprintVersionSummary, type Brief } from "../api";
 import { useAuth } from "../auth";
 import BriefEditor from "../components/BriefEditor";
 import PlanViewer from "../components/PlanViewer";
 import ShareDialog from "../components/ShareDialog";
-import { asPlanModel } from "../blueprintModel";
+import { asPlanModel, type PlanOp } from "../blueprintModel";
 import { canAct } from "../permissions";
 import { confirmDanger, notifyError, PageHeader, run } from "../ui";
 import { RenameBlueprintModal } from "./Blueprints";
 
-const KIND_LABEL: Record<BlueprintVersionSummary["kind"], string> = { create: "created", revise: "chat", review: "AI review", edit: "form edit", restore: "restore", import: "imported" };
+const KIND_LABEL: Record<BlueprintVersionSummary["kind"], string> = { create: "created", revise: "chat", review: "AI review", edit: "edit", restore: "restore", import: "imported" };
 
 /**
  * One blueprint: the drawing on the left; chat, brief form, checks, and
@@ -73,7 +74,8 @@ export default function BlueprintDetail() {
   const [thought, setThought] = useState(""); // the model's reasoning for the current attempt; never stored
   const thoughtView = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<"sheet" | "viewer">("sheet");
-  const [busy, setBusy] = useState<"" | "chat" | "brief" | "restore" | "review">("");
+  const [busy, setBusy] = useState<"" | "chat" | "brief" | "restore" | "review" | "edit">("");
+  const [exported, setExported] = useState<ExportReport | null>(null); // what the last edited-DXF export wrote
   const [renaming, setRenaming] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [missing, setMissing] = useState(false);
@@ -188,6 +190,9 @@ export default function BlueprintDetail() {
     if (ok) setMessage("");
   };
 
+  // One direct edit of an imported plan = one request = one new version (Versions is the undo list).
+  const editPlan = (ops: PlanOp[]) => write("edit", () => api("POST", `/blueprints/${bid}/plan-edits`, { ops: { ops }, base_version: base }), "Edited");
+
   const review = () => void write("review", () => api("POST", `/blueprints/${bid}/reviews`, { base_version: base }), "Reviewed");
 
   const downloadOriginal = async () => {
@@ -199,6 +204,23 @@ export default function BlueprintDetail() {
       a.download = detail.source?.name ?? "original.dxf";
       a.click();
       URL.revokeObjectURL(url);
+    } catch (e) {
+      notifyError(e);
+    }
+  };
+
+  // The original file with this version's edits written into it; the report says what the file could not take.
+  const downloadEdited = async () => {
+    try {
+      const { blob, headers } = await apiDownload(`/blueprints/${bid}/source/edited?version=${version}`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = (detail.source?.name ?? "original.dxf").replace(/\.dxf$/i, "") + `-edited-v${version}.dxf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      const raw = headers.get("X-Export-Report");
+      if (raw) setExported(JSON.parse(atob(raw)) as ExportReport);
     } catch (e) {
       notifyError(e);
     }
@@ -252,7 +274,7 @@ export default function BlueprintDetail() {
           </Group>
         }
         description={imported
-          ? `Imported from ${detail.source?.name ?? "a DXF"}. The plan is shown as drawn in the file; chat can rename rooms, change room types, add or remove fixtures, and resize or remove doors and windows (not move walls yet).`
+          ? `Imported from ${detail.source?.name ?? "a DXF"}. The plan is shown as drawn in the file; edit it in the Viewer or by chat: rename rooms, change room types, move, turn, add or remove fixtures, slide, resize or remove doors and windows (not walls yet). “Edited DXF” writes those edits back into the original file.`
           : `From ${detail.source_kind}${detail.source ? ` (${detail.source.name})` : ""}. The AI edits only the brief; the drawing is computed from it.`}
         actions={
           <>
@@ -268,11 +290,18 @@ export default function BlueprintDetail() {
               </Button>
             </Tooltip>
             {imported && canEdit && (
-              <Tooltip label="The file this plan was read from (editors only)">
-                <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} onClick={() => void downloadOriginal()}>
-                  Original DXF
-                </Button>
-              </Tooltip>
+              <>
+                <Tooltip label="The file this plan was read from (editors only)">
+                  <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} onClick={() => void downloadOriginal()}>
+                    Original DXF
+                  </Button>
+                </Tooltip>
+                <Tooltip label="The original file with this version's edits written into it; everything else in the file is untouched">
+                  <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} onClick={() => void downloadEdited()}>
+                    Edited DXF
+                  </Button>
+                </Tooltip>
+              </>
             )}
             {canAct(detail, "blueprint", "rename") && (
               <Button variant="default" size="xs" leftSection={<IconPencil size={14} />} onClick={() => setRenaming(true)}>
@@ -309,7 +338,7 @@ export default function BlueprintDetail() {
             <SegmentedControl size="xs" mb="xs" value={mode} disabled={shown !== null} onChange={(v) => setMode(v as "sheet" | "viewer")}
               data={[{ label: "Drawing sheet", value: "sheet" }, { label: "Viewer", value: "viewer" }]} />
             {mode === "viewer" && planModel && shown === null ? (
-              <PlanViewer key={`${bid}-${version}`} model={planModel} />
+              <PlanViewer key={bid} model={planModel} busy={busy !== ""} onEdit={imported && canEdit ? editPlan : undefined} />
             ) : (
             /* The sheet is drawn on white paper in both color schemes. */
             <Paper bg="white" radius="sm" style={{ overflow: "hidden" }}>
@@ -332,6 +361,11 @@ export default function BlueprintDetail() {
               {!imported && (
                 <Tabs.Tab value="brief" leftSection={<IconForms size={14} />}>
                   Brief
+                </Tabs.Tab>
+              )}
+              {imported && planModel && (
+                <Tabs.Tab value="summary" leftSection={<IconForms size={14} />}>
+                  Summary
                 </Tabs.Tab>
               )}
               <Tabs.Tab value="checks" leftSection={<IconListCheck size={14} />}>
@@ -449,6 +483,40 @@ export default function BlueprintDetail() {
               </Stack>
             </Tabs.Panel>
 
+            {imported && planModel && (
+              <Tabs.Panel value="summary">
+                <Stack gap="xs">
+                  <Text size="xs" c="dimmed">
+                    Read from the plan as it is now. An imported plan has no brief to regenerate from: edit it in the Viewer or by chat.
+                  </Text>
+                  <Table withTableBorder fz="xs">
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Room</Table.Th>
+                        <Table.Th>Type</Table.Th>
+                        <Table.Th ta="right">m²</Table.Th>
+                        <Table.Th>Fixtures</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {planModel.rooms.map((r) => (
+                        <Table.Tr key={r.id}>
+                          <Table.Td>{r.name}</Table.Td>
+                          <Table.Td>{r.type}</Table.Td>
+                          <Table.Td ta="right">{r.net_area.toFixed(1)}</Table.Td>
+                          <Table.Td>{planModel.fixtures.filter((f) => f.room_id === r.id).map((f) => f.kind.replace(/_/g, " ")).join(", ") || "–"}</Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                  <Text size="xs" c="dimmed">
+                    {planModel.rooms.length} rooms, {planModel.rooms.filter((r) => r.type !== "balcony").reduce((a, r) => a + r.net_area, 0).toFixed(1)} m² net (balconies excluded),{" "}
+                    {planModel.openings.filter((o) => o.kind === "window").length} windows, {planModel.openings.filter((o) => o.kind !== "window").length} doors and openings.
+                  </Text>
+                </Stack>
+              </Tabs.Panel>
+            )}
+
             <Tabs.Panel value="checks">
               <Stack gap="xs">
                 {canEdit && !imported && failed.length > 0 && (
@@ -558,6 +626,28 @@ export default function BlueprintDetail() {
 
       <RenameBlueprintModal blueprint={renaming ? detail : null} onClose={() => setRenaming(false)} onDone={load} />
       {sharing && <ShareDialog objectType="blueprint" objectId={detail.id} objectName={detail.name} onClose={() => setSharing(false)} />}
-    </>
+          <Modal opened={exported !== null} onClose={() => setExported(null)} title="Edited DXF downloaded" size="lg">
+        {exported && (
+          <Stack gap="xs">
+            <Text size="sm">
+              {exported.applied.length + exported.added.length === 0 && exported.skipped.length === 0
+                ? "No edits yet: the file is the original."
+                : "The original file with this version's edits written into it. Everything else in the file is unchanged."}
+            </Text>
+            {[["Written into the file", exported.applied, "teal"], ["Added (new entities)", exported.added, "blue"], ["Not written (the file cannot take them)", exported.skipped, "orange"]].map(([title, items, color]) =>
+              (items as string[]).length > 0 ? (
+                <Alert key={title as string} variant="light" color={color as string} p="xs" title={title as string}>
+                  <List size="xs">
+                    {(items as string[]).map((m, i) => (
+                      <List.Item key={i}>{m}</List.Item>
+                    ))}
+                  </List>
+                </Alert>
+              ) : null,
+            )}
+          </Stack>
+        )}
+      </Modal>
+</>
   );
 }

@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -168,6 +169,50 @@ func (c *Client) RevisePlan(ctx context.Context, model []byte, message string, h
 func (c *Client) RevisePlanStream(ctx context.Context, model []byte, message string, history []string, onProgress func(entity.BlueprintProgress)) (entity.BlueprintOutcome, error) {
 	return c.stream(ctx, "/v1/plan/revise/stream", map[string]any{"model": json.RawMessage(model), "message": message,
 		"history": nonNil(history)}, onProgress)
+}
+
+// EditPlan sends explicit ops to /v1/plan/edit: the same result shape as a chat edit, no LLM.
+func (c *Client) EditPlan(ctx context.Context, model, ops []byte) (entity.BlueprintOutcome, error) {
+	var out stepOut
+	err := c.postJSON(ctx, "/v1/plan/edit", map[string]any{"model": json.RawMessage(model), "ops": json.RawMessage(ops)}, &out)
+	return out.outcome(), err
+}
+
+// PatchDXF sends the original file and the two models to /v1/export/dxf-patch. The engine keeps nothing.
+func (c *Client) PatchDXF(ctx context.Context, original entity.Upload, base, current []byte) (entity.PatchedFile, error) {
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	h := textproto.MIMEHeader{}
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename=%q`, original.Name))
+	h.Set("Content-Type", original.MimeType)
+	part, err := w.CreatePart(h)
+	if err != nil {
+		return entity.PatchedFile{}, err
+	}
+	if _, err := part.Write(original.Data); err != nil {
+		return entity.PatchedFile{}, err
+	}
+	if err := w.WriteField("base", string(base)); err != nil {
+		return entity.PatchedFile{}, err
+	}
+	if err := w.WriteField("current", string(current)); err != nil {
+		return entity.PatchedFile{}, err
+	}
+	if err := w.Close(); err != nil {
+		return entity.PatchedFile{}, err
+	}
+	var out struct {
+		DXF    string          `json:"dxf"`
+		Report json.RawMessage `json:"report"`
+	}
+	if err := c.do(ctx, "/v1/export/dxf-patch", w.FormDataContentType(), &body, &out); err != nil {
+		return entity.PatchedFile{}, err
+	}
+	data, err := base64.StdEncoding.DecodeString(out.DXF)
+	if err != nil || len(data) == 0 {
+		return entity.PatchedFile{}, fmt.Errorf("%w: bad engine response: no file", entity.ErrEngineUnavailable)
+	}
+	return entity.PatchedFile{Name: original.Name, MimeType: original.MimeType, Data: data, Report: out.Report}, nil
 }
 
 func (c *Client) stream(ctx context.Context, path string, payload map[string]any, onProgress func(entity.BlueprintProgress)) (entity.BlueprintOutcome, error) {

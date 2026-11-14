@@ -147,6 +147,15 @@ type BlueprintOriginal struct {
 	Data        []byte
 }
 
+// PatchedFile is the original CAD file of an imported plan with the plan's edits written back into it.
+// Report is opaque JSON: what was applied, what was added, and what the file could not take.
+type PatchedFile struct {
+	Name     string
+	MimeType string
+	Data     []byte
+	Report   json.RawMessage
+}
+
 // BlueprintImportPlan is one plan the engine found in an imported file. Model and Checks are opaque JSON.
 type BlueprintImportPlan struct {
 	Index     int

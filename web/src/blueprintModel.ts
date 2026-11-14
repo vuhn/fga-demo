@@ -19,6 +19,18 @@ export type ModelOpening = {
   rooms: string[];
   swing_into?: string | null;
 };
+/** Direct edits of an imported plan (the engine's plan_edits ops). Rooms and openings are named by id. */
+export type PlanOp =
+  | { op: "rename_room"; room: string; name: string }
+  | { op: "set_room_type"; room: string; type: string }
+  | { op: "add_fixture"; room: string; fixture: string }
+  | { op: "delete_fixture"; fixture: string }
+  | { op: "move_fixture"; fixture: string; dx: number; dy: number }
+  | { op: "rotate_fixture"; fixture: string; facing: string }
+  | { op: "resize_opening"; opening: string; width: number }
+  | { op: "move_opening"; opening: string; offset: number }
+  | { op: "remove_opening"; opening: string };
+
 export type ModelFixture = { id: string; kind: string; room_id: string; rect: [number, number, number, number]; facing: string };
 export type PlanModel = {
   footprint: [number, number, number, number];

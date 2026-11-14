@@ -67,6 +67,41 @@ class PlanRemoveOpening(_Strict):
     opening: str
 
 
+class PlanDeleteFixture(_Strict):
+    """Remove one fixture by its id (as shown in the viewer, e.g. r3-sofa-1)."""
+
+    op: Literal["delete_fixture"]
+    fixture: str
+
+
+class PlanMoveFixture(_Strict):
+    """Move a fixture by dx, dy metres (east and north are positive). Name it by id (r3-sofa-1) or by kind, and
+    add the room when the kind is in several rooms. It must stay inside its room and clear of other fixtures."""
+
+    op: Literal["move_fixture"]
+    fixture: str
+    room: str | None = None
+    dx: float = Field(ge=-30, le=30)
+    dy: float = Field(ge=-30, le=30)
+
+
+class PlanRotateFixture(_Strict):
+    """Turn a fixture so that its front faces north, east, south or west."""
+
+    op: Literal["rotate_fixture"]
+    fixture: str
+    room: str | None = None
+    facing: Side
+
+
+class PlanMoveOpening(_Strict):
+    """Slide a door or window along its wall by offset metres (positive towards the end of the wall)."""
+
+    op: Literal["move_opening"]
+    opening: str
+    offset: float = Field(ge=-30, le=30)
+
+
 class PlanUnsupported(_Strict):
     """Anything else: moving or resizing rooms or walls, new rooms, other furniture, materials, extra storeys."""
 
@@ -75,8 +110,8 @@ class PlanUnsupported(_Strict):
 
 
 PlanOp = Annotated[
-    PlanRenameRoom | PlanSetRoomType | PlanAddFixture | PlanRemoveFixture | PlanResizeOpening | PlanRemoveOpening
-    | PlanUnsupported,
+    PlanRenameRoom | PlanSetRoomType | PlanAddFixture | PlanRemoveFixture | PlanDeleteFixture | PlanMoveFixture | PlanRotateFixture
+    | PlanResizeOpening | PlanMoveOpening | PlanRemoveOpening | PlanUnsupported,
     Field(discriminator="op"),
 ]
 
@@ -131,8 +166,39 @@ def resolve_room(model: BuildingModel, ref: str) -> PlacedRoom:
     raise EditError(f"no room called '{ref}' (rooms: {known})")
 
 
+def resolve_fixture(model: BuildingModel, ref: str, room: str | None) -> PlacedFixture:
+    """A fixture by id, or by kind (inside `room` when given)."""
+    key = _norm(ref)
+    pool = model.fixtures
+    if room:
+        rid = resolve_room(model, room).id
+        pool = [f for f in pool if f.room_id == rid]
+    hit = [f for f in pool if _norm(f.id) == key]
+    if not hit:
+        hit = [f for f in pool if _norm(f.kind) == key or _norm(f.kind.replace("_", " ")) == key]
+    if len(hit) == 1:
+        return hit[0]
+    if hit:
+        raise EditError(f"'{ref}' is {len(hit)} fixtures; name one by id ({', '.join(f.id for f in hit)})")
+    raise EditError(f"no fixture '{ref}'" + (f" in {room}" if room else "") + f" (fixtures: {', '.join(f.id for f in pool) or 'none'})")
+
+
+def _fits(model: BuildingModel, fx: PlacedFixture, rect: tuple[float, float, float, float]) -> str | None:
+    """Why the fixture cannot stand at rect, or None when it can."""
+    room = model.room(fx.room_id)
+    poly = Polygon(room.polygon) if room.polygon else box(*room.net_rect)
+    body = box(*rect)
+    if not poly.buffer(0.01).contains(body):
+        return f"it would leave {room.name}"
+    for other in model.fixtures:
+        if other.id != fx.id and other.room_id == fx.room_id and body.intersects(box(*other.rect).buffer(-0.01)):
+            return f"it would overlap {other.kind} {other.id}"
+    return None
+
+
 _FACING: dict[Side, Side] = {"south": "north", "north": "south", "west": "east", "east": "west"}
 STEP = 0.1
+_ANGLE: dict[str, float] = {"east": 0.0, "north": 90.0, "west": 180.0, "south": 270.0}
 
 
 def _find_spot(model: BuildingModel, room: PlacedRoom, kind: str) -> PlacedFixture | None:
@@ -207,6 +273,42 @@ def apply_plan_ops(model: BuildingModel, ops: PlanOps) -> BuildingModel:
                 if hit is None:
                     raise EditError(f"{room.name} has no {op.fixture}")
                 data.fixtures.remove(hit)
+            case PlanDeleteFixture():
+                data.fixtures.remove(resolve_fixture(data, op.fixture, None))
+            case PlanMoveFixture():
+                fx = resolve_fixture(data, op.fixture, op.room)
+                x0, y0, x1, y1 = fx.rect
+                rect = (round(x0 + op.dx, 3), round(y0 + op.dy, 3), round(x1 + op.dx, 3), round(y1 + op.dy, 3))
+                if why := _fits(data, fx, rect):
+                    raise EditError(f"cannot move {fx.id} by ({op.dx:g}, {op.dy:g}) m: {why}")
+                fx.rect = rect
+            case PlanRotateFixture():
+                fx = resolve_fixture(data, op.fixture, op.room)
+                quarter = (round(((_ANGLE[op.facing] - _ANGLE[fx.facing]) % 360) / 90)) % 2 == 1
+                x0, y0, x1, y1 = fx.rect
+                cx, cy, hw, hd = (x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2, (y1 - y0) / 2
+                if quarter:
+                    hw, hd = hd, hw
+                rect = (round(cx - hw, 3), round(cy - hd, 3), round(cx + hw, 3), round(cy + hd, 3))
+                if why := _fits(data, fx, rect):
+                    raise EditError(f"cannot turn {fx.id} to face {op.facing}: {why}")
+                fx.rect, fx.facing = rect, op.facing
+            case PlanMoveOpening():
+                o = next((o for o in data.openings if _norm(o.id) == _norm(op.opening)), None)
+                if o is None:
+                    raise EditError(f"no opening '{op.opening}' (ids: {', '.join(x.id for x in data.openings)})")
+                w = next(w for w in data.walls if w.id == o.wall_id)
+                length = math.hypot(w.end[0] - w.start[0], w.end[1] - w.start[1])
+                ux, uy = (w.end[0] - w.start[0]) / length, (w.end[1] - w.start[1]) / length
+                pos = (o.center[0] - w.start[0]) * ux + (o.center[1] - w.start[1]) * uy + op.offset
+                if pos < o.width / 2 + 0.15 or pos > length - o.width / 2 - 0.15:
+                    raise EditError(f"{o.id} cannot move {op.offset:g} m: it must stay 0.15 m clear of the wall ends")
+                for other in data.openings:
+                    if other.id != o.id and other.wall_id == o.wall_id:
+                        op_pos = (other.center[0] - w.start[0]) * ux + (other.center[1] - w.start[1]) * uy
+                        if abs(op_pos - pos) < (o.width + other.width) / 2 + 0.05:
+                            raise EditError(f"{o.id} cannot move {op.offset:g} m: it would hit {other.id}")
+                o.center = (round(w.start[0] + ux * pos, 3), round(w.start[1] + uy * pos, 3))
             case PlanResizeOpening() | PlanRemoveOpening():
                 o = next((o for o in data.openings if _norm(o.id) == _norm(op.opening)), None)
                 if o is None:
