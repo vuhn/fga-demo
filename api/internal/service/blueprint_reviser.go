@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"strings"
 
 	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
@@ -23,15 +22,7 @@ func NewBlueprintReviser(blueprints gateway.BlueprintGateway, engine gateway.Blu
 // message into edits on the brief and rebuilds, keeping unchanged rooms in
 // place; the result is a new version. Versions never touch OpenFGA.
 func (s *blueprintReviser) Revise(ctx context.Context, actor, tenantID, id, message string, baseVersion int) (usecase.BlueprintDetail, error) {
-	message = strings.TrimSpace(message)
-	if n := len([]rune(message)); n < 1 || n > 2000 {
-		return usecase.BlueprintDetail{}, entity.Invalid("message length must be 1 to 2000")
-	}
-	b, cur, err := loadBlueprintForEdit(ctx, s.blueprints, s.authz, actor, tenantID, id, baseVersion)
-	if err != nil {
-		return usecase.BlueprintDetail{}, err
-	}
-	history, err := chatHistory(ctx, s.blueprints, id)
+	message, b, cur, history, err := prepareRevision(ctx, s.blueprints, s.authz, actor, tenantID, id, message, baseVersion)
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}

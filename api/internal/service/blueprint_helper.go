@@ -70,6 +70,23 @@ func staleVersion(b entity.Blueprint) error {
 	return entity.Conflict("blueprint is at version %d; reload and try again", b.CurrentVersion)
 }
 
+// prepareRevision is what a chat revision needs before the engine runs: the
+// trimmed message, the blueprint, its current version, and the chat history.
+// It does the can_edit Check and the base_version test, so a refused request
+// never reaches the LLM.
+func prepareRevision(ctx context.Context, blueprints gateway.BlueprintGateway, authz usecase.Authorizer, actor, tenantID, id, message string, baseVersion int) (string, entity.Blueprint, entity.BlueprintVersion, []string, error) {
+	message = strings.TrimSpace(message)
+	if n := len([]rune(message)); n < 1 || n > 2000 {
+		return "", entity.Blueprint{}, entity.BlueprintVersion{}, nil, entity.Invalid("message length must be 1 to 2000")
+	}
+	b, cur, err := loadBlueprintForEdit(ctx, blueprints, authz, actor, tenantID, id, baseVersion)
+	if err != nil {
+		return "", entity.Blueprint{}, entity.BlueprintVersion{}, nil, err
+	}
+	history, err := chatHistory(ctx, blueprints, id)
+	return message, b, cur, history, err
+}
+
 // requireBuilt turns an engine outcome without a model into a 400 carrying
 // the engine's reasons. Nothing is stored for it.
 func requireBuilt(o entity.BlueprintOutcome) error {

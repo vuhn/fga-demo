@@ -58,6 +58,10 @@ type BlueprintEngine interface {
 	// Revise turns a chat message into edits on the brief and rebuilds it.
 	// history is the earlier chat messages, oldest first.
 	Revise(ctx context.Context, brief, previous []byte, message string, history []string) (entity.BlueprintOutcome, error)
+	// ReviseStream is Revise that reports each step to onProgress while it
+	// works. An error returned before the first callback is the same as
+	// Revise's (the caller can still answer with a plain status).
+	ReviseStream(ctx context.Context, brief, previous []byte, message string, history []string, onProgress func(entity.BlueprintProgress)) (entity.BlueprintOutcome, error)
 	// Review lets the engine's reviewer fix the brief's failed checks in up
 	// to three rounds, keeping a round only when the issue score drops.
 	Review(ctx context.Context, brief, previous []byte, history []string) (entity.BlueprintOutcome, error)

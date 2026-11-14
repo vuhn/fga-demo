@@ -304,3 +304,64 @@ def test_from_sketch_rejects_broken_dxf():
     c, _ = client({})
     r = c.post("/v1/brief/from-sketch", files={"file": ("x.dxf", b"not a dxf", "application/octet-stream")})
     assert r.status_code == 422, r.text
+
+
+# ---- streaming revise ----
+
+def _lines(r):
+    import json
+    return [json.loads(x) for x in r.text.splitlines() if x]
+
+
+def test_revise_stream_emits_progress_then_result():
+    c, _ = client({"ops": [{"op": "set_side", "room": "the kitchen", "side": "north"}]})
+    base = c.post("/v1/generate", json={"brief": FAMILY_3BR.model_dump()}).json()["result"]
+    r = c.post("/v1/revise/stream", json={"brief": base["brief"], "previous": base["model"], "message": "kitchen north"})
+    assert r.status_code == 200 and r.headers["content-type"].startswith("application/x-ndjson")
+    evs = _lines(r)
+    stages = [e["stage"] for e in evs if e["event"] == "progress"]
+    assert stages[0] == "ask_model" and "ops" in stages and stages[-1] == "checks"
+    assert [e["event"] for e in evs].count("result") == 1 and evs[-1]["event"] == "result"
+    assert evs[-1]["data"]["result"]["model"] is not None
+
+
+def test_revise_stream_reports_retry_and_error():
+    bad = {"ops": [{"op": "set_side", "room": "the swimming pool", "side": "north"}]}
+    c, _ = client(bad)
+    base = c.post("/v1/generate", json={"brief": FAMILY_3BR.model_dump()}).json()["result"]
+    r = c.post("/v1/revise/stream", json={"brief": base["brief"], "previous": base["model"], "message": "pool north"})
+    evs = _lines(r)
+    assert [e["stage"] for e in evs if e["event"] == "progress"].count("retry") == 2
+    assert evs[-1]["event"] == "error" and evs[-1]["status"] == 422 and evs[-1]["error"] == "invalid_edit"
+
+
+def test_revise_stream_empty_message_is_plain_422():
+    c, _ = client({"ops": []})
+    base = c.post("/v1/generate", json={"brief": FAMILY_3BR.model_dump()}).json()["result"]
+    r = c.post("/v1/revise/stream", json={"brief": base["brief"], "previous": None, "message": "  "})
+    assert r.status_code == 422 and r.json()["error"] == "invalid_edit"
+
+
+def test_thinking_is_streamed_only_while_a_sink_listens():
+    import json as _json
+    import httpx
+    from blueprint_engine import progress
+    from blueprint_engine.llm import OllamaClient
+
+    def handler(request):
+        body = _json.loads(request.content)
+        if body["stream"]:
+            assert body["think"] is True
+            lines = [{"message": {"thinking": "Let me "}}, {"message": {"thinking": "think."}},
+                     {"message": {"content": '{"ops": [{"op": "set_side", "room": "kitchen", "side": "north"}]}'}}, {"message": {}, "done": True}]
+            return httpx.Response(200, content="\n".join(_json.dumps(x) for x in lines))
+        assert body["think"] is False
+        return httpx.Response(200, json={"message": {"content": '{"ops": [{"op": "set_side", "room": "kitchen", "side": "north"}]}'}})
+
+    llm = OllamaClient()
+    llm.http = httpx.Client(transport=httpx.MockTransport(handler))
+    seen = []
+    with progress.sink(seen.append):
+        assert llm.structured("s", "u", EditOps).ops[0].op == "set_side"
+    assert [e["kind"] for e in seen] == ["thinking"] and seen[0]["message"] == "Let me think."
+    assert llm.structured("s", "u", EditOps).ops[0].op == "set_side"  # no sink: plain call, think off

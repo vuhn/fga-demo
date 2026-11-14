@@ -184,6 +184,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 			SketchDrafter:   service.NewBlueprintSketchDrafter(projects, engine, authz),
 			Creator:         service.NewBlueprintCreator(projects, blueprints, blueprintRels, engine, authz, guard, ids),
 			Reviser:         service.NewBlueprintReviser(blueprints, engine, authz),
+			ReviseStreamer:  service.NewBlueprintReviseStreamer(blueprints, engine, authz),
 			Reviewer:        service.NewBlueprintReviewer(blueprints, engine, authz),
 			BriefUpdater:    service.NewBlueprintBriefUpdater(blueprints, engine, authz),
 			VersionLister:   service.NewBlueprintVersionLister(blueprints, authz),

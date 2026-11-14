@@ -29,6 +29,9 @@ Single place for "where are we". Read at session start, update at session end.
 
 - Follow-up (2026-11-14): DXF export now uses 25 AIA-style layers (exterior/interior walls and poche, door leaves vs swings, per-group furniture and sanitary layers, room boundary polylines, split dimensions/north arrow/border). Engine only; pytest 49. Restart `make engine`.
 
+- Follow-up (2026-11-14): live progress for chat revisions. Engine `POST /v1/revise/stream` (NDJSON: `progress` lines, then one `result` or `error`; `progress.py` context-var sink, cancelled when the client disconnects). Go `POST /blueprints/:id/revisions/stream` (SSE `progress`/`done`/`error`; same can_edit Check, base_version test and single write as `revisions`; refusals before the engine starts are plain JSON statuses), new usecase `BlueprintReviseStreamer`, `BlueprintEngine.ReviseStream`, `prepareRevision` shared with `BlueprintReviser`. Web: `apiStream` and a live "Working…" panel in the Chat tab (not stored). Engine pytest 52, Go vet/tests and `make check` pass; live qwen3 via the engine: ask_model -> ops -> layout -> checks in 17s. No model/authz change, so `make verify-live` not run. Restart `make api` and `make engine`. Not yet walked in the browser. Review (`/reviews`) streaming is not done.
+- Follow-up (2026-11-14): model thinking streamed live. While a stream endpoint listens, `OllamaClient` calls Ollama with `think: true, stream: true` (JSON `format` still applies; verified on Ollama 0.33.3 + qwen3) and forwards `message.thinking` as `kind: "thinking"` progress events (coalesced ~150 ms); the JSON answer is still validated whole. `BLUEPRINT_STREAM_THINKING=0` disables it. Not stored. Cost on qwen3: ~198s per revise with free thinking, ~49s (205 chunks, 1.8k chars) once the system prompt asks it to "think briefly"; the non-thinking call is ~17s. Sync endpoints unchanged (`think: false`).
+
 ## Last session
 
 - Built Part C (web); docs/web-ui.md and web/ARCHITECTURE.md aligned.

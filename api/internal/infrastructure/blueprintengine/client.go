@@ -4,6 +4,7 @@
 package blueprintengine
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -100,6 +101,59 @@ func (c *Client) Revise(ctx context.Context, brief, previous []byte, message str
 	err := c.postJSON(ctx, "/v1/revise", map[string]any{"brief": json.RawMessage(brief), "previous": rawOrNull(previous),
 		"message": message, "history": nonNil(history)}, &out)
 	return out.outcome(), err
+}
+
+// ReviseStream reads the engine's NDJSON stream: progress lines go to
+// onProgress, the result line is the outcome, an error line is mapped like a
+// plain engine error. A refusal before the stream opens comes back from send.
+func (c *Client) ReviseStream(ctx context.Context, brief, previous []byte, message string, history []string, onProgress func(entity.BlueprintProgress)) (entity.BlueprintOutcome, error) {
+	b, err := json.Marshal(map[string]any{"brief": json.RawMessage(brief), "previous": rawOrNull(previous),
+		"message": message, "history": nonNil(history)})
+	if err != nil {
+		return entity.BlueprintOutcome{}, err
+	}
+	resp, err := c.send(ctx, "/v1/revise/stream", "application/json", bytes.NewReader(b))
+	if err != nil {
+		return entity.BlueprintOutcome{}, err
+	}
+	defer resp.Body.Close()
+	r := bufio.NewReader(resp.Body)
+	for {
+		line, err := r.ReadBytes('\n')
+		if len(bytes.TrimSpace(line)) > 0 {
+			var ev struct {
+				Event   string          `json:"event"`
+				Kind    string          `json:"kind"`
+				Stage   string          `json:"stage"`
+				Message string          `json:"message"`
+				Status  int             `json:"status"`
+				Data    json.RawMessage `json:"data"`
+			}
+			if jerr := json.Unmarshal(line, &ev); jerr != nil {
+				return entity.BlueprintOutcome{}, fmt.Errorf("%w: bad engine stream: %v", entity.ErrEngineUnavailable, jerr)
+			}
+			switch ev.Event {
+			case "progress":
+				if onProgress != nil {
+					onProgress(entity.BlueprintProgress{Kind: ev.Kind, Stage: ev.Stage, Message: ev.Message})
+				}
+			case "result":
+				var out stepOut
+				if jerr := json.Unmarshal(ev.Data, &out); jerr != nil {
+					return entity.BlueprintOutcome{}, fmt.Errorf("%w: bad engine response: %v", entity.ErrEngineUnavailable, jerr)
+				}
+				return out.outcome(), nil
+			case "error":
+				if ev.Status/100 == 4 {
+					return entity.BlueprintOutcome{}, entity.Invalid("%s", ev.Message)
+				}
+				return entity.BlueprintOutcome{}, fmt.Errorf("%w: engine %d: %s", entity.ErrEngineUnavailable, ev.Status, ev.Message)
+			}
+		}
+		if err != nil {
+			return entity.BlueprintOutcome{}, fmt.Errorf("%w: engine stream ended without a result", entity.ErrEngineUnavailable)
+		}
+	}
 }
 
 func (c *Client) Review(ctx context.Context, brief, previous []byte, history []string) (entity.BlueprintOutcome, error) {

@@ -5,14 +5,17 @@ Run: uv run uvicorn blueprint_engine.app:app --port 8090
 
 from __future__ import annotations
 
+import json
+import queue
+import threading
 from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import llm_steps, pipeline
+from . import llm_steps, pipeline, progress
 from .draw import TitleBlock, build_dxf, to_dxf_bytes, to_pdf, to_svg
 from .edits import EditError
 from .ifc import to_ifc
@@ -111,6 +114,47 @@ def create_app(llm: LLMClient | None = None) -> FastAPI:
         if not body.message.strip():
             raise EditError("say what to change")
         return llm_steps.revise(app.state.llm, body.brief, body.previous, body.message[:2000], body.history)
+
+    @app.post("/v1/revise/stream")
+    def revise_stream(body: ReviseIn) -> StreamingResponse:
+        """revise, as NDJSON: progress lines while it works, then one result or error line. A bad
+        request is the usual 4xx before any line. Closing the connection cancels at the next step."""
+        if not body.message.strip():
+            raise EditError("say what to change")
+        events: queue.Queue[dict | None] = queue.Queue()
+        cancelled = threading.Event()
+
+        def put(ev: dict) -> None:
+            if cancelled.is_set():
+                raise progress.Cancelled()
+            events.put(ev)
+
+        def work() -> None:
+            try:
+                with progress.sink(put):
+                    step = llm_steps.revise(app.state.llm, body.brief, body.previous, body.message[:2000], body.history)
+                put({"event": "result", "data": step.model_dump(mode="json")})
+            except progress.Cancelled:
+                pass
+            except EditError as e:
+                events.put({"event": "error", "status": 422, "error": "invalid_edit", "message": str(e)})
+            except LLMError as e:
+                events.put({"event": "error", "status": 502, "error": "llm_unavailable", "message": str(e)})
+            except Exception as e:  # the stream is already open: report instead of dropping it
+                events.put({"event": "error", "status": 500, "error": "internal", "message": str(e)[:300]})
+            finally:
+                events.put(None)
+
+        threading.Thread(target=work, daemon=True).start()
+
+        def lines():
+            try:
+                while (ev := events.get()) is not None:
+                    yield json.dumps(ev) + "\n"
+            finally:
+                cancelled.set()
+
+        return StreamingResponse(lines(), media_type="application/x-ndjson")
 
     @app.post("/v1/review", response_model=llm_steps.StepResult)
     def review(body: ReviewIn) -> llm_steps.StepResult:

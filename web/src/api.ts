@@ -141,7 +141,8 @@ function authHeaders(): Record<string, string> {
 
 async function toError(res: Response): Promise<ApiError> {
   const data = await res.json().catch(() => ({}));
-  return new ApiError(res.status, data.error ?? "error", data.check, data.message);
+  // a non-JSON answer (a proxy page, a route the server does not have) still says what happened
+  return new ApiError(res.status, data.error ?? "error", data.check, data.message ?? (data.error ? undefined : `HTTP ${res.status} ${res.statusText}`.trim()));
 }
 
 export async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -153,6 +154,47 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
   if (res.status === 204) return undefined as T;
   if (!res.ok) throw await toError(res);
   return (await res.json().catch(() => ({}))) as T;
+}
+
+export type Progress = { kind: "step" | "thinking"; stage: string; message: string };
+
+/**
+ * POSTs and reads a Server-Sent Events answer (fetch, not EventSource: it needs the auth headers
+ * and a POST body). `progress` events go to onProgress; the `done` payload is returned. A refusal
+ * before the stream opens is the usual JSON error; an `error` event throws the same ApiError.
+ */
+export async function apiStream<T>(path: string, body: unknown, onProgress: (p: Progress) => void, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(`/api/v1${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...authHeaders() },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!res.ok) throw await toError(res);
+  if (!res.body) throw new ApiError(502, "no_stream");
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += value;
+    for (let i = buf.indexOf("\n\n"); i >= 0; i = buf.indexOf("\n\n")) {
+      const block = buf.slice(0, i);
+      buf = buf.slice(i + 2);
+      let event = "message";
+      let data = "";
+      for (const line of block.split("\n")) {
+        if (line.startsWith("event: ")) event = line.slice(7);
+        else if (line.startsWith("data: ")) data += line.slice(6);
+      }
+      if (!data) continue;
+      const payload = JSON.parse(data);
+      if (event === "progress") onProgress(payload as Progress);
+      else if (event === "done") return payload as T;
+      else if (event === "error") throw new ApiError(payload.status ?? 500, payload.error ?? "error", payload.check, payload.message);
+    }
+  }
+  throw new ApiError(502, "stream_ended", undefined, "the server closed the stream before finishing");
 }
 
 /** POSTs multipart form data (the browser sets the boundary). */
