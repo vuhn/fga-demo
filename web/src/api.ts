@@ -3,7 +3,7 @@
 /** The employer shown next to a person everywhere user info is displayed. */
 export type CompanyRef = { id: string; name: string };
 export type User = { id: string; email: string; name: string; is_system_admin: boolean; company: CompanyRef };
-export type Product = { product: "documents" | "photos"; enabled: boolean; updated_at: string };
+export type Product = { product: "documents" | "photos" | "blueprints"; enabled: boolean; updated_at: string };
 export type Tenant = {
   id: string;
   slug: string;
@@ -132,20 +132,113 @@ export const session = {
   },
 };
 
-export async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+function authHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
   if (session.token) headers.Authorization = `Bearer ${session.token}`;
   if (session.tenantId) headers["X-Tenant-ID"] = session.tenantId;
+  return headers;
+}
+
+async function toError(res: Response): Promise<ApiError> {
+  const data = await res.json().catch(() => ({}));
+  return new ApiError(res.status, data.error ?? "error", data.check, data.message);
+}
+
+export async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api/v1${path}`, {
     method,
-    headers,
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (res.status === 204) return undefined as T;
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(res.status, data.error ?? "error", data.check, data.message);
-  return data as T;
+  if (!res.ok) throw await toError(res);
+  return (await res.json().catch(() => ({}))) as T;
 }
+
+/** POSTs multipart form data (the browser sets the boundary). */
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const res = await fetch(`/api/v1${path}`, { method: "POST", headers: authHeaders(), body: form });
+  if (!res.ok) throw await toError(res);
+  return (await res.json()) as T;
+}
+
+/** GETs a binary response (drawings need the auth headers, so no plain <img src>). */
+export async function apiBlob(path: string): Promise<Blob> {
+  const res = await fetch(`/api/v1${path}`, { headers: authHeaders() });
+  if (!res.ok) throw await toError(res);
+  return res.blob();
+}
+
+// ---- Blueprints (the engine owns the brief schema; these mirror it) ----
+
+export type Side = "north" | "east" | "south" | "west";
+export const SIDES: Side[] = ["north", "east", "south", "west"];
+export const ROOM_TYPES = ["entry", "living", "kitchen", "dining", "study", "laundry", "storage", "bedroom", "bathroom"] as const;
+export type RoomType = (typeof ROOM_TYPES)[number];
+export const FIXTURE_KINDS = [
+  "bed", "wardrobe", "desk", "shelves", "sofa", "tv_unit", "dining_table", "kitchen_counter",
+  "sink", "stove", "fridge", "toilet", "basin", "shower", "bathtub", "washer",
+] as const;
+export type FixtureKind = (typeof FIXTURE_KINDS)[number];
+/** Types that may sit inside another room (ensuite, walk-in closet, pantry). */
+export const NESTABLE_TYPES: readonly RoomType[] = ["bathroom", "storage", "laundry"];
+/** The engine's per-type defaults, used when a room omits `fixtures`. */
+export const DEFAULT_FIXTURES: Record<RoomType, FixtureKind[]> = {
+  entry: [], living: ["sofa", "tv_unit"], kitchen: ["kitchen_counter", "sink", "stove", "fridge"],
+  dining: ["dining_table"], study: ["desk", "shelves"], laundry: ["washer", "sink"], storage: ["shelves"],
+  bedroom: ["bed", "wardrobe"], bathroom: ["toilet", "basin", "shower"],
+};
+export type BriefRoom = {
+  id: string;
+  name: string;
+  type: RoomType;
+  target_area: number;
+  min_width?: number | null;
+  side?: Side | null;
+  adjacent_to: string[];
+  needs_window?: boolean | null;
+  /** id of the room this one is inside (ensuite in a bedroom); its only door opens into that room. */
+  parent?: string | null;
+  fixtures?: FixtureKind[];
+};
+export type Brief = {
+  title: string;
+  lot: { width: number; depth: number; setbacks: { front: number; back: number; sides: number } };
+  entrance_side: Side;
+  rooms: BriefRoom[];
+  /** No walls between the hall, entry, living, kitchen and dining (the hall itself stays). */
+  open_plan?: boolean;
+};
+export type BlueprintCheck = {
+  rule: string;
+  severity: "error" | "warning";
+  ok: boolean;
+  message: string;
+  room_id?: string | null;
+  // issue record (older versions lack these)
+  category?: "geometry" | "collision" | "information" | "program" | "design";
+  issue_id?: string;
+  elements?: string[];
+  hint?: string;
+};
+export type BlueprintSource = { name: string; mime_type: string; byte_size: number };
+export type BlueprintVersionSummary = { version: number; kind: "create" | "revise" | "review" | "edit" | "restore"; message: string; ok: boolean; created_by: string; created_at: string };
+export type BlueprintVersion = BlueprintVersionSummary & { brief: Brief; model: unknown; checks: BlueprintCheck[]; notes: string[] };
+export type Blueprint = {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  name: string;
+  current_version: number;
+  source_kind: "prompt" | "sketch" | "form";
+  source: BlueprintSource | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  permissions?: Perms;
+};
+export type BlueprintDetail = Blueprint & { version: BlueprintVersion };
+export type BlueprintDraft = { brief: Brief; notes: string[]; source?: BlueprintSource };
 
 export const ROLES: Record<string, string[]> = {
   internal: ["internal_admin", "internal_user"],

@@ -1,6 +1,6 @@
 # OpenFGA multi-tenant authorization demo
 
-This repository is a teaching demo of [OpenFGA](https://openfga.dev) in a multi-tenant application. A Go API owns users, tenants, documents, and photos. OpenFGA owns every allow or deny decision. A React admin panel built with Mantine is the clickable proof.
+This repository is a teaching demo of [OpenFGA](https://openfga.dev) in a multi-tenant application. A Go API owns users, tenants, documents, photos, and blueprints (AI-drafted floor plans). OpenFGA owns every allow or deny decision. A React admin panel built with Mantine is the clickable proof.
 
 Postgres stores names, membership labels, and file metadata. It is the display record. OpenFGA stores relationship tuples and answers Check and ListObjects. The API allows a content action only after OpenFGA returns true.
 
@@ -12,7 +12,7 @@ How the system is built is in [ARCHITECTURE.md](ARCHITECTURE.md), with detailed 
 - Tenant-wide defaults by affiliation: internal members see and edit all content; external members see public content. Nobody has to share the client folder with each guest.
 - Private wins: a folder or album is visible to externals only when it and every ancestor are public. One private parent hides the whole subtree, without OpenFGA `but not`.
 - Shares into private content: an internal admin can open a private folder to one external person or to all external users or admins.
-- Entitlements: the documents product and the photos product are wildcard tuples. Content checks intersect that wildcard, so disabling a product fails every content check while the content tuples stay.
+- Entitlements: the documents, photos, and blueprints products are wildcard tuples. Content checks intersect that wildcard, so disabling a product fails every content check while the content tuples stay.
 - Check versus ListObjects: a single object uses Check. A page of documents uses ListObjects, then a Postgres query for those ids only.
 - Tenant isolation: the same person can be an internal admin of Acme and an external user of Globex. The JWT carries the user id. The active tenant is a header.
 
@@ -76,7 +76,7 @@ Exact ids and tuples are in [docs/seed-data.md](docs/seed-data.md); API fields a
 
 ## Five-minute script
 
-1. Sign in as Ada. The tenant directory shows Acme and Globex with both products on. Her tenant switcher is empty and she sees no files. She can add a user to a tenant as internal or external, and the role list follows that choice.
+1. Sign in as Ada. The tenant directory shows Acme with all three products on and Globex with documents and photos on and blueprints off. Her tenant switcher is empty and she sees no files. She can add a user to a tenant as internal or external, and the role list follows that choice.
 2. Sign in as Bob, select Acme, and open the project Tower A (Documents tab). He sees every folder with a Private or Public badge; Legal shows "Public · hidden by parent". Only internal admins have the Members menu: there he sees product status (read-only, with no switches) and manages members; the filter Internal shows Bob and Cara, External shows Dan and Fay.
 3. Sign in as Cara. In Tower A she sees every Acme folder, private or public, without any share, and can add documents anywhere. She cannot delete Secret (Bob owns it) and cannot change visibility. She has no Members menu, and opening the tenant page by URL says "Not available".
 4. Sign in as Dan and open Projects, then Tower A (he is not in Annex). Documents and Photos are tabs inside the project. He sees Client (Client Brief, Visit Agenda) and Partners (Partner Deck, shared with him), plus the Client visit album. He does not see Company, Board, Legal, or Specs. He has no upload or create buttons.
@@ -86,7 +86,8 @@ Exact ids and tuples are in [docs/seed-data.md](docs/seed-data.md); API fields a
 8. As Bob, share Board with all external admins as viewer. Fay sees Board, Q3 Plan, and Legal but cannot edit; Dan still cannot see Board. Revoke it.
 9. As Ada, open Acme from the tenant directory and disable photos (only the platform admin can). Sign in as Bob: the Photos tab is gone from every Acme project for every member, and his Members page shows Photos as disabled. Kickoff's owner tuple is still visible in the inspector. Ada enables photos again and everything comes back.
 10. As Bob, remove Dan from Acme. Dan loses Acme in the switcher and every Acme file, including the Partners share.
-11. Sign in as Bob and switch to Globex. He sees only the public Client folder and Client visit album, with no create buttons: he is an external user there.
+11. Sign in as Bob and switch to Globex. He sees only the public Client folder and Client visit album, with no create buttons: he is an external user there. There is no Blueprints tab: the product is off in Globex.
+12. Blueprints (needs `make engine` and Ollama; see Run). As Cara, open Tower A, Blueprints tab, New blueprint, and type "Two bedroom house, one bathroom, 16 x 24 lot, entrance south". Review the drafted brief, then Generate. In Chat, send "add a study": a new version appears and the other rooms stay where they were. Send "add an ensuite with a bathtub inside bedroom 1": the ensuite is carved out of that bedroom and opens only into it, and the drawing shows fixtures such as beds, the kitchen run and bathroom fittings. In Checks, if any check fails, press "Fix issues with AI": a version marked "AI review" lists each round it kept, and no room is removed. Restore version 1 from Versions, and download the DXF and the IFC (a BIM model that opens in an IFC viewer). Dan does not see the blueprint until Cara shares it with him as viewer; he then sees it but has no Chat or Brief editing. Sharing it to Dan as editor is refused (`cannot_upload`).
 
 ## Run
 
@@ -104,6 +105,16 @@ In a second shell:
 ```bash
 cd web && npm install && npm run dev
 ```
+
+For Blueprints (optional; requires [uv](https://docs.astral.sh/uv/) and [Ollama](https://ollama.com) running natively):
+
+```bash
+ollama pull qwen3           # text model (8B, installed as qwen3:latest)
+ollama pull qwen2.5vl:7b    # vision model, only for sketch upload
+make engine                 # blueprint-engine on :8090
+```
+
+Without the engine, every other step works and blueprint actions return 502 `engine_unavailable`.
 
 - Admin panel: http://localhost:5173
 - API: http://localhost:8088
