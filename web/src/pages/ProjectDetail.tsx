@@ -3,7 +3,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { IconTrash, IconUserPlus } from "@tabler/icons-react";
 import { lazy, Suspense, useCallback, useEffect, useState, type FormEvent } from "react";
 
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { api, CUSTOM_PERMISSIONS, memberRoleOptions, type Member, type Project, type ProjectMember, type ProjectRole } from "../api";
 import { useAuth } from "../auth";
 import { canProject, Can, useCan } from "../permissions";
@@ -11,6 +11,7 @@ import { AffiliationBadge, CompanyBadge, confirmDanger, notifyError, PageHeader,
 
 const Documents = lazy(() => import("./Documents"));
 const Photos = lazy(() => import("./Photos"));
+const Blueprints = lazy(() => import("./Blueprints"));
 
 /**
  * Project page: documents and photos of the project, plus its members and roles. A member's effective permissions in the project
@@ -28,6 +29,8 @@ export default function ProjectDetail() {
   const canRoles = useCan("project.roles.manage");
   const docs = useCan("nav.documents");
   const photos = useCan("nav.photos");
+  const blueprints = useCan("nav.blueprints");
+  const [params, setParams] = useSearchParams();
 
   const load = useCallback(async () => {
     if (!me) return;
@@ -65,14 +68,22 @@ export default function ProjectDetail() {
     );
   }
   const manage = canProject(project, "manageMembers");
+  const visible = [docs && "documents", photos && "photos", blueprints && "blueprints", "members"].filter(Boolean) as string[];
+  const requested = params.get("tab");
+  const tab = requested && visible.includes(requested) ? requested : visible[0];
 
   return (
     <>
-      <PageHeader title={project.name} description="Documents, photos, and members of this project. Member permissions add to their tenant role." />
-      <Tabs defaultValue={docs ? "documents" : photos ? "photos" : "members"} keepMounted={false}>
+      <PageHeader title={project.name} description="Documents, photos, blueprints, and members of this project. Member permissions add to their tenant role." />
+      <Tabs
+        value={tab}
+        onChange={(v) => setParams(v ? { tab: v } : {}, { replace: true })}
+        keepMounted={false}
+      >
         <Tabs.List mb="md">
           {docs && <Tabs.Tab value="documents">Documents</Tabs.Tab>}
           {photos && <Tabs.Tab value="photos">Photos</Tabs.Tab>}
+          {blueprints && <Tabs.Tab value="blueprints">Blueprints</Tabs.Tab>}
           <Tabs.Tab value="members">Members &amp; roles</Tabs.Tab>
         </Tabs.List>
         {docs && (
@@ -86,6 +97,13 @@ export default function ProjectDetail() {
           <Tabs.Panel value="photos">
             <Suspense fallback={<Loader />}>
               <Photos project={project} />
+            </Suspense>
+          </Tabs.Panel>
+        )}
+        {blueprints && (
+          <Tabs.Panel value="blueprints">
+            <Suspense fallback={<Loader />}>
+              <Blueprints project={project} />
             </Suspense>
           </Tabs.Panel>
         )}

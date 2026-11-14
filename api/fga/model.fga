@@ -20,6 +20,7 @@ type tenant
     define external_admin: [user]
     define documents_enabled: [user:*]
     define photos_enabled: [user:*]
+    define blueprints_enabled: [user:*]
     define internal_role: [tenant_role]
     define external_role: [tenant_role]
     define custom_internal: assignee from internal_role
@@ -72,6 +73,7 @@ type project
     define can_create_album: can_contribute and photos_enabled from tenant
     define can_create_private_folder: can_access and (internal_user from tenant or grant_create_private from tenant or grant_create_private) and documents_enabled from tenant
     define can_create_private_album: can_access and (internal_user from tenant or grant_create_private from tenant or grant_create_private) and photos_enabled from tenant
+    define can_create_blueprint: can_contribute and blueprints_enabled from tenant
 
 type folder
   relations
@@ -136,5 +138,18 @@ type photo
     define can_view: (internal_user from tenant or viewer or external_visible from album or grant_view from tenant or grant_edit from tenant or grant_manage from tenant or grant_view from project or grant_edit from project or grant_manage from project) and can_access from project and photos_enabled from tenant
     define can_edit: (internal_user from tenant or editor or (external_visible from album and (external_admin from tenant or external_admin from project)) or grant_edit from tenant or grant_manage from tenant or grant_edit from project or grant_manage from project) and can_contribute from project and photos_enabled from tenant
     define can_manage: (owner or internal_admin from tenant or internal_admin from project or grant_manage from tenant or grant_manage from project) and can_contribute from project and photos_enabled from tenant
+    define can_delete: can_manage
+    define can_share: can_manage
+
+type blueprint
+  relations
+    define tenant: [tenant]
+    define project: [project]
+    define owner: [user]
+    define editor: [user, tenant#external_admin] or owner
+    define viewer: [user, tenant#external_user, tenant#external_admin] or editor
+    define can_view: (internal_user from tenant or viewer or grant_view from tenant or grant_edit from tenant or grant_manage from tenant or grant_view from project or grant_edit from project or grant_manage from project) and can_access from project and blueprints_enabled from tenant
+    define can_edit: (internal_user from tenant or editor or grant_edit from tenant or grant_manage from tenant or grant_edit from project or grant_manage from project) and can_contribute from project and blueprints_enabled from tenant
+    define can_manage: (owner or internal_admin from tenant or internal_admin from project or grant_manage from tenant or grant_manage from project) and can_contribute from project and blueprints_enabled from tenant
     define can_delete: can_manage
     define can_share: can_manage
