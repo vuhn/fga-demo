@@ -2,6 +2,7 @@ package blueprintengine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -131,5 +132,64 @@ func TestReviseStreamErrorsMapToSentinels(t *testing.T) {
 	srv.Close()
 	if !errors.Is(err, entity.ErrEngineUnavailable) {
 		t.Errorf("empty stream: got %v", err)
+	}
+}
+
+func TestImportDXFSendsTheFileAndUnitAndParsesPlans(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/import/dxf" {
+			t.Errorf("path %s", r.URL.Path)
+		}
+		if err := r.ParseMultipartForm(1 << 20); err != nil {
+			t.Fatal(err)
+		}
+		f, h, err := r.FormFile("file")
+		if err != nil || h.Filename != "plan.dxf" {
+			t.Fatalf("file %v %v", h, err)
+		}
+		b, _ := io.ReadAll(f)
+		if string(b) != "DXFDATA" || r.FormValue("unit") != "mm" {
+			t.Errorf("body %q unit %q", b, r.FormValue("unit"))
+		}
+		io.WriteString(w, `{"plans":[{"index":1,"name":"Plan 1","room_count":3,"net_area":41.5,"ok":true,"model":{"source":"imported"},"checks":[],"svg":"<svg/>"}],"report":{"units":"mm"}}`)
+	}))
+	defer srv.Close()
+	res, err := New(srv.URL).ImportDXF(context.Background(), entity.Upload{Name: "plan.dxf", MimeType: entity.DXFMimeType, Data: []byte("DXFDATA")}, "mm")
+	if err != nil || len(res.Plans) != 1 {
+		t.Fatalf("%v %v", res, err)
+	}
+	p := res.Plans[0]
+	if p.RoomCount != 3 || p.NetArea != 41.5 || !p.OK || string(p.Model) != `{"source":"imported"}` || string(res.Report) != `{"units":"mm"}` {
+		t.Errorf("plan %+v report %s", p, res.Report)
+	}
+}
+
+func TestImportDXFRefusalIsValidation(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(422)
+		io.WriteString(w, `{"error":"invalid_edit","message":"no wall linework found"}`)
+	}))
+	defer srv.Close()
+	_, err := New(srv.URL).ImportDXF(context.Background(), entity.Upload{Name: "a.dxf", Data: []byte("x")}, "")
+	if !errors.Is(err, entity.ErrValidation) || !strings.Contains(err.Error(), "no wall linework") {
+		t.Errorf("got %v", err)
+	}
+}
+
+func TestRevisePlanSendsTheModelNotABrief(t *testing.T) {
+	var path string
+	var body map[string]json.RawMessage
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		json.NewDecoder(r.Body).Decode(&body)
+		io.WriteString(w, `{"result":{"model":{"a":1},"checks":[],"issues":[],"ok":true,"notes":[]},"notes":["applied"]}`)
+	}))
+	defer srv.Close()
+	out, err := New(srv.URL).RevisePlan(context.Background(), []byte(`{"rooms":[]}`), "rename", nil)
+	if err != nil || !out.Built() || path != "/v1/plan/revise" || string(body["model"]) != `{"rooms":[]}` || body["brief"] != nil {
+		t.Fatalf("%v %s %v %+v", err, path, body, out)
+	}
+	if len(out.Brief) != 0 {
+		t.Fatalf("a plan edit has no brief, got %s", out.Brief)
 	}
 }

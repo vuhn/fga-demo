@@ -39,7 +39,8 @@ Object ids below are bare. The fga infrastructure formats them.
 | Share or revoke on a folder or document | actor | `can_share` | that object |
 | Album and photo verbs | actor | the album or photo relation with the same name as the folder or document verb | that album or photo |
 | Delete folder or album | actor | `can_delete` | that folder or album |
-| Draft a blueprint brief (text or sketch), create a blueprint | actor | `can_create_blueprint` | that project |
+| Draft a blueprint brief (text or sketch), create a blueprint, preview or run a DXF import | actor | `can_create_blueprint` | that project |
+| Download the stored original file of an imported blueprint | actor | `can_edit` | that blueprint (not `can_view`) |
 | List blueprints | actor | ListObjects `can_view` | type `blueprint` |
 | Get a blueprint, list its versions, render its drawing | actor | `can_view` (404 when denied) | that blueprint |
 | Revise by chat, fix issues with AI (review), edit the brief, restore a version, rename a blueprint | actor | `can_edit` | that blueprint |

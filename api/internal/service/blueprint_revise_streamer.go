@@ -26,12 +26,21 @@ func (s *blueprintReviseStreamer) ReviseStream(ctx context.Context, actor, tenan
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
-	out, err := s.engine.ReviseStream(ctx, cur.Brief, cur.Model, message, history, onProgress)
+	imported := isImported(cur)
+	var out entity.BlueprintOutcome
+	if imported {
+		out, err = s.engine.RevisePlanStream(ctx, cur.Model, message, history, onProgress)
+	} else {
+		out, err = s.engine.ReviseStream(ctx, cur.Brief, cur.Model, message, history, onProgress)
+	}
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
 	if err := requireBuilt(out); err != nil {
 		return usecase.BlueprintDetail{}, err
+	}
+	if imported {
+		return appendBlueprintVersion(ctx, s.blueprints, b, planOutcomeVersion(id, entity.BlueprintVersionRevise, message, actor, out), baseVersion)
 	}
 	return appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(id, entity.BlueprintVersionRevise, message, actor, out), baseVersion)
 }

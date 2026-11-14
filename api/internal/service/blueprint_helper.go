@@ -66,6 +66,24 @@ func loadBlueprintForEdit(ctx context.Context, blueprints gateway.BlueprintGatew
 	return b, v, err
 }
 
+// isImported reports whether a version came from a CAD file (no brief).
+func isImported(v entity.BlueprintVersion) bool { return requireBrief(v) != nil }
+
+// planOutcomeVersion is outcomeVersion for an imported plan: the brief stays null.
+func planOutcomeVersion(blueprintID, kind, message, actor string, o entity.BlueprintOutcome) entity.BlueprintVersion {
+	o.Brief = json.RawMessage("null")
+	return outcomeVersion(blueprintID, kind, message, actor, o)
+}
+
+// requireBrief refuses the brief-based operations (AI review, form edit) on an imported plan,
+// whose version has no brief: its geometry came from a file and is not regenerated.
+func requireBrief(v entity.BlueprintVersion) error {
+	if t := strings.TrimSpace(string(v.Brief)); t == "" || t == "null" {
+		return entity.Invalid("this blueprint was imported from a DXF and has no brief; the AI review and the brief form are not available for it (use chat)")
+	}
+	return nil
+}
+
 func staleVersion(b entity.Blueprint) error {
 	return entity.Conflict("blueprint is at version %d; reload and try again", b.CurrentVersion)
 }

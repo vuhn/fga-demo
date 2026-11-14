@@ -30,6 +30,9 @@ func (s *blueprintBriefUpdater) UpdateBrief(ctx context.Context, actor, tenantID
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
+	if err := requireBrief(cur); err != nil {
+		return usecase.BlueprintDetail{}, err
+	}
 	out, err := s.engine.Generate(ctx, brief, cur.Model, false)
 	if err != nil {
 		return usecase.BlueprintDetail{}, err

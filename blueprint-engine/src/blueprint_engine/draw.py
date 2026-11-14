@@ -18,7 +18,7 @@ import ezdxf
 from ezdxf.addons.drawing import Frontend, RenderContext, layout, svg
 from ezdxf.addons.drawing.config import BackgroundPolicy, ColorPolicy, Configuration
 from ezdxf.document import Drawing
-from shapely.geometry import LineString, MultiPolygon, Polygon, box
+from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 from shapely.ops import unary_union
 
 from .schemas import BuildingModel, Opening, PlacedFixture, Wall
@@ -145,12 +145,14 @@ def _wall_poly(w: Wall):
 
 
 def _opening_cut(o: Opening, w: Wall):
+    """The wall slice an opening removes, along the wall's own direction (walls may be angled)."""
     (x0, y0), (x1, y1) = w.start, w.end
-    horizontal = abs(y1 - y0) < 1e-9
+    length = math.hypot(x1 - x0, y1 - y0) or 1.0
+    ux, uy = (x1 - x0) / length, (y1 - y0) / length
     cx, cy = o.center
     h = o.width / 2
-    t = w.thickness / 2 + 0.01
-    return box(cx - h, cy - t, cx + h, cy + t) if horizontal else box(cx - t, cy - h, cx + t, cy + h)
+    return LineString([(cx - ux * h, cy - uy * h), (cx + ux * h, cy + uy * h)]).buffer(
+        w.thickness / 2 + 0.01, cap_style="flat")
 
 
 def _polys(geom) -> list[Polygon]:
@@ -177,7 +179,7 @@ def build_dxf(model: BuildingModel, tb: TitleBlock | None = None) -> tuple[Drawi
     # lot boundary, only when the whole lot fits on the sheet at this scale
     lw_, ld_ = model.lot
     fx0, fy0, fx1, fy1 = model.footprint
-    show_lot = _fits(lw_, ld_, denom, paper)
+    show_lot = model.source == "generated" and _fits(lw_, ld_, denom, paper)
     sheet_cx, sheet_cy = ((lw_ / 2, ld_ / 2) if show_lot else ((fx0 + fx1) / 2, (fy0 + fy1) / 2))
     if show_lot:
         msp.add_lwpolyline([(0, 0), (lw_, 0), (lw_, ld_), (0, ld_)], close=True,
@@ -228,8 +230,8 @@ def build_dxf(model: BuildingModel, tb: TitleBlock | None = None) -> tuple[Drawi
         target = rooms.get(o.swing_into or "")
         nx, ny = -uy, ux
         if target is not None:
-            rx = (target.rect[0] + target.rect[2]) / 2
-            ry = (target.rect[1] + target.rect[3]) / 2
+            rx = (target.net_rect[0] + target.net_rect[2]) / 2
+            ry = (target.net_rect[1] + target.net_rect[3]) / 2
             if (rx - cx) * nx + (ry - cy) * ny < 0:
                 nx, ny = -nx, -ny
         hx, hy = cx - ux * h + nx * t, cy - uy * h + ny * t  # hinge on the room face
@@ -245,8 +247,7 @@ def build_dxf(model: BuildingModel, tb: TitleBlock | None = None) -> tuple[Drawi
 
     # room boundaries (net floor area): one closed polyline per room, what area take-offs read
     for r in model.rooms:
-        x0, y0, x1, y1 = r.net_rect
-        msp.add_lwpolyline([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True, dxfattribs={"layer": "A-AREA-BNDY"})
+        msp.add_lwpolyline(r.net_polygon(), close=True, dxfattribs={"layer": "A-AREA-BNDY"})
 
     # room labels, moved off the fixtures where the room has space
     for r in model.rooms:
@@ -255,8 +256,11 @@ def build_dxf(model: BuildingModel, tb: TitleBlock | None = None) -> tuple[Drawi
         fit = (x1 - x0) * 0.9 / (0.6 * max(len(r.name), 6))  # rough glyph width 0.6 x height
         h = min(0.22 * k, fit)
         mt = msp.add_mtext(text, dxfattribs={"layer": "A-AREA-IDEN", "char_height": h, "style": "OpenSans"})
-        mt.set_location(_label_spot(r.net_rect, 0.6 * h * max(len(r.name), 7), 2.6 * h,
-                                    [f.rect for f in model.fixtures if f.room_id == r.id]), attachment_point=5)
+        bodies = [f.rect for f in model.fixtures if f.room_id == r.id]
+        spot = _label_spot(r.net_rect, 0.6 * h * max(len(r.name), 7), 2.6 * h, bodies)
+        if r.polygon:  # a non-rectangular room: keep the label inside it
+            spot = _inside_spot(r.polygon, spot)
+        mt.set_location(spot, attachment_point=5)
 
     # dimensions to wall centerlines: room chains on all four sides, overall on south and west
     dim_over = {"dimlfac": 1.0, "dimtxt": 0.18 * k, "dimasz": 0.1 * k, "dimtsz": 0.08 * k, "dimexo": 0.1 * k,
@@ -331,6 +335,17 @@ def build_dxf(model: BuildingModel, tb: TitleBlock | None = None) -> tuple[Drawi
             msp.add_line((fx, oy + m), (fx, oy + m + strip), dxfattribs=ttl)
 
     return doc, sheet
+
+
+def _inside_spot(polygon: list[tuple[float, float]], spot: tuple[float, float]) -> tuple[float, float]:
+    """`spot` when it lies inside the polygon, else the polygon's pole of inaccessibility."""
+    poly = Polygon(polygon)
+    if poly.contains(Point(spot)):
+        return spot
+    from shapely.ops import polylabel
+
+    p = polylabel(poly, tolerance=0.05)
+    return (p.x, p.y)
 
 
 def _label_spot(net, w: float, h: float, bodies: list) -> tuple[float, float]:

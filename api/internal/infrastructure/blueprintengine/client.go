@@ -90,6 +90,52 @@ func (c *Client) BriefFromSketch(ctx context.Context, file entity.Upload, note s
 	return entity.BlueprintDraft{Brief: out.Brief, Notes: out.Notes}, nil
 }
 
+type importOut struct {
+	Plans []struct {
+		Index     int             `json:"index"`
+		Name      string          `json:"name"`
+		RoomCount int             `json:"room_count"`
+		NetArea   float64         `json:"net_area"`
+		OK        bool            `json:"ok"`
+		Model     json.RawMessage `json:"model"`
+		Checks    json.RawMessage `json:"checks"`
+		SVG       string          `json:"svg"`
+	} `json:"plans"`
+	Report json.RawMessage `json:"report"`
+}
+
+// ImportDXF sends the file to /v1/import/dxf. The engine reads it and keeps nothing.
+func (c *Client) ImportDXF(ctx context.Context, file entity.Upload, unit string) (entity.BlueprintImport, error) {
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	h := textproto.MIMEHeader{}
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename=%q`, file.Name))
+	h.Set("Content-Type", file.MimeType)
+	part, err := w.CreatePart(h)
+	if err != nil {
+		return entity.BlueprintImport{}, err
+	}
+	if _, err := part.Write(file.Data); err != nil {
+		return entity.BlueprintImport{}, err
+	}
+	if err := w.WriteField("unit", unit); err != nil {
+		return entity.BlueprintImport{}, err
+	}
+	if err := w.Close(); err != nil {
+		return entity.BlueprintImport{}, err
+	}
+	var out importOut
+	if err := c.do(ctx, "/v1/import/dxf", w.FormDataContentType(), &body, &out); err != nil {
+		return entity.BlueprintImport{}, err
+	}
+	res := entity.BlueprintImport{Report: out.Report}
+	for _, p := range out.Plans {
+		res.Plans = append(res.Plans, entity.BlueprintImportPlan{Index: p.Index, Name: p.Name, RoomCount: p.RoomCount,
+			NetArea: p.NetArea, OK: p.OK, Model: p.Model, Checks: p.Checks, SVG: p.SVG})
+	}
+	return res, nil
+}
+
 func (c *Client) Generate(ctx context.Context, brief, previous []byte, repair bool) (entity.BlueprintOutcome, error) {
 	var out stepOut
 	err := c.postJSON(ctx, "/v1/generate", map[string]any{"brief": json.RawMessage(brief), "previous": rawOrNull(previous), "repair": repair}, &out)
@@ -107,12 +153,29 @@ func (c *Client) Revise(ctx context.Context, brief, previous []byte, message str
 // onProgress, the result line is the outcome, an error line is mapped like a
 // plain engine error. A refusal before the stream opens comes back from send.
 func (c *Client) ReviseStream(ctx context.Context, brief, previous []byte, message string, history []string, onProgress func(entity.BlueprintProgress)) (entity.BlueprintOutcome, error) {
-	b, err := json.Marshal(map[string]any{"brief": json.RawMessage(brief), "previous": rawOrNull(previous),
-		"message": message, "history": nonNil(history)})
+	return c.stream(ctx, "/v1/revise/stream", map[string]any{"brief": json.RawMessage(brief), "previous": rawOrNull(previous),
+		"message": message, "history": nonNil(history)}, onProgress)
+}
+
+// RevisePlan is the chat edit of an imported plan: no brief, the model as drawn is edited by ops.
+func (c *Client) RevisePlan(ctx context.Context, model []byte, message string, history []string) (entity.BlueprintOutcome, error) {
+	var out stepOut
+	err := c.postJSON(ctx, "/v1/plan/revise", map[string]any{"model": json.RawMessage(model), "message": message,
+		"history": nonNil(history)}, &out)
+	return out.outcome(), err
+}
+
+func (c *Client) RevisePlanStream(ctx context.Context, model []byte, message string, history []string, onProgress func(entity.BlueprintProgress)) (entity.BlueprintOutcome, error) {
+	return c.stream(ctx, "/v1/plan/revise/stream", map[string]any{"model": json.RawMessage(model), "message": message,
+		"history": nonNil(history)}, onProgress)
+}
+
+func (c *Client) stream(ctx context.Context, path string, payload map[string]any, onProgress func(entity.BlueprintProgress)) (entity.BlueprintOutcome, error) {
+	b, err := json.Marshal(payload)
 	if err != nil {
 		return entity.BlueprintOutcome{}, err
 	}
-	resp, err := c.send(ctx, "/v1/revise/stream", "application/json", bytes.NewReader(b))
+	resp, err := c.send(ctx, path, "application/json", bytes.NewReader(b))
 	if err != nil {
 		return entity.BlueprintOutcome{}, err
 	}

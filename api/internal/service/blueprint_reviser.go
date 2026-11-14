@@ -26,6 +26,16 @@ func (s *blueprintReviser) Revise(ctx context.Context, actor, tenantID, id, mess
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
+	if isImported(cur) { // no brief: the engine edits the model as drawn
+		out, err := s.engine.RevisePlan(ctx, cur.Model, message, history)
+		if err != nil {
+			return usecase.BlueprintDetail{}, err
+		}
+		if err := requireBuilt(out); err != nil {
+			return usecase.BlueprintDetail{}, err
+		}
+		return appendBlueprintVersion(ctx, s.blueprints, b, planOutcomeVersion(id, entity.BlueprintVersionRevise, message, actor, out), baseVersion)
+	}
 	out, err := s.engine.Revise(ctx, cur.Brief, cur.Model, message, history)
 	if err != nil {
 		return usecase.BlueprintDetail{}, err

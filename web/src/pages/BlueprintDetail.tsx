@@ -11,6 +11,7 @@ import {
   List,
   Loader,
   Paper,
+  SegmentedControl,
   ScrollArea,
   Stack,
   Table,
@@ -43,12 +44,14 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, apiBlob, apiStream, type Progress, type BlueprintDetail as Detail, type BlueprintVersionSummary, type Brief } from "../api";
 import { useAuth } from "../auth";
 import BriefEditor from "../components/BriefEditor";
+import PlanViewer from "../components/PlanViewer";
 import ShareDialog from "../components/ShareDialog";
+import { asPlanModel } from "../blueprintModel";
 import { canAct } from "../permissions";
 import { confirmDanger, notifyError, PageHeader, run } from "../ui";
 import { RenameBlueprintModal } from "./Blueprints";
 
-const KIND_LABEL: Record<BlueprintVersionSummary["kind"], string> = { create: "created", revise: "chat", review: "AI review", edit: "form edit", restore: "restore" };
+const KIND_LABEL: Record<BlueprintVersionSummary["kind"], string> = { create: "created", revise: "chat", review: "AI review", edit: "form edit", restore: "restore", import: "imported" };
 
 /**
  * One blueprint: the drawing on the left; chat, brief form, checks, and
@@ -69,6 +72,7 @@ export default function BlueprintDetail() {
   const [thinking, setThinking] = useState<Progress[]>([]); // live steps of the running chat revision; never stored
   const [thought, setThought] = useState(""); // the model's reasoning for the current attempt; never stored
   const thoughtView = useRef<HTMLDivElement>(null);
+  const [mode, setMode] = useState<"sheet" | "viewer">("sheet");
   const [busy, setBusy] = useState<"" | "chat" | "brief" | "restore" | "review">("");
   const [renaming, setRenaming] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -137,7 +141,7 @@ export default function BlueprintDetail() {
       </Stack>
     );
   }
-  if (!detail || !brief) {
+  if (!detail) {
     return (
       <Center py="xl">
         <Loader />
@@ -147,6 +151,9 @@ export default function BlueprintDetail() {
 
   const canEdit = canAct(detail, "blueprint", "revise");
   const base = detail.current_version;
+  // an imported plan has no brief: its geometry came from a DXF, so the AI review and the brief form do not apply; chat edits the plan as drawn
+  const imported = detail.version.brief === null;
+  const planModel = asPlanModel(detail.version.model);
   const dirty = JSON.stringify(brief) !== JSON.stringify(detail.version.brief);
 
   /** Runs a versioned write, then shows the new current version. */
@@ -182,6 +189,20 @@ export default function BlueprintDetail() {
   };
 
   const review = () => void write("review", () => api("POST", `/blueprints/${bid}/reviews`, { base_version: base }), "Reviewed");
+
+  const downloadOriginal = async () => {
+    try {
+      const blob = await apiBlob(`/blueprints/${bid}/source`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = detail.source?.name ?? "original.dxf";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      notifyError(e);
+    }
+  };
 
   const download = async (format: "pdf" | "dxf" | "ifc") => {
     try {
@@ -230,7 +251,9 @@ export default function BlueprintDetail() {
             )}
           </Group>
         }
-        description={`From ${detail.source_kind}${detail.source ? ` (${detail.source.name})` : ""}. The AI edits only the brief; the drawing is computed from it.`}
+        description={imported
+          ? `Imported from ${detail.source?.name ?? "a DXF"}. The plan is shown as drawn in the file; chat can rename rooms, change room types, add or remove fixtures, and resize or remove doors and windows (not move walls yet).`
+          : `From ${detail.source_kind}${detail.source ? ` (${detail.source.name})` : ""}. The AI edits only the brief; the drawing is computed from it.`}
         actions={
           <>
             <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} onClick={() => void download("dxf")}>
@@ -244,6 +267,13 @@ export default function BlueprintDetail() {
                 IFC
               </Button>
             </Tooltip>
+            {imported && canEdit && (
+              <Tooltip label="The file this plan was read from (editors only)">
+                <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} onClick={() => void downloadOriginal()}>
+                  Original DXF
+                </Button>
+              </Tooltip>
+            )}
             {canAct(detail, "blueprint", "rename") && (
               <Button variant="default" size="xs" leftSection={<IconPencil size={14} />} onClick={() => setRenaming(true)}>
                 Rename
@@ -264,7 +294,7 @@ export default function BlueprintDetail() {
       />
 
       <Grid gap="lg">
-        <Grid.Col span={{ base: 12, lg: 7 }}>
+        <Grid.Col span={{ base: 12, lg: 8 }}>
           <Card withBorder padding="xs">
             {shown !== null && (
               <Alert mb="xs" variant="light" color="yellow" p="xs">
@@ -276,7 +306,12 @@ export default function BlueprintDetail() {
                 </Group>
               </Alert>
             )}
-            {/* The sheet is drawn on white paper in both color schemes. */}
+            <SegmentedControl size="xs" mb="xs" value={mode} disabled={shown !== null} onChange={(v) => setMode(v as "sheet" | "viewer")}
+              data={[{ label: "Drawing sheet", value: "sheet" }, { label: "Viewer", value: "viewer" }]} />
+            {mode === "viewer" && planModel && shown === null ? (
+              <PlanViewer key={`${bid}-${version}`} model={planModel} />
+            ) : (
+            /* The sheet is drawn on white paper in both color schemes. */
             <Paper bg="white" radius="sm" style={{ overflow: "hidden" }}>
               {svg ? (
                 <img src={svg} alt={`${detail.name}, version ${version}`} style={{ display: "block", width: "100%", height: "auto" }} />
@@ -284,18 +319,21 @@ export default function BlueprintDetail() {
                 <Center h={360}>{drawingError ? <Text c="dimmed">The drawing could not be rendered.</Text> : <Loader />}</Center>
               )}
             </Paper>
+            )}
           </Card>
         </Grid.Col>
 
-        <Grid.Col span={{ base: 12, lg: 5 }}>
+        <Grid.Col span={{ base: 12, lg: 4 }}>
           <Tabs defaultValue="chat" keepMounted={false}>
             <Tabs.List mb="md">
               <Tabs.Tab value="chat" leftSection={<IconMessage size={14} />}>
                 Chat
               </Tabs.Tab>
-              <Tabs.Tab value="brief" leftSection={<IconForms size={14} />}>
-                Brief
-              </Tabs.Tab>
+              {!imported && (
+                <Tabs.Tab value="brief" leftSection={<IconForms size={14} />}>
+                  Brief
+                </Tabs.Tab>
+              )}
               <Tabs.Tab value="checks" leftSection={<IconListCheck size={14} />}>
                 Checks
               </Tabs.Tab>
@@ -310,7 +348,9 @@ export default function BlueprintDetail() {
                   <Stack gap="xs">
                     {chat.every((v) => v.kind === "create") && (
                       <Text size="sm" c="dimmed">
-                        No revisions yet. Ask for a change, for example “add a study” or “make the kitchen bigger”.
+                        {imported
+                          ? "No revisions yet. Ask for a change, for example “rename Room 3 to Study”, “add a desk to the study” or “make door d2 0.8 m wide”."
+                          : "No revisions yet. Ask for a change, for example “add a study” or “make the kitchen bigger”."}
                       </Text>
                     )}
                     {chat.map((v) => (
@@ -362,7 +402,7 @@ export default function BlueprintDetail() {
                   <form onSubmit={send}>
                     <Stack gap="xs">
                       <Textarea
-                        placeholder="Move the kitchen to the north side, add a laundry, make bedroom 2 bigger…"
+                        placeholder={imported ? "Rename the hall to Corridor, add a sofa to the living room, remove window w3…" : "Move the kitchen to the north side, add a laundry, make bedroom 2 bigger…"}
                         autosize
                         minRows={2}
                         maxLength={2000}
@@ -372,7 +412,7 @@ export default function BlueprintDetail() {
                       />
                       <Group justify="space-between">
                         <Text size="xs" c="dimmed">
-                          {busy === "chat" ? "The local model is revising the brief…" : "Unchanged rooms stay where they are."}
+                          {busy === "chat" ? imported ? "The local model is editing the plan…" : "The local model is revising the brief…" : "Unchanged rooms stay where they are."}
                         </Text>
                         <Button type="submit" size="xs" leftSection={<IconSend size={14} />} loading={busy === "chat"} disabled={!message.trim() || busy !== ""}>
                           Send
@@ -390,7 +430,7 @@ export default function BlueprintDetail() {
 
             <Tabs.Panel value="brief">
               <Stack>
-                <BriefEditor value={brief} onChange={setBrief} readOnly={!canEdit || busy !== ""} />
+                <BriefEditor value={brief as Brief} onChange={setBrief} readOnly={!canEdit || busy !== ""} />
                 {canEdit && (
                   <Group justify="flex-end">
                     <Button variant="default" size="xs" disabled={!dirty || busy !== ""} onClick={() => setBrief(detail.version.brief)}>
@@ -411,7 +451,7 @@ export default function BlueprintDetail() {
 
             <Tabs.Panel value="checks">
               <Stack gap="xs">
-                {canEdit && failed.length > 0 && (
+                {canEdit && !imported && failed.length > 0 && (
                   <Group justify="space-between" wrap="nowrap">
                     <Text size="xs" c="dimmed">
                       {busy === "review"

@@ -120,13 +120,13 @@ erDiagram
         uuid project_id FK
         text name
         int current_version
-        text source_kind "prompt | sketch | form"
+        text source_kind "prompt | sketch | form | import"
         uuid created_by FK
     }
     blueprint_versions {
         uuid blueprint_id PK
         int version PK
-        text kind "create | revise | review | edit | restore"
+        text kind "create | revise | review | edit | restore | import"
         jsonb brief
         jsonb model
         uuid created_by FK
@@ -353,3 +353,7 @@ There is no foreign key from `resource_grants.object_id` to a single table becau
 
 `api/migrations/00007_blueprint_review.sql` widens `blueprint_versions.kind` to include `review` (a version written by "Fix issues with AI"). Spec: `prds/plans/text2bim-adoption.md`. Down restores the old check; it fails while any `review` row exists, so no version is silently dropped.
 
+
+## Blueprint imports (migration 00008)
+
+`api/migrations/00008_blueprint_import.sql` adds `import` to `blueprint_versions.kind` and `blueprints.source_kind`, and the table `blueprint_originals(blueprint_id, version, name, mime_type, byte_size > 0, sha256, data bytea, created_at)`, PK `(blueprint_id, version)`, FK to `blueprint_versions` with cascade (deleting the blueprint deletes its files). An imported version stores `brief = null` (JSON null; the column stays `NOT NULL`) and the plan as `model`. The original is written in the same transaction as the blueprint and version 1; the API caps it at 20 MB. Spec: `prds/plans/text2blueprint-production.md`. Down drops the table and restores the checks; it fails while import rows exist.

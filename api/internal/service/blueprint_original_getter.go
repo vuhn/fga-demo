@@ -1,0 +1,34 @@
+package service
+
+import (
+	"context"
+
+	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/usecase"
+)
+
+type blueprintOriginalGetter struct {
+	blueprints gateway.BlueprintGateway
+	authz      usecase.Authorizer
+}
+
+func NewBlueprintOriginalGetter(blueprints gateway.BlueprintGateway, authz usecase.Authorizer) usecase.BlueprintOriginalGetter {
+	return &blueprintOriginalGetter{blueprints: blueprints, authz: authz}
+}
+
+// GetOriginal requires can_edit, not can_view: a CAD original can hold more than the extracted plan (other
+// layers, title-block text), so viewers get the plan and not the file. version 0 means the current version.
+func (s *blueprintOriginalGetter) GetOriginal(ctx context.Context, actor, tenantID, id string, version int) (entity.BlueprintOriginal, error) {
+	b, err := loadBlueprint(ctx, s.blueprints, tenantID, id)
+	if err != nil {
+		return entity.BlueprintOriginal{}, err
+	}
+	if err := s.authz.Require(ctx, actor, "can_edit", entity.ObjectTypeBlueprint, id); err != nil {
+		return entity.BlueprintOriginal{}, err
+	}
+	if version == 0 {
+		version = b.CurrentVersion
+	}
+	return s.blueprints.GetOriginal(ctx, id, version)
+}

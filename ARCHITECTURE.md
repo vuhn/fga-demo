@@ -61,7 +61,7 @@ web  --Bearer JWT + X-Tenant-ID-->  handler  -->  usecase/service
 
 In scope: ReBAC across platform, tenant, and resource layers; affiliation-based defaults; private/public containers; direct shares to external members; product entitlements; an admin panel that performs the README script.
 
-Out of scope (do not scaffold): SSO or password flows beyond login, file bytes or object storage (a blueprint sketch upload is passed to the engine and discarded; only its name, type, and size are kept), cross-tenant shares, conditions or `but not`, an API to grant `system_admin`, deleting users or tenants, outbox or background workers, pagination, ownership transfer.
+Out of scope (do not scaffold): SSO or password flows beyond login, object storage and file serving (a blueprint sketch upload is passed to the engine and discarded; only a DXF import keeps its original, as a bytea row next to the version, downloadable by editors), cross-tenant shares, conditions or `but not`, an API to grant `system_admin`, deleting users or tenants, outbox or background workers, pagination, ownership transfer.
 
 ## Repository layout
 

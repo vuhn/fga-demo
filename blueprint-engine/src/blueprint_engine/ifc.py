@@ -110,7 +110,7 @@ def to_ifc(model: BuildingModel, project_name: str = "Single-storey house") -> b
     _place(f, slab, _matrix(x0, y0, -SLAB_DEPTH))
     ifcopenshell.api.geometry.assign_representation(f, product=slab, representation=ifcopenshell.api.geometry
         .add_slab_representation(f, context=body, depth=SLAB_DEPTH,
-                                 polyline=[(0.0, 0.0), (x1 - x0, 0.0), (x1 - x0, y1 - y0), (0.0, y1 - y0)]))
+                                 polyline=[(x - x0, y - y0) for x, y in model.outline]))
     contained.append(slab)
 
     # walls, extruded symmetrically about their centerline
@@ -173,8 +173,13 @@ def to_ifc(model: BuildingModel, project_name: str = "Single-storey house") -> b
         sp = ifcopenshell.api.root.create_entity(f, ifc_class="IfcSpace", predefined_type="INTERNAL", name=r.name)
         sp.LongName = r.type
         _place(f, sp, _matrix(r.net_rect[0], r.net_rect[1]))
-        ifcopenshell.api.geometry.assign_representation(f, product=sp, representation=_box(f, body, r.net_rect,
-                                                                                             WALL_HEIGHT))
+        if r.polygon:  # an imported, non-rectangular room: extrude its own outline
+            rep = ifcopenshell.api.geometry.add_slab_representation(
+                f, context=body, depth=WALL_HEIGHT,
+                polyline=[(x - r.net_rect[0], y - r.net_rect[1]) for x, y in r.polygon])
+        else:
+            rep = _box(f, body, r.net_rect, WALL_HEIGHT)
+        ifcopenshell.api.geometry.assign_representation(f, product=sp, representation=rep)
         qto = ifcopenshell.api.pset.add_qto(f, product=sp, name="Qto_SpaceBaseQuantities")
         ifcopenshell.api.pset.edit_qto(f, qto=qto, properties={"NetFloorArea": round(r.net_area, 2),
                                                                 "Height": WALL_HEIGHT})

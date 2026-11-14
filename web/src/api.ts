@@ -264,15 +264,16 @@ export type BlueprintCheck = {
   hint?: string;
 };
 export type BlueprintSource = { name: string; mime_type: string; byte_size: number };
-export type BlueprintVersionSummary = { version: number; kind: "create" | "revise" | "review" | "edit" | "restore"; message: string; ok: boolean; created_by: string; created_at: string };
-export type BlueprintVersion = BlueprintVersionSummary & { brief: Brief; model: unknown; checks: BlueprintCheck[]; notes: string[] };
+export type BlueprintVersionSummary = { version: number; kind: "create" | "revise" | "review" | "edit" | "restore" | "import"; message: string; ok: boolean; created_by: string; created_at: string };
+/** brief is null for an imported plan: its geometry came from a DXF and has no program to regenerate. */
+export type BlueprintVersion = BlueprintVersionSummary & { brief: Brief | null; model: unknown; checks: BlueprintCheck[]; notes: string[] };
 export type Blueprint = {
   id: string;
   tenant_id: string;
   project_id: string;
   name: string;
   current_version: number;
-  source_kind: "prompt" | "sketch" | "form";
+  source_kind: "prompt" | "sketch" | "form" | "import";
   source: BlueprintSource | null;
   created_by: string;
   created_at: string;
@@ -286,3 +287,21 @@ export const ROLES: Record<string, string[]> = {
   internal: ["internal_admin", "internal_user"],
   external: ["external_admin", "external_user"],
 };
+
+export type ImportPlan = { index: number; name: string; room_count: number; net_area: number; ok: boolean; checks: BlueprintCheck[]; svg: string };
+export type ImportReport = {
+  units: string;
+  unit_source: string;
+  layers_used: string[];
+  layers_ignored: string[];
+  plans_found: number;
+  doors: number;
+  windows: number;
+  unlabeled_rooms: number;
+  unmapped_texts: string[];
+  fixtures: number;
+  skipped: string[];
+  warnings: string[];
+};
+export type ImportPreview = { plans: ImportPlan[]; report: ImportReport; source: BlueprintSource };
+export const IMPORT_UNITS = ["mm", "cm", "m", "in", "ft"] as const;

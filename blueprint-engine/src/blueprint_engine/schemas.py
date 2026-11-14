@@ -25,6 +25,13 @@ RoomType = Literal[
     "corridor",
 ]
 
+# Types an imported plan may carry on top of the brief's RoomType: a balcony or terrace sits outside
+# the checked envelope, "other" is a room the importer could not name. The brief never uses them.
+PlacedType = Literal[
+    "entry", "living", "kitchen", "dining", "study", "laundry", "storage", "bedroom", "bathroom", "corridor",
+    "balcony", "other",
+]
+
 PUBLIC_TYPES: frozenset[str] = frozenset({"entry", "living", "kitchen", "dining", "study", "laundry", "storage"})
 PRIVATE_TYPES: frozenset[str] = frozenset({"bedroom", "bathroom"})
 
@@ -167,12 +174,21 @@ Point = tuple[float, float]
 class PlacedRoom(_Strict):
     id: str
     name: str
-    type: RoomType
+    type: PlacedType
     rect: tuple[float, float, float, float]  # x0, y0, x1, y1 on wall centerlines (world)
-    net_rect: tuple[float, float, float, float]
+    net_rect: tuple[float, float, float, float]  # for a polygon room: the bounding box of the polygon
     net_area: float
     target_area: float
     exterior_sides: list[Side]
+    # Net floor outline (counter-clockwise, world). None = the rectangle net_rect. Imported plans
+    # set it; generated plans never do.
+    polygon: list[Point] | None = None
+
+    def net_polygon(self) -> list[Point]:
+        if self.polygon:
+            return self.polygon
+        x0, y0, x1, y1 = self.net_rect
+        return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
 
 
 class Wall(_Strict):
@@ -202,14 +218,25 @@ class PlacedFixture(_Strict):
 
 
 class BuildingModel(_Strict):
-    footprint: tuple[float, float, float, float]
+    footprint: tuple[float, float, float, float]  # bounding box of the outline
+    outline: list[Point] = Field(default_factory=list)  # counter-clockwise footprint polygon (the rectangle when empty)
     lot: tuple[float, float]
     entrance_side: Side
+    # "generated" plans come from a brief; "imported" plans come from a CAD file and have no brief,
+    # so they are drawn and checked as they are and only edited by geometry, never regenerated.
+    source: Literal["generated", "imported"] = "generated"
     rooms: list[PlacedRoom]
     walls: list[Wall]
     openings: list[Opening]
     fixtures: list[PlacedFixture] = Field(default_factory=list)
     unplaced_fixtures: list[tuple[str, str]] = Field(default_factory=list)  # (room_id, kind) that did not fit
+
+    @model_validator(mode="after")
+    def _default_outline(self) -> BuildingModel:
+        if not self.outline:
+            x0, y0, x1, y1 = self.footprint
+            self.outline = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+        return self
 
     def room(self, room_id: str) -> PlacedRoom:
         for r in self.rooms:

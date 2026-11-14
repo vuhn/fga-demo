@@ -8,11 +8,11 @@ from __future__ import annotations
 
 from collections import deque
 
-from shapely.geometry import LineString, box
+from shapely.geometry import LineString, Polygon, box
 
 from .fixtures import SPECS, opening_zones, overlap
 from .layout import GROSS_FACTOR
-from .schemas import CORRIDOR_WIDTH, MIN_AREA, PUBLIC_TYPES, Brief, BuildingModel, CheckResult
+from .schemas import CORRIDOR_WIDTH, MIN_AREA, NEEDS_WINDOW, PUBLIC_TYPES, Brief, BuildingModel, CheckResult
 
 AREA_TOLERANCE = 0.20
 DOOR_MARGIN = 0.10
@@ -282,3 +282,58 @@ def run_checks(brief: Brief, model: BuildingModel) -> list[CheckResult]:
 
 def failed(checks: list[CheckResult], severity: str = "error") -> list[CheckResult]:
     return [c for c in checks if not c.ok and c.severity == severity]
+
+
+def run_imported_checks(model: BuildingModel) -> list[CheckResult]:
+    """Checks for a plan read from a CAD file. There is no brief, so nothing is compared with a target:
+    the plan is taken as drawn and only its own consistency is judged. Doors and windows are not required
+    to exist (a file may omit them), so most findings are warnings and only an unreachable room or an
+    overlap is an error."""
+    from .schemas import MIN_AREA
+
+    out: list[CheckResult] = []
+
+    def add(rule, severity, ok, message, room_id=None, category="information", elements=None, hint=""):
+        out.append(CheckResult(rule=rule, severity=severity, ok=ok, message=message, room_id=room_id,
+                               category=category, issue_id=f"{rule}:{room_id}" if room_id else rule,
+                               elements=elements if elements is not None else ([room_id] if room_id else []),
+                               hint="" if ok else hint))
+
+    reach = _reachable(model)
+    windows = {o.rooms[1] for o in model.openings if o.kind == "window"}
+    has_doors = any(o.kind in ("door", "entrance", "open") for o in model.openings)
+    has_entrance = any(o.kind == "entrance" for o in model.openings)
+    add("entrance", "warning", has_entrance, "an entrance door to the outside was found" if has_entrance
+        else "no door to the outside was found", category="program",
+        hint="the file has no door symbol on an exterior wall")
+    polys = {r.id: Polygon(r.net_polygon()) for r in model.rooms}
+    for r in model.rooms:
+        if r.type in ("balcony",):
+            continue
+        if has_doors and has_entrance:
+            ok = r.id in reach
+            add("reachable", "error", ok, f"{r.name}: {'reachable' if ok else 'not reachable'} from the entrance", r.id,
+                category="program", hint="no door connects this room to the rest of the plan")
+        min_area = MIN_AREA.get(r.type, 0.0)
+        if min_area:
+            add("min_area", "warning", r.net_area >= min_area,
+                f"{r.name}: {r.net_area:.1f} m² (a {r.type} usually has at least {min_area:g} m²)", r.id,
+                category="program", hint="as drawn; no change is suggested")
+        if r.type in NEEDS_WINDOW and model.openings:
+            add("window", "warning", r.id in windows,
+                f"{r.name}: {'has' if r.id in windows else 'has no'} window on an exterior wall", r.id,
+                category="program", hint="no window symbol found on this room's exterior wall")
+        if r.name.startswith("Room "):
+            add("unlabeled", "warning", False, f"{r.name} has no text label inside it, so its type is unknown", r.id,
+                hint="give the room a name in the Brief tab or label it in the CAD file")
+    ids = list(polys)
+    clash = [(a, b) for i, a in enumerate(ids) for b in ids[i + 1:] if polys[a].intersection(polys[b]).area > 0.05]
+    add("overlap", "error", not clash,
+        "rooms do not overlap" if not clash else "rooms overlap: " + ", ".join(f"{a}/{b}" for a, b in clash),
+        category="geometry", elements=[x for pair in clash for x in pair],
+        hint="two closed outlines in the file cover the same floor")
+    for o in model.openings:
+        if o.kind in ("door", "entrance"):
+            add("door_width", "warning", o.width >= 0.7, f"{o.id}: door {o.width:.2f} m wide", None,
+                category="geometry", elements=[o.id], hint="doors are normally at least 0.7 m")
+    return out

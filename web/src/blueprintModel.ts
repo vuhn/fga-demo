@@ -1,0 +1,38 @@
+// The engine's BuildingModel as the viewer reads it (metres, y up). Only what the viewer draws.
+export type Pt = [number, number];
+export type ModelRoom = {
+  id: string;
+  name: string;
+  type: string;
+  net_rect: [number, number, number, number];
+  net_area: number;
+  polygon?: Pt[] | null;
+  exterior_sides?: string[];
+};
+export type ModelWall = { id: string; start: Pt; end: Pt; thickness: number; kind: "exterior" | "interior" };
+export type ModelOpening = {
+  id: string;
+  kind: "door" | "window" | "entrance" | "open";
+  wall_id: string;
+  center: Pt;
+  width: number;
+  rooms: string[];
+  swing_into?: string | null;
+};
+export type ModelFixture = { id: string; kind: string; room_id: string; rect: [number, number, number, number]; facing: string };
+export type PlanModel = {
+  footprint: [number, number, number, number];
+  outline: Pt[];
+  source: "generated" | "imported";
+  rooms: ModelRoom[];
+  walls: ModelWall[];
+  openings: ModelOpening[];
+  fixtures: ModelFixture[];
+};
+
+export function asPlanModel(m: unknown): PlanModel | null {
+  const p = m as Partial<PlanModel> | null;
+  return p && Array.isArray(p.rooms) && Array.isArray(p.walls) && Array.isArray(p.openings) && p.footprint
+    ? ({ fixtures: [], outline: [], source: "generated", ...p } as PlanModel)
+    : null;
+}

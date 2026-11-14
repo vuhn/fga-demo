@@ -11,6 +11,10 @@ type BlueprintGateway interface {
 	// Create inserts the blueprint, its version 1, and its owner grant in one
 	// transaction.
 	Create(ctx context.Context, b entity.Blueprint, v entity.BlueprintVersion, owner entity.Grant) error
+	// CreateImported is Create plus the original file, in the same transaction.
+	CreateImported(ctx context.Context, b entity.Blueprint, v entity.BlueprintVersion, owner entity.Grant, original entity.BlueprintOriginal) error
+	// GetOriginal returns the stored file of a version; ErrNotFound when it has none.
+	GetOriginal(ctx context.Context, id string, version int) (entity.BlueprintOriginal, error)
 	Get(ctx context.Context, id string) (entity.Blueprint, error)
 	// ListByIDs loads the given ids, restricted to the tenant and, when
 	// projectID is not empty, to that project.
@@ -62,8 +66,14 @@ type BlueprintEngine interface {
 	// works. An error returned before the first callback is the same as
 	// Revise's (the caller can still answer with a plain status).
 	ReviseStream(ctx context.Context, brief, previous []byte, message string, history []string, onProgress func(entity.BlueprintProgress)) (entity.BlueprintOutcome, error)
+	// RevisePlan and RevisePlanStream are the same for an imported plan, which has no brief: the message
+	// becomes edits on the stored model (rename, fixtures, door and window widths).
+	RevisePlan(ctx context.Context, model []byte, message string, history []string) (entity.BlueprintOutcome, error)
+	RevisePlanStream(ctx context.Context, model []byte, message string, history []string, onProgress func(entity.BlueprintProgress)) (entity.BlueprintOutcome, error)
 	// Review lets the engine's reviewer fix the brief's failed checks in up
 	// to three rounds, keeping a round only when the issue score drops.
 	Review(ctx context.Context, brief, previous []byte, history []string) (entity.BlueprintOutcome, error)
+	// ImportDXF reads the plans out of a CAD file. No LLM; the same file always gives the same plans.
+	ImportDXF(ctx context.Context, file entity.Upload, unit string) (entity.BlueprintImport, error)
 	Render(ctx context.Context, model []byte, format string, tb entity.BlueprintTitleBlock) (entity.Drawing, error)
 }

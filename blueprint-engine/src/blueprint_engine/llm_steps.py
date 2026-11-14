@@ -19,12 +19,13 @@ from typing import TypeVar
 
 from pydantic import BaseModel, Field, ValidationError
 
-from . import progress, prompts
-from .checks import failed
+from . import plan_edits, progress, prompts
+from .checks import failed, run_imported_checks
 from .edits import EditError, UnsupportedEdit, apply_ops, resolve_room
 from .llm import LLMClient
 from .pipeline import GenerateResult, generate, generate_fitted
 from .schemas import (
+    CheckResult,
     DEFAULT_FIXTURES,
     MAX_NESTED,
     MIN_AREA,
@@ -383,6 +384,43 @@ def revise(llm: LLMClient, brief: Brief, previous: BuildingModel | None, message
             step.notes += rev.notes
             step.llm_attempts += rev.llm_attempts
     return step
+
+
+class PlanResult(BaseModel):
+    model: BuildingModel
+    checks: list[CheckResult]
+    ok: bool
+    issues: list[str] = []
+    notes: list[str] = []
+
+
+class PlanStep(BaseModel):
+    """Result of a chat edit on an imported plan (no brief). Shaped like StepResult (result, notes) so the
+    API reads both the same way; `result.brief` is absent."""
+
+    result: PlanResult
+    notes: list[str] = []
+    ops: plan_edits.PlanOps
+    llm_attempts: int = 1
+
+
+def revise_plan(llm: LLMClient, model: BuildingModel, message: str, history: list[str] | None = None) -> PlanStep:
+    """Chat edit of an imported plan: the LLM names operations, code applies them to the model as drawn."""
+    system = ("You turn a revision request for an existing floor plan, imported from a CAD file, into edit "
+              "operations. The plan is kept as drawn: walls and rooms cannot be moved or resized, so answer "
+              "'unsupported' for that.\n" + plan_edits.ops_help())
+    user = f"{prompts.history_block(history)}Current plan: {plan_edits.summary(model)}\nRequest: {message}"
+    ops, new_model, tries = _with_feedback(llm, system, user, plan_edits.PlanOps,
+                                           lambda o: plan_edits.apply_plan_ops(model, o))
+    desc = "; ".join(plan_edits.describe(o) for o in ops.ops)
+    progress.emit("ops", "The model proposed: " + desc)
+    progress.emit("checks", "Running the checks…")
+    checks = run_imported_checks(new_model)
+    notes = ["applied: " + desc]
+    if tries > 1:
+        notes.append(f"the first {tries - 1} answer(s) could not be applied; corrected with the error")
+    return PlanStep(result=PlanResult(model=new_model, checks=checks, ok=not failed(checks)), notes=notes, ops=ops,
+                    llm_attempts=tries)
 
 
 def review(llm: LLMClient, brief: Brief, previous: BuildingModel | None, history: list[str] | None = None,

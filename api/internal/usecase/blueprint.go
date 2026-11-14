@@ -113,3 +113,26 @@ type BlueprintSharer interface {
 type BlueprintShareRevoker interface {
 	Revoke(ctx context.Context, actor, tenantID, id string, in entity.ShareInput) error
 }
+
+// BlueprintDXFImportPreviewer reads a DXF and returns the plans found, for the review step. Nothing is stored.
+type BlueprintDXFImportPreviewer interface {
+	Preview(ctx context.Context, actor, tenantID, projectID string, file entity.Upload, unit string) (entity.BlueprintImport, error)
+}
+
+type ImportBlueprintInput struct {
+	ProjectID string
+	Name      string
+	File      entity.Upload
+	Unit      string
+	PlanIndex int // 1-based, as the preview numbered them
+}
+
+// BlueprintImporter creates a blueprint from one plan of a DXF and keeps the original file.
+type BlueprintImporter interface {
+	Import(ctx context.Context, actor, tenantID string, in ImportBlueprintInput) (BlueprintDetail, error)
+}
+
+// BlueprintOriginalGetter returns the stored original of the current (or a given) version.
+type BlueprintOriginalGetter interface {
+	GetOriginal(ctx context.Context, actor, tenantID, id string, version int) (entity.BlueprintOriginal, error)
+}

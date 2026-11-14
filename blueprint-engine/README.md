@@ -91,6 +91,8 @@ Ollama runs natively, not in Docker, because Docker on macOS has no GPU access.
 |---|---|---|
 | `POST /v1/brief/from-text` | `{prompt, enhance?: true}` | `{brief, notes}` |
 | `POST /v1/brief/from-sketch` | multipart `file` (PNG, JPG, PDF or DXF, ≤10 MB; PDF first page only; DXF read from text labels, no vision model), `note` | `{brief, notes}` |
+| `POST /v1/plan/revise` (+ `/stream`) | `{model, message, history}` | `{result: {model, checks, ok, issues, notes}, notes, ops, llm_attempts}`; chat edit of an imported plan: LLM emits `PlanOps` (`plan_edits.py`: rename_room, set_room_type, add/remove_fixture, resize/remove_opening, unsupported), code applies them, `run_imported_checks` re-runs; 422 for unresolvable or unsupported ops |
+| `POST /v1/import/dxf` | multipart `file` (DXF, ≤20 MB), `unit?` | `{plans: [{index, name, model, room_count, net_area, checks, ok, svg}], report}`; no LLM, deterministic, nothing kept |
 | `POST /v1/generate` | `{brief, previous?, repair?}` | `{result: {brief, model, checks, issues, ok}, notes, attempts, llm_attempts, review_rounds}` |
 | `POST /v1/revise` | `{brief, previous?, message, history?}` | the same as generate, plus `ops` |
 | `POST /v1/revise/stream` | the same as revise | NDJSON, one JSON object per line: `{"event":"progress","kind","stage","message"}` while it works (`kind` is `step`, or `thinking` with a piece of the model's reasoning as `message`; while streaming the LLM call runs with `think: true` and the reasoning is forwarded in chunks of about 150 ms, `BLUEPRINT_STREAM_THINKING=0` turns that off), then exactly one `{"event":"result","data":<revise response>}` or `{"event":"error","status","error","message"}`. A bad request (empty message, malformed body) is the usual 4xx before any line. Stages: `start`, `ask_model`, `retry`, `ops`, `layout`, `checks`, `review`. Closing the connection cancels the run at the next step. Progress lines are never stored; they carry no tenant or user ids. |
@@ -101,3 +103,16 @@ Errors:
 
 - An edit that still cannot be applied after 3 attempts, or an unsupported request, returns `422 {"error":"invalid_edit","message"}`.
 - An LLM that is down or returns bad output returns `502 {"error":"llm_unavailable"}`.
+
+## DXF import (`dxf_plan.py`)
+
+Reads a CAD floor plan into a `BuildingModel` with `source: "imported"` (polygon rooms, any-angle walls, no brief). No LLM.
+
+1. **Units:** `$INSUNITS`, else guessed from the wall extent (3-80 m after conversion) and cross-checked with `DIMENSION` values; `unit` overrides.
+2. **Layers:** wall layers by name (`wall`, `mur`, `tuong`, ...; `patt`/`hatch`/`dim`/`furn` excluded); door and window layers or blocks; otherwise the longest unclassified layer. Used and ignored layers are reported.
+3. **Rooms:** wall linework is noded and polygonized; thin faces (inscribed width < 0.6 m) are wall solids, the rest are rooms. Single-line walls get a 0.2 m default thickness. A bar is added across each doorway so an exterior door does not leak the room into the outside, and the doorway is filled into the wall solids so it splits the rooms it joins.
+4. **Walls and openings:** wall centerlines come from the room edges (thickness measured through the wall solids, collinear pieces merged); each door/window symbol is fitted to its wall.
+5. **Labels:** TEXT/MTEXT/attributes inside a room, English and Vietnamese keywords; several labels in one space (open-plan living/kitchen/dining) give one room named "Living / Dining / Kitchen". Unrecognised labels are listed.
+6. **Several plans on one sheet** are split by cluster; the caller picks one.
+
+Fixtures: INSERT blocks whose `KIND` attribute, name or layer matches one of the 16 fixture kinds (0.2-3.5 m) become `PlacedFixture`s in the room holding their centre, facing away from the nearest wall. `ImportReport.skipped` lists what the model cannot hold (dimensions, other blocks, spaces under 1.2 m² or 0.6 m wide, fixtures outside every room). Not read: curved walls (flattened to segments), HATCH/SOLID wall fills, xrefs, 3D. Tests: `tests/sample_dxf.py` rebuilds the three apartment plans of the sample sheet from their printed dimensions, `tests/test_import.py` compares rooms, areas, openings and the angled wall with the known answer.

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -21,6 +22,9 @@ type BlueprintUsecases struct {
 	Getter          usecase.BlueprintGetter
 	Drafter         usecase.BlueprintDrafter
 	SketchDrafter   usecase.BlueprintSketchDrafter
+	ImportPreviewer usecase.BlueprintDXFImportPreviewer
+	Importer        usecase.BlueprintImporter
+	OriginalGetter  usecase.BlueprintOriginalGetter
 	Creator         usecase.BlueprintCreator
 	Reviser         usecase.BlueprintReviser
 	ReviseStreamer  usecase.BlueprintReviseStreamer
@@ -45,6 +49,9 @@ func (h *BlueprintHandler) Register(r Routes) {
 	g := r.Tenanted
 	g.POST("/blueprint-drafts", h.draft)
 	g.POST("/blueprint-drafts/sketch", h.draftFromSketch)
+	g.POST("/blueprint-drafts/dxf-import", h.previewImport)
+	g.POST("/blueprints/import", h.importDXF)
+	g.GET("/blueprints/:id/source", h.source)
 	g.GET("/blueprints", h.list)
 	g.POST("/blueprints", h.create)
 	g.GET("/blueprints/:id", h.get)
@@ -163,6 +170,100 @@ func (h *BlueprintHandler) draftFromSketch(c *gin.Context) {
 	m := draftView(d)
 	m["source"] = map[string]any{"name": fh.Filename, "mime_type": mime, "byte_size": len(data)}
 	c.JSON(http.StatusOK, m)
+}
+
+// readDXF reads the multipart "file" of an import, at most entity.MaxImportBytes.
+func readDXF(c *gin.Context) (entity.Upload, bool) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, entity.MaxImportBytes+1<<20)
+	fh, err := c.FormFile("file")
+	if err != nil {
+		writeErr(c, entity.Invalid("file is required (a DXF, at most 20 MB)"))
+		return entity.Upload{}, false
+	}
+	if fh.Size > entity.MaxImportBytes {
+		writeErr(c, entity.Invalid("file must be at most 20 MB"))
+		return entity.Upload{}, false
+	}
+	f, err := fh.Open()
+	if err != nil {
+		writeErr(c, err)
+		return entity.Upload{}, false
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, entity.MaxImportBytes+1))
+	if err != nil {
+		writeErr(c, err)
+		return entity.Upload{}, false
+	}
+	// browsers send "", octet-stream or image/vnd.dxf for a DXF, so the extension decides
+	if !strings.EqualFold(filepath.Ext(fh.Filename), ".dxf") {
+		writeErr(c, entity.Invalid("only DXF files can be imported"))
+		return entity.Upload{}, false
+	}
+	return entity.Upload{Name: filepath.Base(fh.Filename), MimeType: entity.DXFMimeType, Data: data}, true
+}
+
+// previewImport reads a DXF and returns its plans (each with the engine's drawing and checks) for the review
+// step. Nothing is stored.
+func (h *BlueprintHandler) previewImport(c *gin.Context) {
+	file, ok := readDXF(c)
+	if !ok {
+		return
+	}
+	res, err := h.uc.ImportPreviewer.Preview(c, actor(c), tenant(c), c.PostForm("project_id"), file, c.PostForm("unit"))
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	plans := make([]map[string]any, 0, len(res.Plans))
+	for _, p := range res.Plans {
+		plans = append(plans, map[string]any{"index": p.Index, "name": p.Name, "room_count": p.RoomCount, "net_area": p.NetArea,
+			"ok": p.OK, "checks": p.Checks, "svg": p.SVG})
+	}
+	c.JSON(http.StatusOK, map[string]any{"plans": plans, "report": res.Report,
+		"source": map[string]any{"name": file.Name, "mime_type": file.MimeType, "byte_size": len(file.Data)}})
+}
+
+// importDXF creates a blueprint from one plan of a DXF and stores the original file.
+func (h *BlueprintHandler) importDXF(c *gin.Context) {
+	file, ok := readDXF(c)
+	if !ok {
+		return
+	}
+	plan := 1
+	if v := c.PostForm("plan"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			writeErr(c, entity.Invalid("plan must be an integer"))
+			return
+		}
+		plan = n
+	}
+	d, err := h.uc.Importer.Import(c, actor(c), tenant(c), usecase.ImportBlueprintInput{
+		ProjectID: c.PostForm("project_id"), Name: c.PostForm("name"), File: file, Unit: c.PostForm("unit"), PlanIndex: plan})
+	respond(c, http.StatusCreated, blueprintDetailView(d), err)
+}
+
+// source downloads the stored original of the current (or ?version=) version. can_edit only.
+func (h *BlueprintHandler) source(c *gin.Context) {
+	version := 0
+	if v := c.Query("version"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			writeErr(c, entity.Invalid("version must be a positive integer"))
+			return
+		}
+		version = n
+	}
+	o, err := h.uc.OriginalGetter.GetOriginal(c, actor(c), tenant(c), c.Param("id"), version)
+	if err != nil {
+		writeErr(c, err)
+		return
+	}
+	c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": o.Name}))
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Cache-Control", "private, no-store")
+	c.Data(http.StatusOK, o.MimeType, o.Data)
 }
 
 func (h *BlueprintHandler) list(c *gin.Context) {

@@ -37,6 +37,36 @@ func (r *BlueprintRepo) Create(ctx context.Context, b entity.Blueprint, v entity
 	})
 }
 
+// CreateImported is Create plus the original file, in one transaction.
+func (r *BlueprintRepo) CreateImported(ctx context.Context, b entity.Blueprint, v entity.BlueprintVersion, owner entity.Grant, o entity.BlueprintOriginal) error {
+	return inTx(ctx, r.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `INSERT INTO blueprints (id, tenant_id, project_id, name, current_version, source_kind, source_name, source_mime, source_size, created_by)
+			VALUES ($1, $2, $3, $4, 1, $5, $6, $7, $8, $9)`,
+			b.ID, b.TenantID, b.ProjectID, b.Name, b.SourceKind, o.Name, o.MimeType, o.ByteSize, b.CreatedBy); err != nil {
+			return err
+		}
+		v.Version = 1
+		if err := insertBlueprintVersion(ctx, tx, v); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO blueprint_originals (blueprint_id, version, name, mime_type, byte_size, sha256, data)
+			VALUES ($1, 1, $2, $3, $4, $5, $6)`, b.ID, o.Name, o.MimeType, o.ByteSize, o.SHA256, o.Data); err != nil {
+			return err
+		}
+		return insertGrant(ctx, tx, entity.ObjectTypeBlueprint, owner)
+	})
+}
+
+func (r *BlueprintRepo) GetOriginal(ctx context.Context, id string, version int) (entity.BlueprintOriginal, error) {
+	o := entity.BlueprintOriginal{BlueprintID: id, Version: version}
+	err := r.pool.QueryRow(ctx, `SELECT name, mime_type, byte_size, sha256, data FROM blueprint_originals WHERE blueprint_id = $1 AND version = $2`,
+		id, version).Scan(&o.Name, &o.MimeType, &o.ByteSize, &o.SHA256, &o.Data)
+	if err != nil {
+		return entity.BlueprintOriginal{}, mapErr(err)
+	}
+	return o, nil
+}
+
 func insertBlueprintVersion(ctx context.Context, tx pgx.Tx, v entity.BlueprintVersion) error {
 	notes, err := json.Marshal(nonNil(v.Notes))
 	if err != nil {

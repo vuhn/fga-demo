@@ -15,12 +15,13 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import llm_steps, pipeline, progress
+from . import dxf_plan, llm_steps, pipeline, progress
+from .checks import failed, run_imported_checks
 from .draw import TitleBlock, build_dxf, to_dxf_bytes, to_pdf, to_svg
 from .edits import EditError
 from .ifc import to_ifc
 from .llm import LLMClient, LLMError, OllamaClient
-from .schemas import Brief, BuildingModel
+from .schemas import Brief, BuildingModel, CheckResult
 
 STATIC = Path(__file__).parent / "static"
 
@@ -48,6 +49,12 @@ class ReviseIn(BaseModel):
     history: list[str] = Field(default_factory=list, max_length=20)  # earlier chat messages, oldest first
 
 
+class PlanReviseIn(BaseModel):
+    model: BuildingModel
+    message: str
+    history: list[str] = Field(default_factory=list, max_length=20)
+
+
 class ReviewIn(BaseModel):
     brief: Brief
     previous: BuildingModel | None = None
@@ -66,6 +73,17 @@ class RenderIn(BaseModel):
     model: BuildingModel
     format: Literal["svg", "dxf", "pdf", "ifc"] = "svg"
     title_block: TitleBlockIn = TitleBlockIn()
+
+
+class ImportPlanOut(dxf_plan.ImportedPlan):
+    checks: list[CheckResult]
+    ok: bool
+    svg: str  # the plan as the engine draws it, for the review step
+
+
+class ImportOut(BaseModel):
+    plans: list[ImportPlanOut]
+    report: dxf_plan.ImportReport
 
 
 MEDIA = {"svg": "image/svg+xml", "dxf": "image/vnd.dxf", "pdf": "application/pdf", "ifc": "application/x-step"}
@@ -101,6 +119,19 @@ def create_app(llm: LLMClient | None = None) -> FastAPI:
         brief, notes = llm_steps.brief_from_sketch(app.state.llm, data, mime, note[:1000])
         return BriefOut(brief=brief, notes=notes)
 
+    @app.post("/v1/import/dxf", response_model=ImportOut)
+    async def import_dxf(file: UploadFile = File(...), unit: str = Form("")) -> ImportOut:
+        """Read a CAD floor plan: no LLM, no storage. One plan per cluster of walls found in the file;
+        the caller picks which to keep. Deterministic, so a second call returns the same plans."""
+        data = await file.read(dxf_plan.MAX_BYTES + 1)
+        result = dxf_plan.import_dxf(data, unit or None)
+        plans = []
+        for p in result.plans:
+            checks = run_imported_checks(p.model)
+            doc, sheet = build_dxf(p.model, TitleBlock(project=p.name))
+            plans.append(ImportPlanOut(**p.model_dump(), checks=checks, ok=not failed(checks), svg=to_svg(doc, sheet)))
+        return ImportOut(plans=plans, report=result.report)
+
     @app.post("/v1/generate", response_model=llm_steps.StepResult)
     def generate(body: GenerateIn) -> llm_steps.StepResult:
         """repair=true shrinks rooms toward their minimums when the brief cannot fit (create flows);
@@ -115,12 +146,9 @@ def create_app(llm: LLMClient | None = None) -> FastAPI:
             raise EditError("say what to change")
         return llm_steps.revise(app.state.llm, body.brief, body.previous, body.message[:2000], body.history)
 
-    @app.post("/v1/revise/stream")
-    def revise_stream(body: ReviseIn) -> StreamingResponse:
-        """revise, as NDJSON: progress lines while it works, then one result or error line. A bad
-        request is the usual 4xx before any line. Closing the connection cancels at the next step."""
-        if not body.message.strip():
-            raise EditError("say what to change")
+    def ndjson(run) -> StreamingResponse:
+        """Run `run()` on a thread and stream NDJSON: progress lines while it works, then one result or
+        error line. Closing the connection cancels at the next step."""
         events: queue.Queue[dict | None] = queue.Queue()
         cancelled = threading.Event()
 
@@ -132,7 +160,7 @@ def create_app(llm: LLMClient | None = None) -> FastAPI:
         def work() -> None:
             try:
                 with progress.sink(put):
-                    step = llm_steps.revise(app.state.llm, body.brief, body.previous, body.message[:2000], body.history)
+                    step = run()
                 put({"event": "result", "data": step.model_dump(mode="json")})
             except progress.Cancelled:
                 pass
@@ -155,6 +183,26 @@ def create_app(llm: LLMClient | None = None) -> FastAPI:
                 cancelled.set()
 
         return StreamingResponse(lines(), media_type="application/x-ndjson")
+
+    @app.post("/v1/revise/stream")
+    def revise_stream(body: ReviseIn) -> StreamingResponse:
+        """revise, as NDJSON. A bad request is the usual 4xx before any line."""
+        if not body.message.strip():
+            raise EditError("say what to change")
+        return ndjson(lambda: llm_steps.revise(app.state.llm, body.brief, body.previous, body.message[:2000], body.history))
+
+    @app.post("/v1/plan/revise", response_model=llm_steps.PlanStep)
+    def plan_revise(body: PlanReviseIn) -> llm_steps.PlanStep:
+        """Chat edit of an imported plan (no brief): ops on the model as drawn."""
+        if not body.message.strip():
+            raise EditError("say what to change")
+        return llm_steps.revise_plan(app.state.llm, body.model, body.message[:2000], body.history)
+
+    @app.post("/v1/plan/revise/stream")
+    def plan_revise_stream(body: PlanReviseIn) -> StreamingResponse:
+        if not body.message.strip():
+            raise EditError("say what to change")
+        return ndjson(lambda: llm_steps.revise_plan(app.state.llm, body.model, body.message[:2000], body.history))
 
     @app.post("/v1/review", response_model=llm_steps.StepResult)
     def review(body: ReviewIn) -> llm_steps.StepResult:

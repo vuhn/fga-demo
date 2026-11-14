@@ -29,6 +29,9 @@ func (s *blueprintReviewer) Review(ctx context.Context, actor, tenantID, id stri
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
+	if err := requireBrief(cur); err != nil {
+		return usecase.BlueprintDetail{}, err
+	}
 	history, err := chatHistory(ctx, s.blueprints, id)
 	if err != nil {
 		return usecase.BlueprintDetail{}, err

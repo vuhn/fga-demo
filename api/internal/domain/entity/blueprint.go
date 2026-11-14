@@ -13,6 +13,7 @@ const (
 	BlueprintSourcePrompt = "prompt"
 	BlueprintSourceSketch = "sketch"
 	BlueprintSourceForm   = "form"
+	BlueprintSourceImport = "import" // read from a DXF; no brief, geometry only
 )
 
 // Blueprint version kinds.
@@ -22,7 +23,11 @@ const (
 	BlueprintVersionReview  = "review"
 	BlueprintVersionEdit    = "edit"
 	BlueprintVersionRestore = "restore"
+	BlueprintVersionImport  = "import"
 )
+
+// MaxImportBytes caps an imported CAD file. Unlike a sketch, the original is stored.
+const MaxImportBytes = 20 << 20
 
 // MaxSketchBytes caps an uploaded sketch. The file is sent to the engine and
 // discarded; only its name, type, and size are kept.
@@ -129,4 +134,33 @@ type Drawing struct {
 	ContentType string
 	Filename    string
 	Data        []byte
+}
+
+// BlueprintOriginal is the stored file an imported blueprint version was read from.
+type BlueprintOriginal struct {
+	BlueprintID string
+	Version     int
+	Name        string
+	MimeType    string
+	ByteSize    int64
+	SHA256      string
+	Data        []byte
+}
+
+// BlueprintImportPlan is one plan the engine found in an imported file. Model and Checks are opaque JSON.
+type BlueprintImportPlan struct {
+	Index     int
+	Name      string
+	RoomCount int
+	NetArea   float64
+	OK        bool
+	Model     json.RawMessage
+	Checks    json.RawMessage
+	SVG       string
+}
+
+// BlueprintImport is what the engine read from a DXF: its plans and the import report (opaque JSON).
+type BlueprintImport struct {
+	Plans  []BlueprintImportPlan
+	Report json.RawMessage
 }
