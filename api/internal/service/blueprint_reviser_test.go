@@ -36,8 +36,9 @@ func (f *fakeBlueprints) AppendVersion(_ context.Context, v entity.BlueprintVers
 
 type fakeEngine struct {
 	gateway.BlueprintEngine
-	calls []string
-	err   error
+	calls   []string
+	err     error
+	noModel bool // CreatePlan: the brief cannot be built
 }
 
 func (e *fakeEngine) out() (entity.BlueprintOutcome, error) {

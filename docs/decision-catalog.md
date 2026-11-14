@@ -43,7 +43,7 @@ Object ids below are bare. The fga infrastructure formats them.
 | Download the stored original file of an imported blueprint, or that file with the plan's edits written back into it | actor | `can_edit` | that blueprint (not `can_view`) |
 | List blueprints | actor | ListObjects `can_view` | type `blueprint` |
 | Get a blueprint, list its versions, render its drawing | actor | `can_view` (404 when denied) | that blueprint |
-| Revise by chat, fix issues with AI (review), edit the brief, edit an imported plan directly (`plan-edits`), restore a version, rename a blueprint | actor | `can_edit` | that blueprint |
+| Revise by chat, fix issues with AI (review), edit the brief, edit an imported plan directly (`plan-edits`), convert a blueprint made from a brief into a DXF plan (`convert`), restore a version, rename a blueprint | actor | `can_edit` | that blueprint |
 | Delete a blueprint | actor | `can_delete` | that blueprint |
 | Share or revoke on a blueprint, list its grants or share candidates | actor | `can_share` | that blueprint |
 

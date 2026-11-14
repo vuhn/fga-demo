@@ -9,6 +9,7 @@ from blueprint_engine.dxf_patch import ADDED_LAYER, patch_dxf
 from blueprint_engine.dxf_plan import import_dxf, read_doc
 from blueprint_engine.draw import build_dxf, to_dxf_bytes
 from blueprint_engine.pipeline import generate
+from blueprint_engine.schemas import BuildingModel
 
 
 @pytest.fixture(scope="module")
@@ -208,3 +209,66 @@ def test_delete_fixture_by_id_and_the_chat_help_lists_the_new_ops(original):
     assert _post_edit(c, base, [{"op": "delete_fixture", "fixture": "nope"}]).status_code == 422
     help_ = ops_help()
     assert all(op in help_ for op in ("move_fixture", "rotate_fixture", "move_opening", "delete_fixture"))
+
+
+# ---------------------------------------------------------------- a created plan behaves like an imported one
+
+
+def test_a_created_plan_is_an_editable_cad_plan():
+    import base64
+    import json
+
+    c = _api()
+    brief = next(iter(FEASIBLE.values()))
+    r = c.post("/v1/generate/plan", json={"brief": brief.model_dump(mode="json")})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    model = BuildingModel.model_validate(body["result"]["model"])
+    data = base64.b64decode(body["dxf"])
+    assert model.source == "imported" and model.origin is not None and all(f.src for f in model.fixtures)
+    assert "brief" not in body["result"] and body["result"]["ok"] is True
+    # the file is the plan's original: a direct edit of the model is written back into it
+    room = model.rooms[0]
+    ed = _post_edit(c, model, [{"op": "rename_room", "room": room.name, "name": "Studio nook"}])
+    assert ed.status_code == 200, ed.text
+    out = c.post("/v1/export/dxf-patch", files={"file": ("p.dxf", data, "image/vnd.dxf")},
+                 data={"base": model.model_dump_json(), "current": json.dumps(ed.json()["result"]["model"])})
+    assert out.status_code == 200, out.text
+    assert import_dxf(base64.b64decode(out.json()["dxf"])).plans[0].model.room(room.id).name == "Studio nook"
+
+
+def test_a_brief_that_cannot_be_built_creates_nothing():
+    c = _api()
+    brief = next(iter(FEASIBLE.values())).model_dump(mode="json")
+    brief["lot"] = {**brief["lot"], "width": 5.0, "depth": 5.0}
+    r = c.post("/v1/generate/plan", json={"brief": brief})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["dxf"] is None and body["result"]["model"] is None and body["result"]["issues"]
+
+
+def test_a_plan_made_from_a_brief_can_be_drawn_into_an_editable_cad_plan():
+    import base64
+
+    c = _api()
+    brief = next(iter(FEASIBLE.values()))
+    gen = generate(brief).model
+    r = c.post("/v1/plan/draw", json={"model": gen.model_dump(mode="json"), "title": "Old house"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    model = BuildingModel.model_validate(body["result"]["model"])
+    assert model.source == "imported" and model.origin is not None and base64.b64decode(body["dxf"]).startswith(b"  0")
+    assert len(model.rooms) == len(gen.rooms) and len(model.fixtures) == len(gen.fixtures)
+    # a plan that is already a CAD plan is refused
+    again = c.post("/v1/plan/draw", json={"model": model.model_dump(mode="json")})
+    assert again.status_code == 422 and "already" in again.json()["message"]
+
+
+def test_an_open_plan_reads_back_as_fewer_spaces_and_says_so():
+    from blueprint_engine.llm_steps import draw_plan
+
+    brief = next(b for b in FEASIBLE.values() if len(b.rooms) >= 4).model_copy(update={"open_plan": True})
+    gen = generate(brief).model
+    out = draw_plan(gen, "Open")
+    assert len(out.result.model.rooms) < len(gen.rooms)
+    assert any("open plan" in n for n in out.result.notes)

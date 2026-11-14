@@ -11,10 +11,14 @@ type BlueprintGateway interface {
 	// Create inserts the blueprint, its version 1, and its owner grant in one
 	// transaction.
 	Create(ctx context.Context, b entity.Blueprint, v entity.BlueprintVersion, owner entity.Grant) error
-	// CreateImported is Create plus the original file, in the same transaction.
+	// CreateImported is Create plus the original file, in the same transaction. The blueprint's own Source is
+	// what is recorded as the source (the original file for an import, the sketch for a created plan, or none).
 	CreateImported(ctx context.Context, b entity.Blueprint, v entity.BlueprintVersion, owner entity.Grant, original entity.BlueprintOriginal) error
 	// GetOriginal returns the stored file of a version; ErrNotFound when it has none.
 	GetOriginal(ctx context.Context, id string, version int) (entity.BlueprintOriginal, error)
+	// FindOriginal returns the newest stored file of the blueprint (the one its edits are written back into);
+	// ErrNotFound when it has none.
+	FindOriginal(ctx context.Context, id string) (entity.BlueprintOriginal, error)
 	Get(ctx context.Context, id string) (entity.Blueprint, error)
 	// ListByIDs loads the given ids, restricted to the tenant and, when
 	// projectID is not empty, to that project.
@@ -29,6 +33,9 @@ type BlueprintGateway interface {
 	// while the current version is still base. Otherwise ErrConflict and
 	// nothing is written.
 	AppendVersion(ctx context.Context, v entity.BlueprintVersion, base int) error
+	// AppendVersionWithOriginal is AppendVersion plus the original file stored with the new version, in the
+	// same transaction (converting a plan made from a brief into a DXF plan).
+	AppendVersionWithOriginal(ctx context.Context, v entity.BlueprintVersion, base int, original entity.BlueprintOriginal) error
 }
 
 // BlueprintGrantGateway is the resource_grants rows of blueprints.
@@ -59,6 +66,9 @@ type BlueprintEngine interface {
 	// Generate builds the brief. previous keeps unchanged rooms in place;
 	// repair shrinks rooms toward their minimums when the brief is too big.
 	Generate(ctx context.Context, brief, previous []byte, repair bool) (entity.BlueprintOutcome, error)
+	// CreatePlan builds the brief into a plan the way an import does: the outcome has no brief, the model as read
+	// back from a DXF the engine drew (outcome.DXF), so the plan is edited and exported like an imported one.
+	CreatePlan(ctx context.Context, brief []byte) (entity.BlueprintOutcome, error)
 	// Revise turns a chat message into edits on the brief and rebuilds it.
 	// history is the earlier chat messages, oldest first.
 	Revise(ctx context.Context, brief, previous []byte, message string, history []string) (entity.BlueprintOutcome, error)
@@ -74,6 +84,9 @@ type BlueprintEngine interface {
 	EditPlan(ctx context.Context, model, ops []byte) (entity.BlueprintOutcome, error)
 	// PatchDXF writes the differences between base (the plan as imported) and current into the original file.
 	PatchDXF(ctx context.Context, original entity.Upload, base, current []byte) (entity.PatchedFile, error)
+	// DrawPlan draws a plan made from a brief (its stored model) into a DXF and reads it back, so it becomes a
+	// plan with an original and no brief. title is the blueprint's name. No LLM.
+	DrawPlan(ctx context.Context, model []byte, title string) (entity.BlueprintOutcome, error)
 	// Review lets the engine's reviewer fix the brief's failed checks in up
 	// to three rounds, keeping a round only when the issue score drops.
 	Review(ctx context.Context, brief, previous []byte, history []string) (entity.BlueprintOutcome, error)

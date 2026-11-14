@@ -14,6 +14,7 @@ from __future__ import annotations
 import io
 import json
 import re
+import base64
 from collections.abc import Callable
 from typing import TypeVar
 
@@ -21,6 +22,8 @@ from pydantic import BaseModel, Field, ValidationError
 
 from . import plan_edits, progress, prompts
 from .checks import failed, run_imported_checks
+from .draw import TitleBlock, build_dxf, to_dxf_bytes
+from .dxf_plan import import_dxf
 from .edits import EditError, UnsupportedEdit, apply_ops, resolve_room
 from .llm import LLMClient
 from .pipeline import GenerateResult, generate, generate_fitted
@@ -421,6 +424,57 @@ def revise_plan(llm: LLMClient, model: BuildingModel, message: str, history: lis
         notes.append(f"the first {tries - 1} answer(s) could not be applied; corrected with the error")
     return PlanStep(result=PlanResult(model=new_model, checks=checks, ok=not failed(checks)), notes=notes, ops=ops,
                     llm_attempts=tries)
+
+
+class PlanBuild(BaseModel):
+    """What creating a plan gave: the drawn model (None when the brief cannot be built) and why."""
+
+    model: BuildingModel | None
+    checks: list[CheckResult] = []
+    ok: bool = False
+    issues: list[str] = []
+    notes: list[str] = []
+
+
+class PlanCreated(BaseModel):
+    result: PlanBuild
+    notes: list[str] = []
+    dxf: str | None = None  # base64 of the CAD file the plan was drawn into: its original from now on
+
+
+def draw_plan(model: BuildingModel, title: str) -> PlanCreated:
+    """Draw a model into our own DXF and read it back as a plan with provenance: the file becomes the plan's
+    original. Used for a plan made from a brief and for converting a plan made before DXF plans existed."""
+    data = to_dxf_bytes(build_dxf(model, TitleBlock(project=title[:80] or "Floor plan"))[0])
+    plans = import_dxf(data).plans
+    if len(plans) != 1:  # our own drawing must read back as one plan; anything else is a bug, not a bad input
+        raise EditError("the drawn plan could not be read back as one plan")
+    plan = plans[0].model
+    before, after = sum(r.net_area for r in model.rooms), sum(r.net_area for r in plan.rooms)
+    if abs(after - before) > 0.03 * before or len(plan.fixtures) != len(model.fixtures):
+        raise EditError(f"the drawing reads back as {after:.0f} m² and {len(plan.fixtures)} fixtures, but the plan has "
+                        f"{before:.0f} m² and {len(model.fixtures)}; it cannot be converted without losing parts of it")
+    notes = []
+    if len(plan.rooms) != len(model.rooms):  # an open plan has no walls between its rooms: a CAD file shows one space
+        notes.append(f"{len(model.rooms)} rooms became {len(plan.rooms)} spaces: rooms with no wall between them "
+                     "(an open plan) are one space in the drawing")
+    checks = run_imported_checks(plan)
+    return PlanCreated(result=PlanBuild(model=plan, checks=checks, ok=not failed(checks), notes=notes), notes=[],
+                       dxf=base64.b64encode(data).decode("ascii"))
+
+
+def create_plan(llm: LLMClient, brief: Brief, notes: list[str] | None = None) -> PlanCreated:
+    """Create a plan the way an import does. The brief is only the input: the layout is drawn into our own
+    DXF, and that file is read back like any CAD file, so the plan has no brief afterwards, keeps the file
+    as its original, and is edited, chatted about and exported like an imported one."""
+    step = create(llm, brief, notes)
+    r = step.result
+    if r.model is None:
+        return PlanCreated(result=PlanBuild(model=None, issues=r.issues, notes=r.notes), notes=step.notes)
+    out = draw_plan(r.model, brief.title)
+    out.result.notes = r.notes + out.result.notes
+    out.notes = step.notes
+    return out
 
 
 def edit_plan(model: BuildingModel, ops: plan_edits.PlanOps) -> PlanStep:

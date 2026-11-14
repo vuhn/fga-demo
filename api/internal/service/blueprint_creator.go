@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"strings"
 
@@ -27,8 +29,11 @@ func NewBlueprintCreator(projects gateway.ProjectGateway, blueprints gateway.Blu
 }
 
 // Create requires can_create_blueprint on the project. The engine builds the
-// brief (shrinking rooms when it is too big) before anything is written; a
-// brief that still cannot be built is 400. Then Postgres, then OpenFGA.
+// brief (shrinking rooms when it is too big) into a plan and the DXF it drew
+// before anything is written; a brief that still cannot be built is 400. The
+// brief is only the input: the blueprint is stored like an import (version 1
+// without a brief, the drawn DXF as its original) in one transaction. Then
+// OpenFGA; a failure there deletes the Postgres rows.
 func (s *blueprintCreator) Create(ctx context.Context, actor, tenantID string, in usecase.CreateBlueprintInput) (usecase.BlueprintDetail, error) {
 	name, err := entity.CleanName("name", in.Name)
 	if err != nil {
@@ -48,20 +53,26 @@ func (s *blueprintCreator) Create(ctx context.Context, actor, tenantID string, i
 	if err := requireBlueprintCreate(ctx, s.projects, s.authz, actor, tenantID, in.ProjectID); err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
-	out, err := s.engine.Generate(ctx, in.Brief, nil, true)
+	out, err := s.engine.CreatePlan(ctx, in.Brief)
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
 	if err := requireBuilt(out); err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
+	if len(out.DXF) == 0 {
+		return usecase.BlueprintDetail{}, entity.Invalid("the engine returned a plan without its drawing")
+	}
 
 	b := entity.Blueprint{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: in.ProjectID, Name: name, CurrentVersion: 1,
 		SourceKind: in.SourceKind, Source: source, CreatedBy: actor}
-	v := outcomeVersion(b.ID, entity.BlueprintVersionCreate, prompt, actor, out)
+	v := planOutcomeVersion(b.ID, entity.BlueprintVersionCreate, prompt, actor, out)
 	v.Version = 1
+	sum := sha256.Sum256(out.DXF)
+	orig := entity.BlueprintOriginal{BlueprintID: b.ID, Version: 1, Name: drawnFileName(name), MimeType: entity.DXFMimeType,
+		ByteSize: int64(len(out.DXF)), SHA256: hex.EncodeToString(sum[:]), Data: out.DXF}
 	owner := entity.OwnerGrant(s.ids.NewID(), tenantID, entity.ObjectTypeBlueprint, b.ID, actor)
-	if err := s.blueprints.Create(ctx, b, v, owner); err != nil {
+	if err := s.blueprints.CreateImported(ctx, b, v, owner, orig); err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
 	err = s.guard.Grant(ctx, s.relations.Created(b), nil, func(ctx context.Context) error {
@@ -75,6 +86,15 @@ func (s *blueprintCreator) Create(ctx context.Context, actor, tenantID string, i
 	}
 	v, err = s.blueprints.GetVersion(ctx, b.ID, 1)
 	return usecase.BlueprintDetail{Blueprint: b, Version: v}, err
+}
+
+// drawnFileName is the name of the DXF the engine drew for a created plan: the blueprint's name, kept short.
+func drawnFileName(name string) string {
+	r := []rune(strings.TrimSpace(name))
+	if len(r) > 100 {
+		r = r[:100]
+	}
+	return string(r) + ".dxf"
 }
 
 // validBrief accepts a JSON object; the engine validates its fields.

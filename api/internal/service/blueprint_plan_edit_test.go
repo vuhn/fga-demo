@@ -24,7 +24,8 @@ func (e *fakeEngine) PatchDXF(_ context.Context, orig entity.Upload, base, cur [
 // withOriginal is a fakeBlueprints that also holds the original file of version 1.
 type withOriginal struct {
 	*fakeBlueprints
-	none bool
+	none    bool
+	version int // the version that holds the file (default 1)
 }
 
 func (w withOriginal) GetOriginal(context.Context, string, int) (entity.BlueprintOriginal, error) {
@@ -32,6 +33,15 @@ func (w withOriginal) GetOriginal(context.Context, string, int) (entity.Blueprin
 		return entity.BlueprintOriginal{}, entity.ErrNotFound
 	}
 	return entity.BlueprintOriginal{Name: "plan.dxf", MimeType: entity.DXFMimeType, Data: []byte("ORIGINAL")}, nil
+}
+
+func (w withOriginal) FindOriginal(ctx context.Context, id string) (entity.BlueprintOriginal, error) {
+	o, err := w.GetOriginal(ctx, id, 1)
+	o.Version = w.version
+	if o.Version == 0 {
+		o.Version = 1
+	}
+	return o, err
 }
 
 func TestPlanEditStoresAnEditVersionWithANullBrief(t *testing.T) {
@@ -99,6 +109,17 @@ func TestExportPatchesTheOriginalWithBaseAndCurrentModels(t *testing.T) {
 	}
 }
 
+func TestExportRefusesAVersionOlderThanTheFile(t *testing.T) {
+	eng := &fakeEngine{}
+	bp := withOriginal{fakeBlueprints: &fakeBlueprints{brief: "null"}, version: 3}
+	if _, err := NewBlueprintOriginalExporter(bp, eng, &fakeAuthz{}).Export(context.Background(), "u", "t", bpID, 2); !errors.Is(err, entity.ErrValidation) {
+		t.Fatalf("want validation, got %v", err)
+	}
+	if len(eng.calls) != 0 {
+		t.Fatalf("engine calls %v", eng.calls)
+	}
+}
+
 func TestExportRefusals(t *testing.T) {
 	eng := &fakeEngine{}
 	bp := withOriginal{fakeBlueprints: &fakeBlueprints{brief: "null"}}
@@ -113,5 +134,16 @@ func TestExportRefusals(t *testing.T) {
 	}
 	if len(eng.calls) != 0 {
 		t.Fatalf("engine called %v", eng.calls)
+	}
+}
+
+func TestOriginalDefaultsToTheNewestFileNotTheLatestEdit(t *testing.T) {
+	bp := withOriginal{fakeBlueprints: &fakeBlueprints{brief: "null"}, version: 3}
+	o, err := NewBlueprintOriginalGetter(bp, &fakeAuthz{}).GetOriginal(context.Background(), "u", "t", bpID, 0)
+	if err != nil || o.Version != 3 {
+		t.Fatalf("original %+v, err %v", o, err)
+	}
+	if _, err := NewBlueprintOriginalGetter(bp, &fakeAuthz{deny: true}).GetOriginal(context.Background(), "u", "t", bpID, 0); !errors.Is(err, entity.ErrForbidden) {
+		t.Fatalf("want forbidden, got %v", err)
 	}
 }

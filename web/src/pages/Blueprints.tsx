@@ -357,7 +357,7 @@ function NewBlueprintModal({
             </Group>
           </Radio.Group>
           <Text size="sm" c="dimmed">
-            The plan is stored as read; the original DXF is kept with it and can be downloaded by editors. Chat, AI review and the brief form are not available for imported plans yet.
+            The plan is stored as read; the original DXF is kept with it and can be downloaded by editors. Edit it in the viewer or by chat; AI review and the brief form do not apply to a DXF plan.
           </Text>
           <TextInput label="Name" required value={name} onChange={(e) => setName(e.currentTarget.value)} />
           <Group justify="space-between">
@@ -461,7 +461,7 @@ function NewBlueprintModal({
             </Alert>
           )}
           <Text size="sm" c="dimmed">
-            Review the brief. Generate lays out the rooms; if they do not fit the lot, rooms shrink toward their minimum sizes.
+            Review the brief. Generate lays out the rooms (if they do not fit the lot, rooms shrink toward their minimum sizes) and draws them into a DXF. From then on the plan is that drawing: you edit it in the viewer or by chat, and the brief is not kept.
           </Text>
           <BriefEditor value={brief} onChange={setBrief} readOnly={busy} />
           <Group justify="space-between">

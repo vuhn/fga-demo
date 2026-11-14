@@ -28,6 +28,7 @@ type BlueprintUsecases struct {
 	OriginalGetter  usecase.BlueprintOriginalGetter
 	OriginalExport  usecase.BlueprintOriginalExporter
 	PlanEditor      usecase.BlueprintPlanEditor
+	PlanConverter   usecase.BlueprintPlanConverter
 	Creator         usecase.BlueprintCreator
 	Reviser         usecase.BlueprintReviser
 	ReviseStreamer  usecase.BlueprintReviseStreamer
@@ -57,6 +58,7 @@ func (h *BlueprintHandler) Register(r Routes) {
 	g.GET("/blueprints/:id/source", h.source)
 	g.GET("/blueprints/:id/source/edited", h.editedSource)
 	g.POST("/blueprints/:id/plan-edits", h.planEdit)
+	g.POST("/blueprints/:id/convert", h.convert)
 	g.GET("/blueprints", h.list)
 	g.POST("/blueprints", h.create)
 	g.GET("/blueprints/:id", h.get)
@@ -327,6 +329,18 @@ func (h *BlueprintHandler) planEdit(c *gin.Context) {
 		return
 	}
 	d, err := h.uc.PlanEditor.Edit(c, actor(c), tenant(c), c.Param("id"), body.Ops, body.BaseVersion)
+	respond(c, http.StatusCreated, blueprintDetailView(d), err)
+}
+
+// convert turns a blueprint made from a brief into a DXF plan (a new version, no brief, the drawing as its original).
+func (h *BlueprintHandler) convert(c *gin.Context) {
+	var body struct {
+		BaseVersion int `json:"base_version"`
+	}
+	if !bind(c, &body) {
+		return
+	}
+	d, err := h.uc.PlanConverter.Convert(c, actor(c), tenant(c), c.Param("id"), body.BaseVersion)
 	respond(c, http.StatusCreated, blueprintDetailView(d), err)
 }
 

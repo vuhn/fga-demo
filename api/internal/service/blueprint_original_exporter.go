@@ -19,11 +19,9 @@ func NewBlueprintOriginalExporter(blueprints gateway.BlueprintGateway, engine ga
 	return &blueprintOriginalExporter{blueprints: blueprints, engine: engine, authz: authz}
 }
 
-// importVersion is the version an import creates; it holds the original file and the plan as first read.
-const importVersion = 1
-
 // Export requires can_edit, like the original itself: the file can hold more than the extracted plan. The
-// engine writes the differences between the imported plan (version 1) and the chosen version into the original,
+// engine writes the differences between the plan as it was when the file was stored (the import, or the
+// conversion) and the chosen version into the original,
 // after the Check and before nothing is stored. A blueprint without an original is 404.
 func (s *blueprintOriginalExporter) Export(ctx context.Context, actor, tenantID, id string, version int) (entity.PatchedFile, error) {
 	b, err := loadBlueprint(ctx, s.blueprints, tenantID, id)
@@ -36,11 +34,14 @@ func (s *blueprintOriginalExporter) Export(ctx context.Context, actor, tenantID,
 	if version == 0 {
 		version = b.CurrentVersion
 	}
-	orig, err := s.blueprints.GetOriginal(ctx, id, importVersion)
+	orig, err := s.blueprints.FindOriginal(ctx, id)
 	if err != nil {
 		return entity.PatchedFile{}, err
 	}
-	base, err := s.blueprints.GetVersion(ctx, id, importVersion)
+	if version < orig.Version {
+		return entity.PatchedFile{}, entity.Invalid("version %d is older than the file (version %d); pick version %d or later", version, orig.Version, orig.Version)
+	}
+	base, err := s.blueprints.GetVersion(ctx, id, orig.Version)
 	if err != nil {
 		return entity.PatchedFile{}, err
 	}

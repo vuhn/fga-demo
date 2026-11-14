@@ -87,6 +87,7 @@ type BlueprintOutcome struct {
 	Issues []string
 	OK     bool
 	Notes  []string
+	DXF    []byte // CreatePlan only: the CAD file the plan was drawn into, kept as its original
 }
 
 // BlueprintProgress is one live step of an engine run (asking the model, a

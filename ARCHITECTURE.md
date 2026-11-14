@@ -28,7 +28,7 @@ Postgres :5432          OpenFGA :8080  (gRPC :8081, Playground :3000)     bluepr
 | API (`api/`) | The only authenticated edge. Validates, asks OpenFGA, reads and writes Postgres. |
 | Postgres `fgademo` | Display record: names, membership labels, file metadata, grant rows. Never decides access. |
 | OpenFGA | Relationship tuples. Answers Check, BatchCheck, ListObjects. Allow-only model. |
-| `blueprint-engine/` | Python FastAPI sidecar for the Blueprints product. A local LLM (Ollama) turns a prompt, sketch, or chat message into a JSON brief; deterministic code makes the floor plan, the DXF/SVG/PDF sheets, and an IFC4 BIM model; an LLM reviewer can propose brief fixes for failed checks. No auth, no storage: only the API calls it, after its Checks. See [blueprint-engine/README.md](blueprint-engine/README.md). |
+| `blueprint-engine/` | Python FastAPI sidecar for the Blueprints product. A local LLM (Ollama) turns a prompt or sketch into a JSON brief and a chat message into plan edit operations; deterministic code makes the floor plan, the DXF/SVG/PDF sheets, and an IFC4 BIM model; an LLM reviewer can propose brief fixes for failed checks. No auth, no storage: only the API calls it, after its Checks. See [blueprint-engine/README.md](blueprint-engine/README.md). |
 | `deploy/` | Docker Compose for Postgres and OpenFGA. The API, engine, and Vite run on the host. |
 
 ## Core principles
@@ -61,7 +61,7 @@ web  --Bearer JWT + X-Tenant-ID-->  handler  -->  usecase/service
 
 In scope: ReBAC across platform, tenant, and resource layers; affiliation-based defaults; private/public containers; direct shares to external members; product entitlements; an admin panel that performs the README script.
 
-Out of scope (do not scaffold): SSO or password flows beyond login, object storage and file serving (a blueprint sketch upload is passed to the engine and discarded; only a DXF import keeps its original, as a bytea row next to the version, downloadable by editors), cross-tenant shares, conditions or `but not`, an API to grant `system_admin`, deleting users or tenants, outbox or background workers, pagination, ownership transfer.
+Out of scope (do not scaffold): SSO or password flows beyond login, object storage and file serving (a blueprint sketch upload is passed to the engine and discarded; only a DXF plan keeps its original (the uploaded file of an import, or the DXF the engine drew for a created plan), as a bytea row next to the version, downloadable by editors), cross-tenant shares, conditions or `but not`, an API to grant `system_admin`, deleting users or tenants, outbox or background workers, pagination, ownership transfer.
 
 ## Repository layout
 

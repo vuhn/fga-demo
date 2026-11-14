@@ -49,12 +49,13 @@ type stepOut struct {
 		Notes  []string        `json:"notes"`
 	} `json:"result"`
 	Notes []string `json:"notes"`
+	DXF   []byte   `json:"dxf"` // base64 in JSON; only /v1/generate/plan sets it
 }
 
 func (o stepOut) outcome() entity.BlueprintOutcome {
 	r := o.Result
 	return entity.BlueprintOutcome{Brief: r.Brief, Model: r.Model, Checks: r.Checks, Issues: r.Issues, OK: r.OK,
-		Notes: append(append([]string{}, o.Notes...), r.Notes...)}
+		Notes: append(append([]string{}, o.Notes...), r.Notes...), DXF: o.DXF}
 }
 
 func (c *Client) BriefFromText(ctx context.Context, prompt string) (entity.BlueprintDraft, error) {
@@ -140,6 +141,20 @@ func (c *Client) ImportDXF(ctx context.Context, file entity.Upload, unit string)
 func (c *Client) Generate(ctx context.Context, brief, previous []byte, repair bool) (entity.BlueprintOutcome, error) {
 	var out stepOut
 	err := c.postJSON(ctx, "/v1/generate", map[string]any{"brief": json.RawMessage(brief), "previous": rawOrNull(previous), "repair": repair}, &out)
+	return out.outcome(), err
+}
+
+// CreatePlan sends the brief to /v1/generate/plan: no brief comes back, only the plan read from the DXF the engine drew.
+func (c *Client) CreatePlan(ctx context.Context, brief []byte) (entity.BlueprintOutcome, error) {
+	var out stepOut
+	err := c.postJSON(ctx, "/v1/generate/plan", map[string]any{"brief": json.RawMessage(brief)}, &out)
+	return out.outcome(), err
+}
+
+// DrawPlan sends a stored model to /v1/plan/draw: the engine draws it into a DXF and reads it back. No LLM.
+func (c *Client) DrawPlan(ctx context.Context, model []byte, title string) (entity.BlueprintOutcome, error) {
+	var out stepOut
+	err := c.postJSON(ctx, "/v1/plan/draw", map[string]any{"model": json.RawMessage(model), "title": title}, &out)
 	return out.outcome(), err
 }
 

@@ -18,9 +18,10 @@ func NewBlueprintOriginalGetter(blueprints gateway.BlueprintGateway, authz useca
 }
 
 // GetOriginal requires can_edit, not can_view: a CAD original can hold more than the extracted plan (other
-// layers, title-block text), so viewers get the plan and not the file. version 0 means the current version.
+// layers, title-block text), so viewers get the plan and not the file. The file belongs to the blueprint, not
+// to every version: version 0 means the newest stored file (the import, or the conversion), not the latest edit.
 func (s *blueprintOriginalGetter) GetOriginal(ctx context.Context, actor, tenantID, id string, version int) (entity.BlueprintOriginal, error) {
-	b, err := loadBlueprint(ctx, s.blueprints, tenantID, id)
+	_, err := loadBlueprint(ctx, s.blueprints, tenantID, id)
 	if err != nil {
 		return entity.BlueprintOriginal{}, err
 	}
@@ -28,7 +29,7 @@ func (s *blueprintOriginalGetter) GetOriginal(ctx context.Context, actor, tenant
 		return entity.BlueprintOriginal{}, err
 	}
 	if version == 0 {
-		version = b.CurrentVersion
+		return s.blueprints.FindOriginal(ctx, id)
 	}
 	return s.blueprints.GetOriginal(ctx, id, version)
 }

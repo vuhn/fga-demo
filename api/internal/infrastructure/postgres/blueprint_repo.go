@@ -39,10 +39,15 @@ func (r *BlueprintRepo) Create(ctx context.Context, b entity.Blueprint, v entity
 
 // CreateImported is Create plus the original file, in one transaction.
 func (r *BlueprintRepo) CreateImported(ctx context.Context, b entity.Blueprint, v entity.BlueprintVersion, owner entity.Grant, o entity.BlueprintOriginal) error {
+	var name, mime *string
+	var size *int64
+	if b.Source != nil {
+		name, mime, size = &b.Source.Name, &b.Source.MimeType, &b.Source.ByteSize
+	}
 	return inTx(ctx, r.pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `INSERT INTO blueprints (id, tenant_id, project_id, name, current_version, source_kind, source_name, source_mime, source_size, created_by)
 			VALUES ($1, $2, $3, $4, 1, $5, $6, $7, $8, $9)`,
-			b.ID, b.TenantID, b.ProjectID, b.Name, b.SourceKind, o.Name, o.MimeType, o.ByteSize, b.CreatedBy); err != nil {
+			b.ID, b.TenantID, b.ProjectID, b.Name, b.SourceKind, name, mime, size, b.CreatedBy); err != nil {
 			return err
 		}
 		v.Version = 1
@@ -61,6 +66,16 @@ func (r *BlueprintRepo) GetOriginal(ctx context.Context, id string, version int)
 	o := entity.BlueprintOriginal{BlueprintID: id, Version: version}
 	err := r.pool.QueryRow(ctx, `SELECT name, mime_type, byte_size, sha256, data FROM blueprint_originals WHERE blueprint_id = $1 AND version = $2`,
 		id, version).Scan(&o.Name, &o.MimeType, &o.ByteSize, &o.SHA256, &o.Data)
+	if err != nil {
+		return entity.BlueprintOriginal{}, mapErr(err)
+	}
+	return o, nil
+}
+
+func (r *BlueprintRepo) FindOriginal(ctx context.Context, id string) (entity.BlueprintOriginal, error) {
+	o := entity.BlueprintOriginal{BlueprintID: id}
+	err := r.pool.QueryRow(ctx, `SELECT version, name, mime_type, byte_size, sha256, data FROM blueprint_originals
+		WHERE blueprint_id = $1 ORDER BY version DESC LIMIT 1`, id).Scan(&o.Version, &o.Name, &o.MimeType, &o.ByteSize, &o.SHA256, &o.Data)
 	if err != nil {
 		return entity.BlueprintOriginal{}, mapErr(err)
 	}
@@ -182,6 +197,25 @@ func (r *BlueprintRepo) AppendVersion(ctx context.Context, v entity.BlueprintVer
 		}
 		v.Version = base + 1
 		return insertBlueprintVersion(ctx, tx, v)
+	})
+}
+
+func (r *BlueprintRepo) AppendVersionWithOriginal(ctx context.Context, v entity.BlueprintVersion, base int, o entity.BlueprintOriginal) error {
+	return inTx(ctx, r.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `UPDATE blueprints SET current_version = $2 + 1, updated_at = now() WHERE id = $1 AND current_version = $2`, v.BlueprintID, base)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return entity.Conflict("blueprint changed since version %d; reload and try again", base)
+		}
+		v.Version = base + 1
+		if err := insertBlueprintVersion(ctx, tx, v); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `INSERT INTO blueprint_originals (blueprint_id, version, name, mime_type, byte_size, sha256, data)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)`, v.BlueprintID, v.Version, o.Name, o.MimeType, o.ByteSize, o.SHA256, o.Data)
+		return err
 	})
 }
 

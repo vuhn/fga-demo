@@ -76,6 +76,11 @@ class RenderIn(BaseModel):
     title_block: TitleBlockIn = TitleBlockIn()
 
 
+class PlanDrawIn(BaseModel):
+    model: BuildingModel
+    title: str = Field(default="", max_length=200)
+
+
 class PlanEditIn(BaseModel):
     model: BuildingModel
     ops: plan_edits.PlanOps
@@ -150,6 +155,20 @@ def create_app(llm: LLMClient | None = None) -> FastAPI:
         if body.repair:
             return llm_steps.create(app.state.llm, body.brief, previous=body.previous)
         return llm_steps.StepResult(result=pipeline.generate(body.brief, body.previous))
+
+    @app.post("/v1/generate/plan", response_model=llm_steps.PlanCreated)
+    def generate_plan(body: GenerateIn) -> llm_steps.PlanCreated:
+        """Create from a brief as an editable CAD plan: the model (as read back), its checks and the DXF it was
+        drawn into. The brief is not part of the result."""
+        return llm_steps.create_plan(app.state.llm, body.brief)
+
+    @app.post("/v1/plan/draw", response_model=llm_steps.PlanCreated)
+    def plan_draw(body: PlanDrawIn) -> llm_steps.PlanCreated:
+        """Draw a generated plan's model into a DXF and read it back (converting a plan made from a brief into
+        an editable CAD plan). No LLM."""
+        if body.model.source != "generated":
+            raise EditError("this plan is already a CAD plan")
+        return llm_steps.draw_plan(body.model, body.title)
 
     @app.post("/v1/revise", response_model=llm_steps.StepResult)
     def revise(body: ReviseIn) -> llm_steps.StepResult:

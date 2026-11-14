@@ -242,3 +242,36 @@ func TestPatchDXFSendsTheFileAndBothModelsAndDecodesTheResult(t *testing.T) {
 		t.Fatalf("empty file: got %v", err)
 	}
 }
+
+func TestCreatePlanReturnsThePlanAndTheDrawnFile(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		if r.URL.Path != "/v1/generate/plan" || string(b) != `{"brief":{"title":"x"}}` {
+			t.Errorf("request %s %s", r.URL.Path, b)
+		}
+		io.WriteString(w, `{"result":{"model":{"source":"imported"},"checks":[],"issues":[],"ok":true,"notes":["b"]},"notes":["a"],"dxf":"RFJBV04="}`)
+	}))
+	defer srv.Close()
+	out, err := New(srv.URL).CreatePlan(context.Background(), []byte(`{"title":"x"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.Built() || len(out.Brief) != 0 || string(out.DXF) != "DRAWN" || strings.Join(out.Notes, ",") != "a,b" {
+		t.Fatalf("outcome %+v", out)
+	}
+}
+
+func TestDrawPlanSendsTheModelAndTheTitle(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		if r.URL.Path != "/v1/plan/draw" || string(b) != `{"model":{"a":1},"title":"House"}` {
+			t.Errorf("request %s %s", r.URL.Path, b)
+		}
+		io.WriteString(w, `{"result":{"model":{"source":"imported"},"checks":[],"issues":[],"ok":true,"notes":["7 rooms became 5 spaces"]},"notes":[],"dxf":"RFJBV04="}`)
+	}))
+	defer srv.Close()
+	out, err := New(srv.URL).DrawPlan(context.Background(), []byte(`{"a":1}`), "House")
+	if err != nil || !out.Built() || string(out.DXF) != "DRAWN" || len(out.Notes) != 1 {
+		t.Fatalf("outcome %+v err %v", out, err)
+	}
+}

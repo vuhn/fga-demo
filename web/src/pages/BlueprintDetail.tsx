@@ -36,15 +36,13 @@ import {
   IconRestore,
   IconSend,
   IconShare,
-  IconSparkles,
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, apiBlob, apiDownload, apiStream, type ExportReport, type Progress, type BlueprintDetail as Detail, type BlueprintVersionSummary, type Brief } from "../api";
+import { api, apiBlob, apiDownload, apiStream, type ExportReport, type Progress, type BlueprintDetail as Detail, type BlueprintVersionSummary } from "../api";
 import { useAuth } from "../auth";
-import BriefEditor from "../components/BriefEditor";
 import PlanViewer from "../components/PlanViewer";
 import ShareDialog from "../components/ShareDialog";
 import { asPlanModel, type PlanOp } from "../blueprintModel";
@@ -55,7 +53,7 @@ import { RenameBlueprintModal } from "./Blueprints";
 const KIND_LABEL: Record<BlueprintVersionSummary["kind"], string> = { create: "created", revise: "chat", review: "AI review", edit: "edit", restore: "restore", import: "imported" };
 
 /**
- * One blueprint: the drawing on the left; chat, brief form, checks, and
+ * One blueprint: the drawing on the left; chat, a read-only summary, checks, and
  * versions on the right. Every write sends base_version, so a stale page
  * gets 409 instead of overwriting someone else's revision.
  */
@@ -68,13 +66,12 @@ export default function BlueprintDetail() {
   const [shown, setShown] = useState<number | null>(null); // null = current version
   const [svg, setSvg] = useState<string | null>(null);
   const [drawingError, setDrawingError] = useState(false);
-  const [brief, setBrief] = useState<Brief | null>(null);
   const [message, setMessage] = useState("");
   const [thinking, setThinking] = useState<Progress[]>([]); // live steps of the running chat revision; never stored
   const [thought, setThought] = useState(""); // the model's reasoning for the current attempt; never stored
   const thoughtView = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<"sheet" | "viewer">("sheet");
-  const [busy, setBusy] = useState<"" | "chat" | "brief" | "restore" | "review" | "edit">("");
+  const [busy, setBusy] = useState<"" | "chat" | "restore" | "edit" | "convert">("");
   const [exported, setExported] = useState<ExportReport | null>(null); // what the last edited-DXF export wrote
   const [renaming, setRenaming] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -86,7 +83,6 @@ export default function BlueprintDetail() {
       const [d, vs] = await Promise.all([api<Detail>("GET", `/blueprints/${bid}`), api<BlueprintVersionSummary[]>("GET", `/blueprints/${bid}/versions`)]);
       setDetail(d);
       setVersions(vs);
-      setBrief(d.version.brief);
       setMissing(false);
     } catch (e) {
       notifyError(e);
@@ -156,7 +152,6 @@ export default function BlueprintDetail() {
   // an imported plan has no brief: its geometry came from a DXF, so the AI review and the brief form do not apply; chat edits the plan as drawn
   const imported = detail.version.brief === null;
   const planModel = asPlanModel(detail.version.model);
-  const dirty = JSON.stringify(brief) !== JSON.stringify(detail.version.brief);
 
   /** Runs a versioned write, then shows the new current version. */
   const write = async (kind: typeof busy, fn: () => Promise<unknown>, success: string) => {
@@ -193,15 +188,20 @@ export default function BlueprintDetail() {
   // One direct edit of an imported plan = one request = one new version (Versions is the undo list).
   const editPlan = (ops: PlanOp[]) => write("edit", () => api("POST", `/blueprints/${bid}/plan-edits`, { ops: { ops }, base_version: base }), "Edited");
 
-  const review = () => void write("review", () => api("POST", `/blueprints/${bid}/reviews`, { base_version: base }), "Reviewed");
+  // A blueprint made before DXF plans still has a brief: draw its plan into a DXF (no LLM) and keep that as its
+  // original. The old versions stay; this is one new version, after which it is edited like any DXF plan.
+  const convert = () => void write("convert", () => api("POST", `/blueprints/${bid}/convert`, { base_version: base }), "Converted to a DXF plan");
 
+  // The DXF kept with the plan: the uploaded file for an import, the drawing the engine made for a created plan
+  // (its source, when there is one, is the sketch).
+  const originalName = detail.source_kind === "import" ? detail.source?.name ?? "original.dxf" : `${detail.name}.dxf`;
   const downloadOriginal = async () => {
     try {
       const blob = await apiBlob(`/blueprints/${bid}/source`);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = detail.source?.name ?? "original.dxf";
+      a.download = originalName;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -216,7 +216,7 @@ export default function BlueprintDetail() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = (detail.source?.name ?? "original.dxf").replace(/\.dxf$/i, "") + `-edited-v${version}.dxf`;
+      a.download = originalName.replace(/\.dxf$/i, "") + `-edited-v${version}.dxf`;
       a.click();
       URL.revokeObjectURL(url);
       const raw = headers.get("X-Export-Report");
@@ -274,8 +274,8 @@ export default function BlueprintDetail() {
           </Group>
         }
         description={imported
-          ? `Imported from ${detail.source?.name ?? "a DXF"}. The plan is shown as drawn in the file; edit it in the Viewer or by chat: rename rooms, change room types, move, turn, add or remove fixtures, slide, resize or remove doors and windows (not walls yet). “Edited DXF” writes those edits back into the original file.`
-          : `From ${detail.source_kind}${detail.source ? ` (${detail.source.name})` : ""}. The AI edits only the brief; the drawing is computed from it.`}
+          ? `${detail.source_kind === "import" ? `Imported from ${detail.source?.name ?? "a DXF"}. The plan is shown as drawn in the file` : `Created from your ${detail.source_kind}${detail.source ? ` (${detail.source.name})` : ""} and drawn into a DXF. The plan is that drawing`}; edit it in the Viewer or by chat: rename rooms, change room types, move, turn, add or remove fixtures, slide, resize or remove doors and windows (not walls yet). “Edited DXF” writes those edits back into the original file.`
+          : `From ${detail.source_kind}${detail.source ? ` (${detail.source.name})` : ""}. An older blueprint: chat redraws it from its stored brief. Press “Make editable” to turn it into a DXF plan you can edit in the Viewer and export.`}
         actions={
           <>
             <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} onClick={() => void download("dxf")}>
@@ -289,9 +289,16 @@ export default function BlueprintDetail() {
                 IFC
               </Button>
             </Tooltip>
+            {!imported && canEdit && (
+              <Tooltip label="Draw this plan into a DXF and keep that as its original. You can then edit it in the Viewer and by chat, and download the edited DXF. Earlier versions stay in Versions.">
+                <Button size="xs" leftSection={<IconPencil size={14} />} loading={busy === "convert"} disabled={busy !== "" || shown !== null} onClick={convert}>
+                  Make editable
+                </Button>
+              </Tooltip>
+            )}
             {imported && canEdit && (
               <>
-                <Tooltip label="The file this plan was read from (editors only)">
+                <Tooltip label="The DXF this plan was read from or drawn into (editors only)">
                   <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} onClick={() => void downloadOriginal()}>
                     Original DXF
                   </Button>
@@ -358,12 +365,7 @@ export default function BlueprintDetail() {
               <Tabs.Tab value="chat" leftSection={<IconMessage size={14} />}>
                 Chat
               </Tabs.Tab>
-              {!imported && (
-                <Tabs.Tab value="brief" leftSection={<IconForms size={14} />}>
-                  Brief
-                </Tabs.Tab>
-              )}
-              {imported && planModel && (
+              {planModel && (
                 <Tabs.Tab value="summary" leftSection={<IconForms size={14} />}>
                   Summary
                 </Tabs.Tab>
@@ -446,7 +448,7 @@ export default function BlueprintDetail() {
                       />
                       <Group justify="space-between">
                         <Text size="xs" c="dimmed">
-                          {busy === "chat" ? imported ? "The local model is editing the plan…" : "The local model is revising the brief…" : "Unchanged rooms stay where they are."}
+                          {busy === "chat" ? imported ? "The local model is editing the plan…" : "The local model is revising the plan…" : "Unchanged rooms stay where they are."}
                         </Text>
                         <Button type="submit" size="xs" leftSection={<IconSend size={14} />} loading={busy === "chat"} disabled={!message.trim() || busy !== ""}>
                           Send
@@ -462,32 +464,11 @@ export default function BlueprintDetail() {
               </Stack>
             </Tabs.Panel>
 
-            <Tabs.Panel value="brief">
-              <Stack>
-                <BriefEditor value={brief as Brief} onChange={setBrief} readOnly={!canEdit || busy !== ""} />
-                {canEdit && (
-                  <Group justify="flex-end">
-                    <Button variant="default" size="xs" disabled={!dirty || busy !== ""} onClick={() => setBrief(detail.version.brief)}>
-                      Reset
-                    </Button>
-                    <Button
-                      size="xs"
-                      loading={busy === "brief"}
-                      disabled={!dirty || busy !== ""}
-                      onClick={() => void write("brief", () => api("PUT", `/blueprints/${bid}/brief`, { brief, base_version: base }), "Brief saved")}
-                    >
-                      Save and regenerate
-                    </Button>
-                  </Group>
-                )}
-              </Stack>
-            </Tabs.Panel>
-
-            {imported && planModel && (
+            {planModel && (
               <Tabs.Panel value="summary">
                 <Stack gap="xs">
                   <Text size="xs" c="dimmed">
-                    Read from the plan as it is now. An imported plan has no brief to regenerate from: edit it in the Viewer or by chat.
+                    {imported ? "Read from the plan as it is now. Edit it in the Viewer or by chat." : "Read from the plan as it is now. This older blueprint is not a DXF plan yet: press “Make editable” to edit it in the Viewer."}
                   </Text>
                   <Table withTableBorder fz="xs">
                     <Table.Thead>
@@ -519,18 +500,6 @@ export default function BlueprintDetail() {
 
             <Tabs.Panel value="checks">
               <Stack gap="xs">
-                {canEdit && !imported && failed.length > 0 && (
-                  <Group justify="space-between" wrap="nowrap">
-                    <Text size="xs" c="dimmed">
-                      {busy === "review"
-                        ? "The local model is reviewing the issues (up to 3 rounds)…"
-                        : "The AI proposes brief edits for these issues and keeps only rounds that reduce them. Rooms are never removed."}
-                    </Text>
-                    <Button size="xs" variant="light" leftSection={<IconSparkles size={14} />} loading={busy === "review"} disabled={busy !== ""} onClick={review}>
-                      Fix issues with AI
-                    </Button>
-                  </Group>
-                )}
                 {detail.version.kind === "review" && detail.version.notes.length > 0 && (
                   <Alert variant="light" color="grape" p="xs" title={`AI review (v${detail.current_version})`}>
                     <List size="xs">

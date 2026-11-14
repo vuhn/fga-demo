@@ -137,6 +137,12 @@ type BlueprintPlanEditor interface {
 	Edit(ctx context.Context, actor, tenantID, id string, ops json.RawMessage, baseVersion int) (BlueprintDetail, error)
 }
 
+// BlueprintPlanConverter turns a blueprint made from a brief (before DXF plans) into a DXF plan: the engine
+// draws its plan into a DXF, which is stored as the original of a new version without a brief.
+type BlueprintPlanConverter interface {
+	Convert(ctx context.Context, actor, tenantID, id string, baseVersion int) (BlueprintDetail, error)
+}
+
 // BlueprintOriginalExporter returns the original file of an imported plan with the edits of a version
 // (0 = current) written back into it.
 type BlueprintOriginalExporter interface {
