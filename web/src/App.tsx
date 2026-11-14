@@ -29,7 +29,6 @@ const Tenants = lazy(() => import("./pages/Tenants"));
 const TenantDetail = lazy(() => import("./pages/TenantDetail"));
 const Projects = lazy(() => import("./pages/Projects"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
-const BlueprintDetail = lazy(() => import("./pages/BlueprintDetail"));
 const Companies = lazy(() => import("./pages/Companies"));
 const Roles = lazy(() => import("./pages/Roles"));
 const RoleDetail = lazy(() => import("./pages/RoleDetail"));
@@ -175,7 +174,6 @@ export default function App() {
           <Route path="/users" element={<RequireFeature feature="nav.users"><Users /></RequireFeature>} />
           <Route path="/projects" element={<RequireFeature feature="nav.projects"><Projects /></RequireFeature>} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
-          <Route path="/projects/:id/blueprints/:bid" element={<RequireFeature feature="nav.blueprints"><BlueprintDetail /></RequireFeature>} />
           <Route path="/companies" element={<RequireFeature feature="nav.companies"><Companies /></RequireFeature>} />
           <Route path="/tenants" element={<RequireFeature feature="nav.tenants"><Tenants /></RequireFeature>} />
           {/* Guarded inside, against the tenant in the URL rather than the active one. */}

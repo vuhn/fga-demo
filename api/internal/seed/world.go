@@ -88,12 +88,7 @@ type Person struct {
 	CompanyID       string
 }
 
-// TenantSeed lists the products the tenant has enabled. Blueprints are on
-// for Acme only, so Globex shows the product-off state.
-type TenantSeed struct {
-	ID, Slug, Name, CompanyID string
-	Products                  []string
-}
+type TenantSeed struct{ ID, Slug, Name, CompanyID string }
 
 // FolderSeed and AlbumSeed carry their shares to external members;
 // TenantID/ObjectType/ObjectID are filled by Grants().
@@ -117,8 +112,8 @@ var People = []Person{
 }
 
 var Tenants = []TenantSeed{
-	{Acme, "acme", "Acme", CoAcme, entity.AllProducts},
-	{Globex, "globex", "Globex", CoGlobex, []string{entity.ProductDocuments, entity.ProductPhotos}},
+	{Acme, "acme", "Acme", CoAcme},
+	{Globex, "globex", "Globex", CoGlobex},
 }
 
 // Subcontractors are the companies that are not a tenant's own. The platform
@@ -346,7 +341,7 @@ func Tuples() ([]entity.Tuple, error) {
 		out = append(out, grants...)
 	}
 	for _, t := range Tenants {
-		for _, prod := range t.Products {
+		for _, prod := range entity.AllProducts {
 			out = append(out, fga.ProductRelations{}.Enabled(t.ID, prod))
 		}
 	}

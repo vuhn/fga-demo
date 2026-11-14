@@ -23,7 +23,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconFileText, IconPhoto, IconRuler2, IconShield, IconTrash, IconUserPlus, IconUsers } from "@tabler/icons-react";
+import { IconFileText, IconPhoto, IconShield, IconTrash, IconUserPlus, IconUsers } from "@tabler/icons-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, memberRoleOptions, type Company, type CustomRole, type Member, type Product, type Tenant } from "../api";
@@ -55,7 +55,6 @@ type PagePerms = { products: boolean; members: boolean; roles: boolean };
 const PRODUCT_META: Record<string, { label: string; icon: typeof IconFileText }> = {
   documents: { label: "Documents", icon: IconFileText },
   photos: { label: "Photos", icon: IconPhoto },
-  blueprints: { label: "Blueprints", icon: IconRuler2 },
 };
 
 function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {

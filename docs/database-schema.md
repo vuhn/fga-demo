@@ -4,7 +4,7 @@ Postgres is the display record. Authorization never reads `tenant_members.role` 
 
 ## Entity relationship diagram
 
-Current schema after migration 00007. Columns are abbreviated to keys, foreign keys, and the fields that matter for authorization display. Composite foreign keys `(project_id, tenant_id)` and `(tenant_id, user_id)` are drawn as one relationship.
+Current schema after migration 00005. Columns are abbreviated to keys, foreign keys, and the fields that matter for authorization display. Composite foreign keys `(project_id, tenant_id)` and `(tenant_id, user_id)` are drawn as one relationship.
 
 ```mermaid
 erDiagram
@@ -114,27 +114,10 @@ erDiagram
         text name
         uuid created_by FK
     }
-    blueprints {
-        uuid id PK
-        uuid tenant_id FK
-        uuid project_id FK
-        text name
-        int current_version
-        text source_kind "prompt | sketch | form"
-        uuid created_by FK
-    }
-    blueprint_versions {
-        uuid blueprint_id PK
-        int version PK
-        text kind "create | revise | review | edit | restore"
-        jsonb brief
-        jsonb model
-        uuid created_by FK
-    }
     resource_grants {
         uuid id PK
         uuid tenant_id FK
-        text object_type "folder | document | album | photo | blueprint"
+        text object_type "folder | document | album | photo"
         uuid object_id "no FK, type varies"
         text relation "owner | editor | viewer"
         text subject_type "user | external_users | external_admins"
@@ -163,8 +146,6 @@ erDiagram
     projects ||--o{ albums : contains
     projects ||--o{ documents : contains
     projects ||--o{ photos : contains
-    projects ||--o{ blueprints : contains
-    blueprints ||--o{ blueprint_versions : versions
     folders ||--o{ folders : parent
     folders ||--o{ documents : holds
     albums ||--o{ albums : parent
@@ -339,17 +320,4 @@ Spec for `prds/update-tenant-structure.md`. `api/migrations/00005_companies_proj
 `created_by` is a display field. The owner tuple is the authorization record. They can diverge after a member is removed: the row keeps `created_by`, and the owner tuple is deleted.
 
 There is no foreign key from `resource_grants.object_id` to a single table because the object type varies. The content repo writes the owner grant in the same transaction as the object and deletes grants when the object is deleted.
-
-## Blueprints (migration 00006)
-
-`api/migrations/00006_blueprints.sql`. Spec: `prds/plans/text2blueprint-poc.md`.
-
-- `blueprints(id, tenant_id, project_id, name, current_version, source_kind, source_name null, source_mime null, source_size null, created_by, created_at, updated_at)`. FK `(project_id, tenant_id) -> projects (id, tenant_id)` like other content. `source_*` describe an uploaded sketch for display; the file itself is never stored (file bytes stay a non-goal).
-- `blueprint_versions(blueprint_id, version, kind, message, brief jsonb, model jsonb, checks jsonb, notes jsonb, ok, created_by, created_at)`, PK `(blueprint_id, version)`, cascade on blueprint delete. Append-only. The brief is the only editable source; `model` is what the engine derived from it and is stored so a drawing re-renders identically and the next revision keeps rooms in place.
-- Appending a version is one transaction: `UPDATE blueprints SET current_version = base + 1 WHERE id = $1 AND current_version = base`, then insert `version = base + 1`. Zero rows updated is 409 `conflict` and nothing is inserted.
-- `tenant_products.product` adds `blueprints` (one `false` row per existing tenant); `resource_grants.object_type` adds `blueprint`.
-
-## Blueprint reviews (migration 00007)
-
-`api/migrations/00007_blueprint_review.sql` widens `blueprint_versions.kind` to include `review` (a version written by "Fix issues with AI"). Spec: `prds/plans/text2bim-adoption.md`. Down restores the old check; it fails while any `review` row exists, so no version is silently dropped.
 

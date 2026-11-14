@@ -19,13 +19,11 @@ const RELATIONS: Record<string, string[]> = {
     "can_create_private_album",
     "documents_enabled",
     "photos_enabled",
-    "blueprints_enabled",
   ],
   folder: ["can_view", "can_edit", "can_manage", "can_delete", "can_share", "can_change_visibility", "can_create_document"],
   document: ["can_view", "can_edit", "can_manage", "can_delete", "can_share"],
   album: ["can_view", "can_edit", "can_manage", "can_delete", "can_share", "can_change_visibility", "can_create_photo"],
   photo: ["can_view", "can_edit", "can_manage", "can_delete", "can_share"],
-  blueprint: ["can_view", "can_edit", "can_manage", "can_delete", "can_share"],
 };
 
 type Access = {
@@ -159,7 +157,7 @@ export default function Inspector() {
                 label="Object type"
                 allowDeselect={false}
                 value={lookup.object_type}
-                data={["folder", "document", "album", "photo", "blueprint"]}
+                data={["folder", "document", "album", "photo"]}
                 onChange={(t) => t && setLookup({ ...lookup, object_type: t })}
               />
               <TextInput label="Object id" placeholder="UUID" value={lookup.object_id} onChange={(e) => setLookup({ ...lookup, object_id: e.currentTarget.value })} />

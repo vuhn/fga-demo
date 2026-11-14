@@ -9,19 +9,11 @@ type Product struct {
 }
 
 const (
-	ProductDocuments  = "documents"
-	ProductPhotos     = "photos"
-	ProductBlueprints = "blueprints"
+	ProductDocuments = "documents"
+	ProductPhotos    = "photos"
 )
 
 // AllProducts lists every product a tenant can enable.
-var AllProducts = []string{ProductDocuments, ProductPhotos, ProductBlueprints}
+var AllProducts = []string{ProductDocuments, ProductPhotos}
 
-func ValidProduct(p string) bool {
-	for _, x := range AllProducts {
-		if p == x {
-			return true
-		}
-	}
-	return false
-}
+func ValidProduct(p string) bool { return p == ProductDocuments || p == ProductPhotos }

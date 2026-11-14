@@ -16,10 +16,9 @@ Base path `/api/v1`. JSON uses snake_case. Timestamps are RFC3339. Authenticated
 | 401 | `unauthenticated` | Missing or invalid JWT |
 | 403 | `forbidden` | A required Check returned false on a write |
 | 404 | `not_found` | Unknown id, or a GET-by-id whose Check returned false, or `X-Tenant-ID` does not own the object |
-| 409 | `conflict` | Duplicate email or slug, duplicate membership, last internal admin, cycle, depth, folder or album still has children, blueprint `base_version` is stale |
+| 409 | `conflict` | Duplicate email or slug, duplicate membership, last internal admin, cycle, depth, folder or album still has children |
 | 500 | `tuple_write_failed` | OpenFGA Write failed and compensation ran |
 | 500 | `internal` | Any other unexpected error |
-| 502 | `engine_unavailable` | The blueprint engine or its LLM is down, or returned bad output |
 
 Error body:
 
@@ -103,8 +102,8 @@ There is no delete tenant route.
 
 #### Products
 
-- `GET /api/v1/tenants/:id/products` returns `{product, enabled, updated_at}` for every product. OR check of `can_manage_platform` or `can_view_products` (internal admin); 403 otherwise. Tenant admins can see product state but not change it. `enabled` is the Postgres display flag. (Members learn whether a product is on from `GET /me/permissions`.)
-- `PUT /api/v1/tenants/:id/products/:product` where `:product` is `documents`, `photos`, or `blueprints`. Body `{"enabled": true}`. Allow only when `can_manage_platform` is true: products are a platform entitlement. Then the set-product tuple command.
+- `GET /api/v1/tenants/:id/products` returns `{product, enabled, updated_at}` for both products. OR check of `can_manage_platform` or `can_view_products` (internal admin); 403 otherwise. Tenant admins can see product state but not change it. `enabled` is the Postgres display flag. (Members learn whether a product is on from `GET /me/permissions`.)
+- `PUT /api/v1/tenants/:id/products/:product` where `:product` is `documents` or `photos`. Body `{"enabled": true}`. Allow only when `can_manage_platform` is true: products are a platform entitlement. Then the set-product tuple command.
 
 An internal tenant admin and a system admin can both call this PUT. An internal user, an external admin, and an external user receive 403. Disabling the product still deletes only the wildcard tuple.
 
@@ -206,29 +205,6 @@ Same routes and checks, with these replacements:
 
 Grant routes: `POST` and `DELETE /api/v1/albums/:id/grants` and `/api/v1/photos/:id/grants`.
 
-#### Blueprints
-
-Require `X-Tenant-ID`. Blueprints live directly in a project (no container) and have no public flag: external members reach one only through a share or a custom-role `grant_*`. External admins who are project members may create blueprints (they own those). Every route calls the Go API, which checks, stores, and versions; the API alone calls the stateless `blueprint-engine` (`BLUEPRINT_ENGINE_URL`). The LLM edits only the brief; the engine does all geometry.
-
-- `POST /api/v1/blueprint-drafts` body `{project_id, prompt}` returns `{brief, notes}`. Check `can_create_blueprint` on the project. Writes nothing: the UI shows the brief for review.
-- `POST /api/v1/blueprint-drafts/sketch` multipart `project_id`, `file` (PNG, JPG, or PDF; first page only; at most 10 MB), `note?` returns `{brief, notes, source: {name, mime_type, byte_size}}`. Same check. The file is sent to the engine and discarded; only its name, type, and size are kept when the blueprint is created.
-- `POST /api/v1/blueprints` body `{project_id, name, brief, source_kind: "prompt"|"sketch"|"form", source?: {name, mime_type, byte_size}, prompt?}`. `prompt` (at most 2000 characters) is the description or sketch note the brief was drafted from; it is stored as version 1's `message` so it starts the chat history. Check `can_create_blueprint` on the project. The engine generates (shrinking rooms toward their minimums when the brief is too big); a brief that still cannot be built is 400 `validation` with the engine's issues and nothing is stored. Otherwise creates the blueprint and version 1. 201 with the blueprint and `version` (the get shape, without `permissions`).
-- `GET /api/v1/blueprints?project_id=<optional>` lists visible blueprints (ListObjects `can_view`), without brief or model.
-- `GET /api/v1/blueprints/:id` returns the blueprint, its current version (`brief`, `model`, `checks`, `notes`, `ok`), and `permissions`.
-- `PATCH /api/v1/blueprints/:id` body `{name}`. Check `can_edit`.
-- `DELETE /api/v1/blueprints/:id`. Check `can_delete`. Deletes every version.
-- `POST /api/v1/blueprints/:id/revisions` body `{message, base_version}`. Check `can_edit`. The engine turns the message into edit operations on the brief and regenerates, keeping unchanged rooms where they were. It also receives the chat history: the messages of the last 6 `create` and `revise` versions, oldest first, so "a bit bigger please" refers to the previous request. A wrong LLM answer is sent back to the LLM with the error, up to 3 attempts; an unsupported or still unresolvable request is 400 with the engine's message. When the edit introduces a new kind of error, the engine runs one review round (below) before answering. 201 with the blueprint and its new `version`.
-- `POST /api/v1/blueprints/:id/reviews` body `{base_version}`. Check `can_edit`. "Fix issues with AI": the engine's reviewer runs up to 3 rounds over the failed checks of the current version, each round proposing edit operations that are kept only when the issue score drops. It never removes or renames rooms or changes the lot or the entrance, and moves the total area by at most 15%. 201 with a new version of kind `review` whose `notes` list each round and the issues left for the person (`message` is empty). 400 when there is nothing to fix or no round reduced the issues (`"no fix found: <round notes>"`); nothing is stored.
-- `PUT /api/v1/blueprints/:id/brief` body `{brief, base_version}`. Check `can_edit`. The form edit: regenerate without changing the user's numbers (a brief that cannot be built is 400). 201 with the blueprint and its new `version`.
-- `GET /api/v1/blueprints/:id/versions` lists `{version, kind, message, ok, created_by, created_at}`. Check `can_view`.
-- `POST /api/v1/blueprints/:id/versions/:version/restore` body `{base_version}`. Check `can_edit`. Copies an earlier version into a new one without calling the engine. 201 with the blueprint and its new `version`.
-- `GET /api/v1/blueprints/:id/drawing?format=svg|pdf|dxf|ifc&version=<optional>`. Check `can_view`. Renders the stored model of that version (default: current) at 1:50 on the smallest sheet that fits (A3, growing to A2, A1 or A0 for bigger houses; a smaller scale only past A0); `pdf`, `dxf` and `ifc` are attachments named `<name>-v<version>.<ext>`. `ifc` is an IFC4 BIM model (site, building, one storey, walls, doors, windows, spaces, a floor slab and the fixtures as furniture and sanitary terminals) that opens in any IFC viewer.
-- Grants, grant list, and share candidates: the same routes and body as documents, under `/api/v1/blueprints/:id/...`. Check `can_share`.
-
-`base_version` must equal the current version, otherwise 409 `conflict`; nothing is written. The engine is called only after the Check and the version check pass, and before anything is written. An engine or LLM that is down is 502 `engine_unavailable` (for sketches, also when the vision model is not pulled). Versions are append-only Postgres rows; no version route touches OpenFGA.
-
-Blueprint JSON: `id`, `tenant_id`, `project_id`, `name`, `current_version`, `source_kind`, `source` (or null), `created_by`, `created_at`, `updated_at`; list and get add `permissions` (`can_view`, `can_edit`, `can_manage`, `can_delete`, `can_share`). A version adds `version`, `kind` (`create`, `revise`, `review`, `edit`, `restore`), `message`, `brief`, `model`, `checks`, `notes`, `ok`.
-
 #### Access inspector
 
 `POST /api/v1/authz/check`
@@ -246,7 +222,7 @@ Response 200: `{"allowed": false}`.
 
 The actor may check their own `user_id` always. The actor may check another user when `can_manage_platform` is true, or when the actor has `can_manage_members` on the object's tenant. The API derives that tenant from the object, never from the request: a `tenant` object is its own tenant, a content object's tenant is loaded from Postgres, and `platform:main` has no tenant. A missing object is 404. Otherwise 403. This keeps an admin of one tenant from probing access to another tenant's objects.
 
-Whitelisted relations: `can_view`, `can_edit`, `can_delete`, `can_share`, `can_create_document`, `can_create_photo`, `can_create_folder`, `can_create_album`, `can_manage`, `can_manage_members`, `can_view_products`, `can_contribute`, `can_read_tenant`, `can_manage_platform`, `documents_enabled`, `photos_enabled`, `blueprints_enabled`, `can_create_blueprint`.
+Whitelisted relations: `can_view`, `can_edit`, `can_delete`, `can_share`, `can_create_document`, `can_create_photo`, `can_create_folder`, `can_create_album`, `can_manage`, `can_manage_members`, `can_view_products`, `can_contribute`, `can_read_tenant`, `can_manage_platform`, `documents_enabled`, `photos_enabled`.
 
 `can_manage_platform` requires `object_type=platform` and `object_id=main`. Tenant relations require `object_type=tenant`. Content relations require the matching object type. A mismatch is 400.
 

@@ -12,15 +12,15 @@ src/
   permissions.tsx       the only mapping from permissions to UI
   ui.tsx                shared helpers: run, notifyError, confirmDanger, PageHeader, badges
   pages/                one lazy-loaded route component per screen
-  components/           TenantSwitcher, ShareDialog, ContentPage, BriefEditor
+  components/           TenantSwitcher, ShareDialog, ContentPage
   styles.css            small tweaks on Mantine CSS variables
 ```
 
-Pages: Login, Home, Users, Tenants, TenantDetail, Companies, Projects, ProjectDetail, BlueprintDetail, Roles, RoleDetail, Inspector. Documents and Photos are not routes: they are tabs of ProjectDetail (thin wrappers over one `ContentPage` that takes the project as a prop and renders folders/albums as a tree). Blueprints is a third tab with its own page (`Blueprints.tsx`, no containers); a row opens `/projects/:id/blueprints/:bid`. `BriefEditor` is the room/lot form shared by the create modal and the detail page. Drawings and downloads go through `apiBlob` (they need the auth headers) and sketches through `apiUpload`. Page-by-page behavior: [web UI reference](../docs/web-ui.md).
+Pages: Login, Home, Users, Tenants, TenantDetail, Companies, Projects, ProjectDetail, Roles, RoleDetail, Inspector. Documents and Photos are not routes: they are tabs of ProjectDetail (thin wrappers over one `ContentPage` that takes the project as a prop and renders folders/albums as a tree). Page-by-page behavior: [web UI reference](../docs/web-ui.md).
 
 ## Data flow
 
-- `api.ts` attaches the JWT and the active tenant (`sessionStorage.tenant_id`) as `X-Tenant-ID`. The Vite dev server proxies `/api` to `:8088` with a 5-minute timeout, because blueprint LLM calls are slow.
+- `api.ts` attaches the JWT and the active tenant (`sessionStorage.tenant_id`) as `X-Tenant-ID`. The Vite dev server proxies `/api` to `:8088`.
 - `TenantSwitcher` lists the actor's tenants (`GET /tenants/mine`) and sets the active tenant; changing it reloads page data and permissions.
 - Mutations go through `run(fn, successMsg)` in `ui.tsx`, which toasts success or the mapped API error. There is no per-page error state.
 

@@ -19,19 +19,17 @@ type Config struct {
 	JWTSecret        string
 	JWTTTL           time.Duration
 	CORSOrigin       string
-	BlueprintEngine  string
 }
 
 var defaults = map[string]string{
-	"HTTP_ADDR":            ":8088",
-	"DATABASE_URL":         "postgres://fgademo:password@localhost:5432/fgademo?sslmode=disable",
-	"OPENFGA_API_URL":      "http://localhost:8080",
-	"OPENFGA_STORE_NAME":   "fga-demo",
-	"OPENFGA_MODEL_PATH":   "fga/model.fga",
-	"JWT_SECRET":           "dev-secret-change-me",
-	"JWT_TTL":              "12h",
-	"CORS_ORIGIN":          "http://localhost:5173",
-	"BLUEPRINT_ENGINE_URL": "http://localhost:8090",
+	"HTTP_ADDR":          ":8088",
+	"DATABASE_URL":       "postgres://fgademo:password@localhost:5432/fgademo?sslmode=disable",
+	"OPENFGA_API_URL":    "http://localhost:8080",
+	"OPENFGA_STORE_NAME": "fga-demo",
+	"OPENFGA_MODEL_PATH": "fga/model.fga",
+	"JWT_SECRET":         "dev-secret-change-me",
+	"JWT_TTL":            "12h",
+	"CORS_ORIGIN":        "http://localhost:5173",
 }
 
 // dotEnvPaths is where Load looks for .env: the working directory (api/),
@@ -63,7 +61,6 @@ func Load() (Config, error) {
 		JWTSecret:        get("JWT_SECRET"),
 		JWTTTL:           ttl,
 		CORSOrigin:       get("CORS_ORIGIN"),
-		BlueprintEngine:  get("BLUEPRINT_ENGINE_URL"),
 	}, nil
 }
 

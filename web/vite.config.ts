@@ -5,8 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    // Blueprint drafts and revisions wait on a local LLM; allow up to 5 minutes.
-    proxy: { "/api": { target: "http://localhost:8088", timeout: 300_000, proxyTimeout: 300_000 } },
+    proxy: { "/api": "http://localhost:8088" },
   },
   build: {
     rolldownOptions: {

@@ -18,7 +18,6 @@ var (
 	ErrNotFound                = errors.New("not_found")
 	ErrConflict                = errors.New("conflict")
 	ErrTupleWriteFailed        = errors.New("tuple_write_failed")
-	ErrEngineUnavailable       = errors.New("engine_unavailable")
 )
 
 // CheckError records which OpenFGA Check denied the action. It unwraps to
@@ -38,11 +37,6 @@ func (e *CheckError) Unwrap() error { return e.Err }
 // Denied builds the CheckError for a failed Check.
 func Denied(err error, relation, objectType, objectID string) error {
 	return &CheckError{Err: err, Relation: relation, Object: objectType + ":" + objectID}
-}
-
-// Conflict wraps ErrConflict with a human-readable reason.
-func Conflict(format string, args ...any) error {
-	return fmt.Errorf("%w: %s", ErrConflict, fmt.Sprintf(format, args...))
 }
 
 // Invalid wraps ErrValidation with a human-readable reason.

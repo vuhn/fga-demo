@@ -21,7 +21,7 @@ $hits" \
 done
 
 # 2. Tuple formatting lives only in infrastructure/fga.
-hits=$(grep -rnE '"(user|folder|document|album|photo|blueprint|tenant|role|product|platform|system)[:#]' --include='*.go' api/internal api/cmd \
+hits=$(grep -rnE '"(user|folder|document|album|photo|tenant|role|product|platform|system)[:#]' --include='*.go' api/internal api/cmd \
   | grep -v 'api/internal/infrastructure/fga/' | grep -v '_test\.go' | grep -v 'api/internal/seed/' \
   | grep -vE '^\S+:[0-9]+:\s*//' | grep -v 'domain/entity/authz.go')
 if [ -n "$hits" ]; then
