@@ -93,6 +93,7 @@ Ollama runs natively, not in Docker, because Docker on macOS has no GPU access.
 | `POST /v1/brief/from-sketch` | multipart `file` (PNG, JPG, PDF or DXF, ≤10 MB; PDF first page only; DXF read from text labels, no vision model), `note` | `{brief, notes}` |
 | `POST /v1/generate` | `{brief, previous?, repair?}` | `{result: {brief, model, checks, issues, ok}, notes, attempts, llm_attempts, review_rounds}` |
 | `POST /v1/revise` | `{brief, previous?, message, history?}` | the same as generate, plus `ops` |
+| `POST /v1/revise/stream` | the same as revise | NDJSON, one JSON object per line: `{"event":"progress","kind","stage","message"}` while it works (`kind` is `step`, or `thinking` with a piece of the model's reasoning as `message`; while streaming the LLM call runs with `think: true` and the reasoning is forwarded in chunks of about 150 ms, `BLUEPRINT_STREAM_THINKING=0` turns that off), then exactly one `{"event":"result","data":<revise response>}` or `{"event":"error","status","error","message"}`. A bad request (empty message, malformed body) is the usual 4xx before any line. Stages: `start`, `ask_model`, `retry`, `ops`, `layout`, `checks`, `review`. Closing the connection cancels the run at the next step. Progress lines are never stored; they carry no tenant or user ids. |
 | `POST /v1/review` | `{brief, previous?, history?, max_rounds?: 1-3}` | the same as generate |
 | `POST /v1/render` | `{model, format: svg\|dxf\|pdf\|ifc, title_block}` | the file bytes |
 

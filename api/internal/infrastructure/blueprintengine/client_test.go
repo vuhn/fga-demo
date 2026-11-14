@@ -83,3 +83,53 @@ func TestReviseAndReviewSendHistory(t *testing.T) {
 		t.Errorf("notes %v", out.Notes)
 	}
 }
+
+func TestReviseStreamRelaysProgressThenResult(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/revise/stream" {
+			t.Errorf("path %s", r.URL.Path)
+		}
+		io.WriteString(w, `{"event":"progress","stage":"ask_model","message":"Asking the model… attempt 1/3"}`+"\n")
+		io.WriteString(w, `{"event":"progress","stage":"checks","message":"Checks: all pass"}`+"\n")
+		io.WriteString(w, `{"event":"result","data":{"result":{"brief":{},"model":{"a":1},"checks":[],"issues":[],"ok":true,"notes":["b"]},"notes":["a"]}}`+"\n")
+	}))
+	defer srv.Close()
+	var got []string
+	out, err := New(srv.URL).ReviseStream(context.Background(), []byte(`{}`), nil, "x", nil, func(p entity.BlueprintProgress) { got = append(got, p.Stage) })
+	if err != nil || !out.Built() || strings.Join(got, ",") != "ask_model,checks" || strings.Join(out.Notes, ",") != "a,b" {
+		t.Fatalf("got %v %v %+v", got, err, out)
+	}
+}
+
+func TestReviseStreamErrorsMapToSentinels(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, `{"event":"progress","stage":"start","message":"s"}`+"\n")
+		io.WriteString(w, `{"event":"error","status":422,"error":"invalid_edit","message":"no room called pool"}`+"\n")
+	}))
+	called := 0
+	_, err := New(srv.URL).ReviseStream(context.Background(), []byte(`{}`), nil, "x", nil, func(entity.BlueprintProgress) { called++ })
+	srv.Close()
+	if !errors.Is(err, entity.ErrValidation) || !strings.Contains(err.Error(), "no room called pool") || called != 1 {
+		t.Errorf("got %v after %d progress", err, called)
+	}
+
+	// a 4xx before the stream opens fails before any callback
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(422)
+		io.WriteString(w, `{"error":"invalid_edit","message":"say what to change"}`)
+	}))
+	called = 0
+	_, err = New(srv.URL).ReviseStream(context.Background(), []byte(`{}`), nil, "x", nil, func(entity.BlueprintProgress) { called++ })
+	srv.Close()
+	if !errors.Is(err, entity.ErrValidation) || called != 0 {
+		t.Errorf("got %v after %d progress", err, called)
+	}
+
+	// a stream that ends without a result is an unavailable engine
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	_, err = New(srv.URL).ReviseStream(context.Background(), []byte(`{}`), nil, "x", nil, nil)
+	srv.Close()
+	if !errors.Is(err, entity.ErrEngineUnavailable) {
+		t.Errorf("empty stream: got %v", err)
+	}
+}

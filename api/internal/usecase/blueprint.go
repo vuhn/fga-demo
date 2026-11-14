@@ -56,6 +56,14 @@ type BlueprintReviser interface {
 	Revise(ctx context.Context, actor, tenantID, id, message string, baseVersion int) (BlueprintDetail, error)
 }
 
+// BlueprintReviseStreamer is BlueprintReviser that reports live progress.
+// Every refusal (Check, stale base_version, validation, engine down) is
+// returned before the first onProgress call, so the caller can still answer
+// with a plain status; afterwards errors arrive as the returned error.
+type BlueprintReviseStreamer interface {
+	ReviseStream(ctx context.Context, actor, tenantID, id, message string, baseVersion int, onProgress func(entity.BlueprintProgress)) (BlueprintDetail, error)
+}
+
 // BlueprintReviewer lets the engine's reviewer fix the current version's
 // failed checks ("Fix issues with AI").
 type BlueprintReviewer interface {

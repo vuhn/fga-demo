@@ -38,9 +38,9 @@ import {
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, apiBlob, type BlueprintDetail as Detail, type BlueprintVersionSummary, type Brief } from "../api";
+import { api, apiBlob, apiStream, type Progress, type BlueprintDetail as Detail, type BlueprintVersionSummary, type Brief } from "../api";
 import { useAuth } from "../auth";
 import BriefEditor from "../components/BriefEditor";
 import ShareDialog from "../components/ShareDialog";
@@ -66,6 +66,9 @@ export default function BlueprintDetail() {
   const [drawingError, setDrawingError] = useState(false);
   const [brief, setBrief] = useState<Brief | null>(null);
   const [message, setMessage] = useState("");
+  const [thinking, setThinking] = useState<Progress[]>([]); // live steps of the running chat revision; never stored
+  const [thought, setThought] = useState(""); // the model's reasoning for the current attempt; never stored
+  const thoughtView = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<"" | "chat" | "brief" | "restore" | "review">("");
   const [renaming, setRenaming] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -87,6 +90,11 @@ export default function BlueprintDetail() {
       });
     }
   }, [bid, me, tenantId]);
+
+  useEffect(() => {
+    const el = thoughtView.current; // keep the newest reasoning in view
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [thought]);
 
   useEffect(() => {
     void load();
@@ -153,7 +161,24 @@ export default function BlueprintDetail() {
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
-    if (await write("chat", () => api("POST", `/blueprints/${bid}/revisions`, { message: message.trim(), base_version: base }), "Revised")) setMessage("");
+    setThinking([]);
+    setThought("");
+    const ok = await write(
+      "chat",
+      () =>
+        apiStream("/blueprints/" + bid + "/revisions/stream", { message: message.trim(), base_version: base }, (p) => {
+          if (p.kind === "thinking") {
+            setThought((t) => t + p.message);
+            return;
+          }
+          if (p.stage === "ask_model") setThought(""); // a new attempt thinks afresh
+          setThinking((t) => [...t, p]);
+        }),
+      "Revised",
+    );
+    setThinking([]);
+    setThought("");
+    if (ok) setMessage("");
   };
 
   const review = () => void write("review", () => api("POST", `/blueprints/${bid}/reviews`, { base_version: base }), "Reviewed");
@@ -300,6 +325,30 @@ export default function BlueprintDetail() {
                     ))}
                   </Stack>
                 </ScrollArea.Autosize>
+                {busy === "chat" && (
+                  <Paper withBorder p="xs" radius="md" bg="var(--mantine-color-gray-light)">
+                    <Group gap="xs" mb={thinking.length ? 4 : 0}>
+                      <Loader size="xs" />
+                      <Text size="xs" fw={500}>
+                        Working…
+                      </Text>
+                    </Group>
+                    <Stack gap={2}>
+                      {thinking.map((t, i) => (
+                        <Text key={i} size="xs" c={t.stage === "retry" ? "orange" : i === thinking.length - 1 ? undefined : "dimmed"}>
+                          {t.message}
+                        </Text>
+                      ))}
+                    </Stack>
+                    {thought && (
+                      <ScrollArea.Autosize mah={140} mt={6} viewportRef={thoughtView}>
+                        <Text size="xs" c="dimmed" fs="italic" style={{ whiteSpace: "pre-wrap" }}>
+                          {thought}
+                        </Text>
+                      </ScrollArea.Autosize>
+                    )}
+                  </Paper>
+                )}
                 {detail.version.notes.length > 0 && (
                   <Alert variant="light" color="gray" p="xs" title={`Notes on v${detail.current_version}`}>
                     <List size="xs">

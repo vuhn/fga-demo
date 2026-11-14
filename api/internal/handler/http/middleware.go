@@ -97,6 +97,13 @@ var errorCatalog = []struct {
 }
 
 func writeErr(c *gin.Context, err error) {
+	status, body := errBody(c, err)
+	c.JSON(status, body)
+}
+
+// errBody maps an error to its HTTP status and JSON body (also used for the
+// error event of a stream that is already open).
+func errBody(c *gin.Context, err error) (int, gin.H) {
 	status, code := http.StatusInternalServerError, "internal"
 	for _, e := range errorCatalog {
 		if errors.Is(err, e.err) {
@@ -114,7 +121,7 @@ func writeErr(c *gin.Context, err error) {
 	} else if ce == nil && err.Error() != code {
 		body["message"] = err.Error()
 	}
-	c.JSON(status, body)
+	return status, body
 }
 
 // bind decodes JSON and reports malformed bodies as validation errors.

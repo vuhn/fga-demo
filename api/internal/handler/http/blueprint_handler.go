@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -22,6 +23,7 @@ type BlueprintUsecases struct {
 	SketchDrafter   usecase.BlueprintSketchDrafter
 	Creator         usecase.BlueprintCreator
 	Reviser         usecase.BlueprintReviser
+	ReviseStreamer  usecase.BlueprintReviseStreamer
 	Reviewer        usecase.BlueprintReviewer
 	BriefUpdater    usecase.BlueprintBriefUpdater
 	VersionLister   usecase.BlueprintVersionLister
@@ -49,6 +51,7 @@ func (h *BlueprintHandler) Register(r Routes) {
 	g.PATCH("/blueprints/:id", h.rename)
 	g.DELETE("/blueprints/:id", h.delete)
 	g.POST("/blueprints/:id/revisions", h.revise)
+	g.POST("/blueprints/:id/revisions/stream", h.reviseStream)
 	g.POST("/blueprints/:id/reviews", h.review)
 	g.PUT("/blueprints/:id/brief", h.updateBrief)
 	g.GET("/blueprints/:id/versions", h.listVersions)
@@ -219,6 +222,46 @@ func (h *BlueprintHandler) revise(c *gin.Context) {
 	}
 	d, err := h.uc.Reviser.Revise(c, actor(c), tenant(c), c.Param("id"), body.Message, body.BaseVersion)
 	respond(c, http.StatusCreated, blueprintDetailView(d), err)
+}
+
+// reviseStream is revise answered as Server-Sent Events. The stream opens on
+// the first progress event, which the service only emits after its Check and
+// version test passed, so every refusal is still a plain JSON status. After
+// that, success is a "done" event and failure an "error" event.
+func (h *BlueprintHandler) reviseStream(c *gin.Context) {
+	var body struct {
+		Message     string `json:"message"`
+		BaseVersion int    `json:"base_version"`
+	}
+	if !bind(c, &body) {
+		return
+	}
+	started := false
+	send := func(event string, v any) {
+		if !started {
+			started = true
+			c.Header("Content-Type", "text/event-stream")
+			c.Header("Cache-Control", "no-cache")
+			c.Header("X-Accel-Buffering", "no")
+			c.Status(http.StatusOK)
+		}
+		data, _ := json.Marshal(v)
+		fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", event, data)
+		c.Writer.Flush()
+	}
+	d, err := h.uc.ReviseStreamer.ReviseStream(c.Request.Context(), actor(c), tenant(c), c.Param("id"), body.Message, body.BaseVersion,
+		func(p entity.BlueprintProgress) { send("progress", p) })
+	if err != nil {
+		if !started {
+			writeErr(c, err)
+			return
+		}
+		status, eb := errBody(c, err)
+		eb["status"] = status
+		send("error", eb)
+		return
+	}
+	send("done", blueprintDetailView(d))
 }
 
 func (h *BlueprintHandler) review(c *gin.Context) {

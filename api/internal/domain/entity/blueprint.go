@@ -84,6 +84,14 @@ type BlueprintOutcome struct {
 	Notes  []string
 }
 
+// BlueprintProgress is one live step of an engine run (asking the model, a
+// retry, rebuilding, checking) or a piece of the model's reasoning. It is shown while the run lasts, never stored.
+type BlueprintProgress struct {
+	Kind    string `json:"kind"` // "step", or "thinking" for a piece of the model's reasoning
+	Stage   string `json:"stage"`
+	Message string `json:"message"`
+}
+
 // Built reports whether the engine produced a model.
 func (o BlueprintOutcome) Built() bool {
 	return len(o.Model) > 0 && string(o.Model) != "null"

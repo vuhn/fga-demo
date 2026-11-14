@@ -19,7 +19,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel, Field, ValidationError
 
-from . import prompts
+from . import progress, prompts
 from .checks import failed
 from .edits import EditError, UnsupportedEdit, apply_ops, resolve_room
 from .llm import LLMClient
@@ -98,6 +98,7 @@ def _with_feedback(llm: LLMClient, system: str, user: str, schema: type[T],
     prompt = user
     last: Exception | None = None
     for n in range(1, attempts + 1):
+        progress.emit("ask_model", f"Asking the model… attempt {n}/{attempts}")
         out = llm.structured(system, prompt, schema)
         try:
             return out, apply(out), n
@@ -105,6 +106,8 @@ def _with_feedback(llm: LLMClient, system: str, user: str, schema: type[T],
             raise
         except (EditError, ValidationError) as e:
             last = e
+            if n < attempts:
+                progress.emit("retry", f"Attempt {n} could not be applied ({str(e)[:160]}); sending the error back")
             prompt = user + prompts.feedback(prompts.dump(out), str(e))
     raise EditError(f"{last} (after {attempts} attempts)")
 
@@ -344,6 +347,13 @@ def _score(res: GenerateResult) -> int:
     return 10 * len(failed(res.checks)) + len(failed(res.checks, "warning"))
 
 
+def _checks_line(res: GenerateResult) -> str:
+    if res.model is None:
+        return "The brief could not be built: " + "; ".join(res.issues)[:200]
+    errors, warnings = len(failed(res.checks)), len(failed(res.checks, "warning"))
+    return f"Checks: {errors} error(s), {warnings} warning(s)" if errors or warnings else "Checks: all pass"
+
+
 def _error_rules(res: GenerateResult) -> set[str]:
     return {"brief"} if res.model is None else {c.rule for c in failed(res.checks)}
 
@@ -355,14 +365,18 @@ def revise(llm: LLMClient, brief: Brief, previous: BuildingModel | None, message
     user = f"{prompts.history_block(history)}Current brief: {_brief_for_prompt(brief)}\nRequest: {message}"
     ops, new_brief, tries = _with_feedback(llm, system, user, EditOps, lambda o: apply_ops(brief, o))
     notes = ["applied: " + "; ".join(_describe(o) for o in ops.ops)]
+    progress.emit("ops", "The model proposed: " + "; ".join(_describe(o) for o in ops.ops))
     if tries > 1:
         notes.append(f"the first {tries - 1} answer(s) could not be applied; corrected with the error")
+    progress.emit("layout", "Rebuilding the layout and running the checks…")
     result, fit_notes, runs = generate_fitted(new_brief, previous)
+    progress.emit("checks", _checks_line(result))
     step = StepResult(result=result, notes=notes + fit_notes, ops=ops, attempts=runs, llm_attempts=tries)
     if auto_review and (result.model is None or failed(result.checks)):
         # one reviewer round, only when the edit introduced errors the plan did not have
         before = generate(brief, previous)
         if _error_rules(result) - _error_rules(before) or result.model is None:
+            progress.emit("review", "The edit introduced new errors; running one review round")
             rev = review(llm, result.brief, previous, history=[*(history or []), message], max_rounds=1,
                          start=result)
             step.result, step.review_rounds = rev.result, rev.review_rounds
@@ -408,6 +422,7 @@ def review(llm: LLMClient, brief: Brief, previous: BuildingModel | None, history
                 raise EditError(f"total area would change from {base_area:.0f} to {total:.0f} m²; stay within 15%")
             return nb
 
+        progress.emit("review", f"Review round {rnd}/{max_rounds}: {len(issues)} issue(s) to fix")
         try:
             ops, nb, tries = _with_feedback(llm, system, user, EditOps, apply)
         except EditError as e:
@@ -422,6 +437,7 @@ def review(llm: LLMClient, brief: Brief, previous: BuildingModel | None, history
         did = "; ".join(_describe(o) for o in ops.ops)
         rounds.append({"round": rnd, "ops": did, "score_before": before, "score_after": after,
                        "accepted": accepted})
+        progress.emit("review", f"Round {rnd}: {'kept' if accepted else 'discarded'} ({did}); score {before} -> {after}")
         if accepted:
             fixed = len(issues) - (len(res.issues) if res.model is None else len(_issue_lines(res.checks)))
             notes.append(f"review round {rnd}: {did} (issues {len(issues)} -> {len(issues) - fixed})")
