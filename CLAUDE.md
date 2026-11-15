@@ -19,7 +19,7 @@ make compose-up         # Postgres :5432, OpenFGA :8080 (gRPC :8081, Playground 
 make seed               # RESETS everything: truncates app tables, recreates the fga-demo store, writes the seed
 make api                # :8088 — migrates, opens existing store + newest model; never seeds
 make web                # Vite :5173, proxies /api -> :8088
-make engine             # blueprint-engine :8090 (needs Ollama: qwen3:latest, qwen2.5vl:7b for sketches)
+make engine             # blueprint-engine :8090 (needs Ollama: qwen3:latest, only for describe/chat; uploads need no LLM)
 make engine-test        # engine pytest (no LLM); make engine-eval runs golden prompts on the live LLM
 make test               # cd api && go test ./... (pure tuple builders)
 make test-integration   # live OpenFGA: model vs README script, internal_admin ⊇ internal_user
@@ -71,9 +71,9 @@ Restart `cmd/api` after every reseed (the store id changes). Seed accounts: ada,
 
 ## Conventions
 
-- Versions: Go 1.26 (current goose/x/* require it), `openfga/openfga:v1.22.0`, `go-sdk v0.8.3`, React 19.3 (Mantine 9 requires React 19.2+), Mantine 9.7.3, `@tabler/icons-react` 3.49, react-router-dom 6.30.6, Vite 8, TypeScript 5.9; engine: Python 3.13, FastAPI 0.162.5, ezdxf 1.4.5, Shapely 2.2.0, Pydantic 2.14.3, ifcopenshell 0.9.0.post1 (exact pins in `blueprint-engine/pyproject.toml`, locked by `uv.lock`). Pin exact versions (`npm install --save-exact`).
+- Versions: Go 1.26 (current goose/x/* require it), `openfga/openfga:v1.22.0`, `go-sdk v0.8.3`, React 19.3 (Mantine 9 requires React 19.2+), Mantine 9.7.3, `@tabler/icons-react` 3.49, react-router-dom 6.30.6, Vite 8, TypeScript 5.9; engine: Python 3.13, FastAPI 0.162.5, ezdxf 1.4.5, Shapely 2.2.0, Pydantic 2.14.3, ifcopenshell 0.9.0.post1, opencv-python-headless 5.0.0.93, rapidocr-onnxruntime 1.4.4, pypdfium2 5.15.2 (exact pins in `blueprint-engine/pyproject.toml`, locked by `uv.lock`). Pin exact versions (`npm install --save-exact`).
 - JSON snake_case, RFC3339; creates 201, deletes/revokes 204. GET-by-id with a failed Check is 404; writes are 403 with `{"error","check":{relation,object}}`.
-- Non-goals stay out (SSO, object storage and file serving (a blueprint sketch is passed to the engine and discarded; the one stored file is a blueprint's original DXF (the uploaded file of an import, or the drawing the engine made for a created plan), a bytea row read only with `can_edit`), cross-tenant shares, pagination, ownership transfer, system_admin API). Don't scaffold them.
+- Non-goals stay out (SSO, object storage and file serving (an uploaded PDF or picture is passed to the engine and discarded; the one stored file is a blueprint's original DXF (the uploaded DXF, the DXF the engine converted from an uploaded PDF or picture, or the drawing the engine made for a created plan), a bytea row read only with `can_edit`), cross-tenant shares, pagination, ownership transfer, system_admin API). Don't scaffold them.
 - UI kit is Mantine (plain CSS, no CSS-in-JS runtime). Use Mantine components and props before writing CSS; `web/src/styles.css` is only for small tweaks using `--mantine-*` variables. Don't add a second UI library.
 - Shared UI helpers live in `web/src/ui.tsx`: `run(fn, successMsg)` for mutations (toast on success or error), `notifyError`, `confirmDanger`, `PageHeader`, `RoleBadge`/`AffiliationBadge` (display only). Use them instead of inline error state.
 - Pages are `React.lazy` routes; vendor chunks are split in `vite.config.ts`. Keep icon imports named (`import { IconX } from "@tabler/icons-react"`) so they tree-shake.

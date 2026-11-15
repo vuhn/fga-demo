@@ -11,7 +11,6 @@ const ObjectTypeBlueprint = "blueprint"
 // Blueprint source kinds: how version 1's brief was produced.
 const (
 	BlueprintSourcePrompt = "prompt"
-	BlueprintSourceSketch = "sketch"
 	BlueprintSourceForm   = "form"
 	BlueprintSourceImport = "import" // read from a DXF; no brief, geometry only
 )
@@ -26,14 +25,10 @@ const (
 	BlueprintVersionImport  = "import"
 )
 
-// MaxImportBytes caps an imported CAD file. Unlike a sketch, the original is stored.
+// MaxImportBytes caps an uploaded plan (DXF, PDF or picture). The DXF read from it is stored as the original.
 const MaxImportBytes = 20 << 20
 
-// MaxSketchBytes caps an uploaded sketch. The file is sent to the engine and
-// discarded; only its name, type, and size are kept.
-const MaxSketchBytes = 10 << 20
-
-// BlueprintSource describes an uploaded sketch for display.
+// BlueprintSource describes the uploaded file (DXF, PDF or picture) for display.
 type BlueprintSource struct {
 	Name     string
 	MimeType string
@@ -171,6 +166,27 @@ type BlueprintImportPlan struct {
 
 // BlueprintImport is what the engine read from a DXF: its plans and the import report (opaque JSON).
 type BlueprintImport struct {
-	Plans  []BlueprintImportPlan
+	Plans      []BlueprintImportPlan
+	Report     json.RawMessage
+	Conversion json.RawMessage // the conversion report when the upload was a PDF or an image; nil for a DXF
+}
+
+// Upload types of an import. A DXF is read as drawn; a PDF or an image is first converted to a DXF (no LLM).
+const (
+	PNGMimeType  = "image/png"
+	JPEGMimeType = "image/jpeg"
+	PDFMimeType  = "application/pdf"
+)
+
+// ConvertOptions tell the engine the scale of a picture or PDF, which the file itself cannot. Zero is "not given";
+// LongestM (the real length of the drawing's longest side, in metres) beats Scale (paper scale 1:N).
+type ConvertOptions struct {
+	Scale    int
+	LongestM float64
+}
+
+// BlueprintConversion is a PDF or image converted to DXF bytes, with the engine's report (opaque JSON).
+type BlueprintConversion struct {
+	DXF    []byte
 	Report json.RawMessage
 }

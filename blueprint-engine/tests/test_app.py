@@ -17,8 +17,8 @@ class FakeLLM:
         self.calls = []
         self.prompts = []
 
-    def structured(self, system, user, schema, *, images=None, vision=False):
-        self.calls.append((schema.__name__, vision))
+    def structured(self, system, user, schema):
+        self.calls.append(schema.__name__)
         self.prompts.append(user)
         answer = self.answers.pop(0) if len(self.answers) > 1 else self.answers[0]
         return schema.model_validate(answer)
@@ -165,7 +165,7 @@ def test_enhancer_requirements_feed_the_draft_and_assumptions_become_notes():
     })
     r = c.post("/v1/brief/from-text", json={"prompt": "small cottage", "enhance": True})
     assert r.status_code == 200, r.text
-    assert [n for n, _ in llm.calls] == ["Requirements", "DraftBrief"]
+    assert llm.calls == ["Requirements", "DraftBrief"]
     assert "Requirements from the architect" in llm.prompts[1] and "Living about 22" in llm.prompts[1]
     assert "assumed: lot size not given" in r.json()["notes"]
 
@@ -174,7 +174,7 @@ def test_enhancer_is_off_by_default():
     c, llm = client({"title": "C", "lot_width": 15, "lot_depth": 25, "entrance_side": "south",
                      "rooms": [{"name": "Living", "type": "living", "target_area": 22}]})
     assert c.post("/v1/brief/from-text", json={"prompt": "cottage"}).status_code == 200
-    assert [n for n, _ in llm.calls] == ["DraftBrief"]
+    assert llm.calls == ["DraftBrief"]
 
 
 def test_revise_retries_with_the_error_and_succeeds():
@@ -275,35 +275,6 @@ def test_draft_can_ask_for_open_plan():
     r = c.post("/v1/brief/from-text", json={"prompt": "open-plan 1 bed"})
     assert r.status_code == 200, r.text
     assert r.json()["brief"]["open_plan"] is True
-
-
-def test_from_sketch_reads_dxf_without_vision():
-    c, llm = client({
-        "title": "Plan", "lot_width": 15, "lot_depth": 25, "entrance_side": "south",
-        "rooms": [{"name": "Living room", "type": "living", "target_area": 22},
-                  {"name": "Kitchen", "type": "kitchen", "target_area": 9},
-                  {"name": "Bedroom", "type": "bedroom", "target_area": 12}],
-    })
-    import io
-    import ezdxf
-
-    doc = ezdxf.new()
-    msp = doc.modelspace()
-    msp.add_lwpolyline([(0, 0), (5000, 0), (5000, 4000), (0, 4000)], close=True)
-    msp.add_text("Kitchen 9.0 m2")
-    buf = io.StringIO()
-    doc.write(buf)
-    r = c.post("/v1/brief/from-sketch", files={"file": ("plan.dxf", buf.getvalue().encode(), "application/octet-stream")})
-    assert r.status_code == 200, r.text
-    assert llm.calls == [("DraftBrief", False)]  # text model, not vision
-    assert "Kitchen 9.0 m2" in llm.prompts[0] and "20.0" in llm.prompts[0]
-    assert any("DXF" in n for n in r.json()["notes"])
-
-
-def test_from_sketch_rejects_broken_dxf():
-    c, _ = client({})
-    r = c.post("/v1/brief/from-sketch", files={"file": ("x.dxf", b"not a dxf", "application/octet-stream")})
-    assert r.status_code == 422, r.text
 
 
 # ---- streaming revise ----

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import json
 import os
 import time
@@ -21,9 +20,7 @@ class LLMError(RuntimeError):
 
 
 class LLMClient(Protocol):
-    def structured(
-        self, system: str, user: str, schema: type[T], *, images: list[bytes] | None = None, vision: bool = False
-    ) -> T: ...
+    def structured(self, system: str, user: str, schema: type[T]) -> T: ...
 
 
 class OllamaClient:
@@ -33,12 +30,10 @@ class OllamaClient:
         self,
         base_url: str | None = None,
         text_model: str | None = None,
-        vision_model: str | None = None,
         timeout: float = 180.0,
     ) -> None:
         self.base_url = (base_url or os.getenv("OLLAMA_URL", "http://localhost:11434")).rstrip("/")
         self.text_model = text_model or os.getenv("BLUEPRINT_TEXT_MODEL", "qwen3:latest")
-        self.vision_model = vision_model or os.getenv("BLUEPRINT_VISION_MODEL", "qwen2.5vl:7b")
         self.http = httpx.Client(timeout=timeout)
         # show the model's reasoning on the streaming endpoints; BLUEPRINT_STREAM_THINKING=0 turns it off
         self.stream_thinking = os.getenv("BLUEPRINT_STREAM_THINKING", "1") != "0"
@@ -96,12 +91,9 @@ class OllamaClient:
         progress.emit_thinking("".join(pending))
         return "".join(content)
 
-    def structured(self, system, user, schema, *, images=None, vision=False):
-        model = self.vision_model if vision else self.text_model
-        msg: dict = {"role": "user", "content": user}
-        if images:
-            msg["images"] = [base64.b64encode(i).decode() for i in images]
-        messages = [{"role": "system", "content": system}, msg]
+    def structured(self, system, user, schema):
+        model = self.text_model
+        messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
         json_schema = schema.model_json_schema()
         last_err = ""
         for _ in range(2):

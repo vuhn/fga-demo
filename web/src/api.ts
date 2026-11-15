@@ -290,7 +290,7 @@ export type Blueprint = {
   permissions?: Perms;
 };
 export type BlueprintDetail = Blueprint & { version: BlueprintVersion };
-export type BlueprintDraft = { brief: Brief; notes: string[]; source?: BlueprintSource };
+export type BlueprintDraft = { brief: Brief; notes: string[] };
 
 export const ROLES: Record<string, string[]> = {
   internal: ["internal_admin", "internal_user"],
@@ -312,5 +312,7 @@ export type ImportReport = {
   skipped: string[];
   warnings: string[];
 };
-export type ImportPreview = { plans: ImportPlan[]; report: ImportReport; source: BlueprintSource };
+/** What the engine did to turn a PDF or picture into a DXF (null for a DXF upload). */
+export type ConversionReport = { method: "pdf-vector" | "raster-trace"; scale_source: string; metres_across: number; walls: number; openings: number; texts: number; skipped: string[]; warnings: string[] };
+export type ImportPreview = { plans: ImportPlan[]; report: ImportReport; conversion: ConversionReport | null; source: BlueprintSource };
 export const IMPORT_UNITS = ["mm", "cm", "m", "in", "ft"] as const;

@@ -36,7 +36,7 @@ func (s *blueprintImporter) Import(ctx context.Context, actor, tenantID string, 
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
-	if err := validImportFile(in.File, in.Unit); err != nil {
+	if err := validImportFile(in.File, in.Unit, in.Convert); err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
 	if in.PlanIndex < 1 {
@@ -49,10 +49,19 @@ func (s *blueprintImporter) Import(ctx context.Context, actor, tenantID string, 
 	if err := requireBlueprintCreate(ctx, s.projects, s.authz, actor, tenantID, in.ProjectID); err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
-	res, err := s.engine.ImportDXF(ctx, in.File, in.Unit)
+	dxf, conv, err := importableDXF(ctx, s.engine, in.File, in.Convert)
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
+	unit := in.Unit
+	if conv != nil {
+		unit = "" // the converted DXF is in metres
+	}
+	res, err := s.engine.ImportDXF(ctx, dxf, unit)
+	if err != nil {
+		return usecase.BlueprintDetail{}, err
+	}
+	res.Conversion = conv
 	var plan *entity.BlueprintImportPlan
 	for i := range res.Plans {
 		if res.Plans[i].Index == in.PlanIndex {
@@ -63,15 +72,16 @@ func (s *blueprintImporter) Import(ctx context.Context, actor, tenantID string, 
 		return usecase.BlueprintDetail{}, entity.Invalid("the file has %d plan(s); plan %d does not exist", len(res.Plans), in.PlanIndex)
 	}
 
-	sum := sha256.Sum256(in.File.Data)
-	size := int64(len(in.File.Data))
+	// what is kept is the DXF: the upload itself, or the one the engine drew from the PDF/image (the picture is dropped)
+	sum := sha256.Sum256(dxf.Data)
+	size := int64(len(dxf.Data))
 	b := entity.Blueprint{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: in.ProjectID, Name: name, CurrentVersion: 1,
 		SourceKind: entity.BlueprintSourceImport, CreatedBy: actor,
-		Source: &entity.BlueprintSource{Name: fileName, MimeType: entity.DXFMimeType, ByteSize: size}}
+		Source: &entity.BlueprintSource{Name: fileName, MimeType: in.File.MimeType, ByteSize: int64(len(in.File.Data))}}
 	v := entity.BlueprintVersion{BlueprintID: b.ID, Version: 1, Kind: entity.BlueprintVersionImport, Message: "imported " + fileName,
 		Brief: json.RawMessage("null"), Model: plan.Model, Checks: plan.Checks, Notes: importNotes(res, *plan), OK: plan.OK, CreatedBy: actor}
-	orig := entity.BlueprintOriginal{BlueprintID: b.ID, Version: 1, Name: fileName, MimeType: entity.DXFMimeType, ByteSize: size,
-		SHA256: hex.EncodeToString(sum[:]), Data: in.File.Data}
+	orig := entity.BlueprintOriginal{BlueprintID: b.ID, Version: 1, Name: dxf.Name, MimeType: entity.DXFMimeType, ByteSize: size,
+		SHA256: hex.EncodeToString(sum[:]), Data: dxf.Data}
 	owner := entity.OwnerGrant(s.ids.NewID(), tenantID, entity.ObjectTypeBlueprint, b.ID, actor)
 	if err := s.blueprints.CreateImported(ctx, b, v, owner, orig); err != nil {
 		return usecase.BlueprintDetail{}, err
@@ -99,6 +109,22 @@ func importNotes(res entity.BlueprintImport, p entity.BlueprintImportPlan) []str
 	}
 	_ = json.Unmarshal(res.Report, &rep)
 	notes := []string{fmt.Sprintf("imported plan %d of %d from the DXF: %d rooms, %.1f m²", p.Index, len(res.Plans), p.RoomCount, p.NetArea)}
+	if len(res.Conversion) > 0 {
+		var conv struct {
+			Method      string   `json:"method"`
+			ScaleSource string   `json:"scale_source"`
+			Skipped     []string `json:"skipped"`
+			Warnings    []string `json:"warnings"`
+		}
+		_ = json.Unmarshal(res.Conversion, &conv)
+		notes[0] = fmt.Sprintf("imported plan %d of %d, converted to DXF from a %s: %d rooms, %.1f m²", p.Index, len(res.Plans),
+			map[string]string{"pdf-vector": "vector PDF", "raster-trace": "picture"}[conv.Method], p.RoomCount, p.NetArea)
+		notes = append(notes, "scale: "+conv.ScaleSource)
+		for _, s := range conv.Skipped {
+			notes = append(notes, "not converted: "+s)
+		}
+		notes = append(notes, conv.Warnings...)
+	}
 	if rep.Units != "" {
 		notes = append(notes, fmt.Sprintf("units: %s (%s)", rep.Units, rep.UnitSource))
 	}

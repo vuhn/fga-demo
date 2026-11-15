@@ -42,7 +42,7 @@ func (s *blueprintCreator) Create(ctx context.Context, actor, tenantID string, i
 	if err := validBrief(in.Brief); err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
-	source, err := cleanSource(in.SourceKind, in.Source)
+	err = checkSourceKind(in.SourceKind)
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
@@ -65,7 +65,7 @@ func (s *blueprintCreator) Create(ctx context.Context, actor, tenantID string, i
 	}
 
 	b := entity.Blueprint{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: in.ProjectID, Name: name, CurrentVersion: 1,
-		SourceKind: in.SourceKind, Source: source, CreatedBy: actor}
+		SourceKind: in.SourceKind, CreatedBy: actor}
 	v := planOutcomeVersion(b.ID, entity.BlueprintVersionCreate, prompt, actor, out)
 	v.Version = 1
 	sum := sha256.Sum256(out.DXF)
@@ -109,26 +109,10 @@ func validBrief(brief json.RawMessage) error {
 	return nil
 }
 
-func cleanSource(kind string, src *entity.BlueprintSource) (*entity.BlueprintSource, error) {
-	switch kind {
-	case entity.BlueprintSourcePrompt, entity.BlueprintSourceForm:
-		return nil, nil
-	case entity.BlueprintSourceSketch:
-	default:
-		return nil, entity.Invalid("source_kind must be prompt, sketch, or form")
+// checkSourceKind: a created blueprint comes from a prompt or the form. A file goes through the import.
+func checkSourceKind(kind string) error {
+	if kind != entity.BlueprintSourcePrompt && kind != entity.BlueprintSourceForm {
+		return entity.Invalid("source_kind must be prompt or form (an uploaded file goes through the import)")
 	}
-	if src == nil {
-		return nil, nil
-	}
-	name, err := entity.CleanName("source.name", src.Name)
-	if err != nil {
-		return nil, err
-	}
-	if !sketchTypes[strings.TrimSpace(src.MimeType)] {
-		return nil, entity.Invalid("source.mime_type must be image/png, image/jpeg, application/pdf, or image/vnd.dxf")
-	}
-	if src.ByteSize < 0 || src.ByteSize > entity.MaxSketchBytes {
-		return nil, entity.Invalid("source.byte_size must be 0 to 10 MB")
-	}
-	return &entity.BlueprintSource{Name: name, MimeType: strings.TrimSpace(src.MimeType), ByteSize: src.ByteSize}, nil
+	return nil
 }

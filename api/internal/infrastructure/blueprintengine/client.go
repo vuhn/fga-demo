@@ -66,32 +66,6 @@ func (c *Client) BriefFromText(ctx context.Context, prompt string) (entity.Bluep
 	return entity.BlueprintDraft{Brief: out.Brief, Notes: out.Notes}, nil
 }
 
-func (c *Client) BriefFromSketch(ctx context.Context, file entity.Upload, note string) (entity.BlueprintDraft, error) {
-	var body bytes.Buffer
-	w := multipart.NewWriter(&body)
-	h := textproto.MIMEHeader{}
-	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename=%q`, file.Name))
-	h.Set("Content-Type", file.MimeType)
-	part, err := w.CreatePart(h)
-	if err != nil {
-		return entity.BlueprintDraft{}, err
-	}
-	if _, err := part.Write(file.Data); err != nil {
-		return entity.BlueprintDraft{}, err
-	}
-	if err := w.WriteField("note", note); err != nil {
-		return entity.BlueprintDraft{}, err
-	}
-	if err := w.Close(); err != nil {
-		return entity.BlueprintDraft{}, err
-	}
-	var out draftOut
-	if err := c.do(ctx, "/v1/brief/from-sketch", w.FormDataContentType(), &body, &out); err != nil {
-		return entity.BlueprintDraft{}, err
-	}
-	return entity.BlueprintDraft{Brief: out.Brief, Notes: out.Notes}, nil
-}
-
 type importOut struct {
 	Plans []struct {
 		Index     int             `json:"index"`
@@ -104,6 +78,38 @@ type importOut struct {
 		SVG       string          `json:"svg"`
 	} `json:"plans"`
 	Report json.RawMessage `json:"report"`
+}
+
+// ConvertToDXF sends a PDF or image to /v1/convert/dxf. The engine keeps nothing.
+func (c *Client) ConvertToDXF(ctx context.Context, file entity.Upload, opts entity.ConvertOptions) (entity.BlueprintConversion, error) {
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	h := textproto.MIMEHeader{}
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename=%q`, file.Name))
+	h.Set("Content-Type", file.MimeType)
+	part, err := w.CreatePart(h)
+	if err != nil {
+		return entity.BlueprintConversion{}, err
+	}
+	if _, err := part.Write(file.Data); err != nil {
+		return entity.BlueprintConversion{}, err
+	}
+	for k, v := range map[string]string{"scale": fmt.Sprint(opts.Scale), "longest_m": fmt.Sprint(opts.LongestM)} {
+		if err := w.WriteField(k, v); err != nil {
+			return entity.BlueprintConversion{}, err
+		}
+	}
+	if err := w.Close(); err != nil {
+		return entity.BlueprintConversion{}, err
+	}
+	var out struct {
+		DXF    []byte          `json:"dxf"` // base64 in JSON
+		Report json.RawMessage `json:"report"`
+	}
+	if err := c.do(ctx, "/v1/convert/dxf", w.FormDataContentType(), &body, &out); err != nil {
+		return entity.BlueprintConversion{}, err
+	}
+	return entity.BlueprintConversion{DXF: out.DXF, Report: out.Report}, nil
 }
 
 // ImportDXF sends the file to /v1/import/dxf. The engine reads it and keeps nothing.

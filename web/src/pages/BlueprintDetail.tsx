@@ -193,7 +193,7 @@ export default function BlueprintDetail() {
   const convert = () => void write("convert", () => api("POST", `/blueprints/${bid}/convert`, { base_version: base }), "Converted to a DXF plan");
 
   // The DXF kept with the plan: the uploaded file for an import, the drawing the engine made for a created plan
-  // (its source, when there is one, is the sketch).
+  // (its source, when there is one, is the uploaded file).
   const originalName = detail.source_kind === "import" ? detail.source?.name ?? "original.dxf" : `${detail.name}.dxf`;
   const downloadOriginal = async () => {
     try {

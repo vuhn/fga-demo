@@ -52,7 +52,7 @@ IGNORE_WORDS = ("dim", "anno", "text", "furn", "hatch", "patt", "grid", "axis", 
 LABELS: list[tuple[str, re.Pattern[str]]] = [
     (t, re.compile(rx)) for t, rx in [
         ("balcony", r"\b(balcony|terrace|veranda|deck|patio|loggia|ban cong|lo gia)\b"),
-        ("bathroom", r"\b(bath|bathroom|wc|toilet|restroom|shower|ensuite|en-suite|vs|ve sinh|phong tam|powder|lavatory)\b"),
+        ("bathroom", r"\b(bath|bathroo|bathroom|wc|toilet|restroom|shower|ensuite|en-suite|vs|ve sinh|phong tam|powder|lavatory)\b"),
         ("kitchen", r"\b(kitchen|kitchenette|pantry|bep|nha bep|cuisine)\b"),
         ("dining", r"\b(dining|dinner|phong an|salle a manger)\b"),
         ("living", r"\b(living|lounge|sitting|family room|great room|khach|phong khach|sinh hoat|salon|sejour)\b"),

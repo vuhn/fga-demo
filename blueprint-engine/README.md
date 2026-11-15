@@ -12,7 +12,7 @@ This is the stateless engine for the Blueprints product. It turns a JSON **brief
 | Step | Who | Module |
 |---|---|---|
 | Prompt (→ requirements, with the opt-in Enhancer) → brief | LLM (Ollama, JSON-schema output) + clean-up in code | `llm_steps.py`, `prompts.py` |
-| Sketch → brief | vision LLM + clean-up in code | `llm_steps.py` |
+| PDF / PNG / JPEG → DXF | no LLM: pdfium paths (vector PDF) or OpenCV tracing (picture), then `dxf_plan.py` reads it | `convert.py` |
 | Chat message (+ earlier messages) → edit ops → brief | LLM + `apply_ops` (room names fuzzy-matched in code) | `llm_steps.py`, `edits.py` |
 | Failed checks → edit ops (Reviewer) | LLM, kept only when the issue score drops | `llm_steps.review` |
 | Brief too big → shrink toward minimums | code | `pipeline.generate_fitted` |
@@ -69,7 +69,6 @@ Conventions:
 
 ```bash
 ollama pull qwen3                # text model (8B); qwen3:14b if you have 32 GB
-ollama pull qwen2.5vl:7b        # vision model, only for sketch upload
 make engine                     # http://localhost:8090 serves a dev harness page
 make engine-test                # pytest (no LLM needed)
 make engine-eval                # golden prompts against the live model
@@ -81,7 +80,6 @@ Environment variables:
 |---|---|
 | `OLLAMA_URL` | `http://localhost:11434` |
 | `BLUEPRINT_TEXT_MODEL` | `qwen3:latest` (the 8B; `qwen3:14b` with 32 GB) |
-| `BLUEPRINT_VISION_MODEL` | `qwen2.5vl:7b` |
 
 Ollama runs natively, not in Docker, because Docker on macOS has no GPU access.
 
@@ -90,7 +88,7 @@ Ollama runs natively, not in Docker, because Docker on macOS has no GPU access.
 | Route | Body | Returns |
 |---|---|---|
 | `POST /v1/brief/from-text` | `{prompt, enhance?: true}` | `{brief, notes}` |
-| `POST /v1/brief/from-sketch` | multipart `file` (PNG, JPG, PDF or DXF, ≤10 MB; PDF first page only; DXF read from text labels, no vision model), `note` | `{brief, notes}` |
+| `POST /v1/convert/dxf` | multipart `file` (PNG, JPEG or PDF, ≤20 MB; PDF first page), `scale` (N of 1:N, 0 = not given), `dpi`, `longest_m` (real length of the longest side, wins over `scale`) | `{dxf: base64 (metres), report: {method, scale_source, metres_across, walls, openings, texts, skipped, warnings}}`; vector PDF: filled dark shapes are walls (the biggest cluster, so title blocks and legends drop out), curved strokes door swings, text kept; picture: thick strokes are walls (OpenCV opening, outlines as closed polylines), door-sized gaps between wall ends get a door mark and are bridged; OCR (rapidocr-onnxruntime) reads room names as text and the `xx m²` labels set the scale when none is given (else the overall dimension, else door width; none readable = 422); gaps are classified door or window (leaf stroke, outside wall), furniture is recognised by rules on size, proportion and room name, outlines are squared up; door swing direction and furniture against a wall may be missed; 422 for an unreadable file |
 | `POST /v1/plan/revise` (+ `/stream`) | `{model, message, history}` | `{result: {model, checks, ok, issues, notes}, notes, ops, llm_attempts}`; chat edit of an imported plan: LLM emits `PlanOps` (`plan_edits.py`: rename_room, set_room_type, add/remove_fixture, move/rotate/delete_fixture, resize/move/remove_opening, unsupported), code applies them, `run_imported_checks` re-runs; 422 for unresolvable or unsupported ops |
 | `POST /v1/plan/edit` | `{model, ops: {ops: [...]}}` | same shape as `plan/revise` (`llm_attempts: 0`); the same `PlanOps` applied directly, no LLM (rename_room, set_room_type, add_fixture, delete_fixture, move_fixture, rotate_fixture, resize_opening, move_opening, remove_opening); 422 for an op that does not fit |
 | `POST /v1/export/dxf-patch` | multipart `file` (the original DXF), `base` (the plan as imported), `current` (JSON models) | `{dxf: base64, report: {applied, added, skipped}}`; `dxf_patch.py` applies the differences to the original through the handles in each element's `src` and the plan's `origin`; nothing else in the file changes; nothing kept |

@@ -30,19 +30,12 @@ type BlueprintDrafter interface {
 	Draft(ctx context.Context, actor, tenantID, projectID, prompt string) (entity.BlueprintDraft, error)
 }
 
-// BlueprintSketchDrafter extracts a brief from an uploaded sketch. The file
-// is not stored.
-type BlueprintSketchDrafter interface {
-	DraftFromSketch(ctx context.Context, actor, tenantID, projectID string, file entity.Upload, note string) (entity.BlueprintDraft, error)
-}
-
 type CreateBlueprintInput struct {
 	ProjectID  string
 	Name       string
 	Brief      json.RawMessage
 	SourceKind string
-	Source     *entity.BlueprintSource
-	// Prompt is the description or sketch note the brief was drafted from; it
+	// Prompt is the description or description the brief was drafted from; it
 	// becomes version 1's message, the start of the chat history.
 	Prompt string
 }
@@ -114,9 +107,9 @@ type BlueprintShareRevoker interface {
 	Revoke(ctx context.Context, actor, tenantID, id string, in entity.ShareInput) error
 }
 
-// BlueprintDXFImportPreviewer reads a DXF and returns the plans found, for the review step. Nothing is stored.
+// BlueprintDXFImportPreviewer reads a DXF (or a PDF/image, converted to one first) and returns the plans found, for the review step. Nothing is stored.
 type BlueprintDXFImportPreviewer interface {
-	Preview(ctx context.Context, actor, tenantID, projectID string, file entity.Upload, unit string) (entity.BlueprintImport, error)
+	Preview(ctx context.Context, actor, tenantID, projectID string, file entity.Upload, unit string, opts entity.ConvertOptions) (entity.BlueprintImport, error)
 }
 
 type ImportBlueprintInput struct {
@@ -124,7 +117,8 @@ type ImportBlueprintInput struct {
 	Name      string
 	File      entity.Upload
 	Unit      string
-	PlanIndex int // 1-based, as the preview numbered them
+	Convert   entity.ConvertOptions // for a PDF or image
+	PlanIndex int                   // 1-based, as the preview numbered them
 }
 
 // BlueprintImporter creates a blueprint from one plan of a DXF and keeps the original file.

@@ -62,7 +62,6 @@ type BlueprintRelationGateway interface {
 // LLM that is down is ErrEngineUnavailable.
 type BlueprintEngine interface {
 	BriefFromText(ctx context.Context, prompt string) (entity.BlueprintDraft, error)
-	BriefFromSketch(ctx context.Context, file entity.Upload, note string) (entity.BlueprintDraft, error)
 	// Generate builds the brief. previous keeps unchanged rooms in place;
 	// repair shrinks rooms toward their minimums when the brief is too big.
 	Generate(ctx context.Context, brief, previous []byte, repair bool) (entity.BlueprintOutcome, error)
@@ -90,6 +89,8 @@ type BlueprintEngine interface {
 	// Review lets the engine's reviewer fix the brief's failed checks in up
 	// to three rounds, keeping a round only when the issue score drops.
 	Review(ctx context.Context, brief, previous []byte, history []string) (entity.BlueprintOutcome, error)
+	// ConvertToDXF turns a PDF or image floor plan into a DXF (no LLM). Deterministic for the same file and options.
+	ConvertToDXF(ctx context.Context, file entity.Upload, opts entity.ConvertOptions) (entity.BlueprintConversion, error)
 	// ImportDXF reads the plans out of a CAD file. No LLM; the same file always gives the same plans.
 	ImportDXF(ctx context.Context, file entity.Upload, unit string) (entity.BlueprintImport, error)
 	Render(ctx context.Context, model []byte, format string, tb entity.BlueprintTitleBlock) (entity.Drawing, error)

@@ -22,7 +22,6 @@ type BlueprintUsecases struct {
 	Lister          usecase.BlueprintLister
 	Getter          usecase.BlueprintGetter
 	Drafter         usecase.BlueprintDrafter
-	SketchDrafter   usecase.BlueprintSketchDrafter
 	ImportPreviewer usecase.BlueprintDXFImportPreviewer
 	Importer        usecase.BlueprintImporter
 	OriginalGetter  usecase.BlueprintOriginalGetter
@@ -52,7 +51,6 @@ func NewBlueprintHandler(uc BlueprintUsecases) *BlueprintHandler { return &Bluep
 func (h *BlueprintHandler) Register(r Routes) {
 	g := r.Tenanted
 	g.POST("/blueprint-drafts", h.draft)
-	g.POST("/blueprint-drafts/sketch", h.draftFromSketch)
 	g.POST("/blueprint-drafts/dxf-import", h.previewImport)
 	g.POST("/blueprints/import", h.importDXF)
 	g.GET("/blueprints/:id/source", h.source)
@@ -136,88 +134,63 @@ func (h *BlueprintHandler) draft(c *gin.Context) {
 	respond(c, http.StatusOK, draftView(d), err)
 }
 
-// draftFromSketch reads one multipart file, at most entity.MaxSketchBytes.
-// The bytes go to the engine and are dropped; only name, type, and size are
-// returned for the create call.
-func (h *BlueprintHandler) draftFromSketch(c *gin.Context) {
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, entity.MaxSketchBytes+1<<20)
-	fh, err := c.FormFile("file")
-	if err != nil {
-		writeErr(c, entity.Invalid("file is required (PNG, JPG, PDF, or DXF, at most 10 MB)"))
-		return
-	}
-	if fh.Size > entity.MaxSketchBytes {
-		writeErr(c, entity.Invalid("file must be at most 10 MB"))
-		return
-	}
-	f, err := fh.Open()
-	if err != nil {
-		writeErr(c, err)
-		return
-	}
-	defer f.Close()
-	data, err := io.ReadAll(io.LimitReader(f, entity.MaxSketchBytes+1))
-	if err != nil {
-		writeErr(c, err)
-		return
-	}
-	mime := strings.TrimSpace(strings.Split(fh.Header.Get("Content-Type"), ";")[0])
-	if mime == "" || mime == "application/octet-stream" {
-		mime = strings.Split(http.DetectContentType(data), ";")[0]
-	}
-	if strings.EqualFold(filepath.Ext(fh.Filename), ".dxf") {
-		mime = entity.DXFMimeType // browsers send "", octet-stream, or image/vnd.dxf
-	}
-	file := entity.Upload{Name: fh.Filename, MimeType: mime, Data: data}
-	d, err := h.uc.SketchDrafter.DraftFromSketch(c, actor(c), tenant(c), c.PostForm("project_id"), file, c.PostForm("note"))
-	if err != nil {
-		writeErr(c, err)
-		return
-	}
-	m := draftView(d)
-	m["source"] = map[string]any{"name": fh.Filename, "mime_type": mime, "byte_size": len(data)}
-	c.JSON(http.StatusOK, m)
-}
+// importTypes maps an upload's extension to its type: browsers send "", octet-stream or odd types for these.
+var importTypes = map[string]string{".dxf": entity.DXFMimeType, ".pdf": entity.PDFMimeType, ".png": entity.PNGMimeType,
+	".jpg": entity.JPEGMimeType, ".jpeg": entity.JPEGMimeType}
 
-// readDXF reads the multipart "file" of an import, at most entity.MaxImportBytes.
-func readDXF(c *gin.Context) (entity.Upload, bool) {
+// readImport reads the multipart "file" of an import (DXF, PDF, PNG or JPG), at most entity.MaxImportBytes,
+// and the optional picture scale fields.
+func readImport(c *gin.Context) (entity.Upload, entity.ConvertOptions, bool) {
+	var opts entity.ConvertOptions
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, entity.MaxImportBytes+1<<20)
 	fh, err := c.FormFile("file")
 	if err != nil {
-		writeErr(c, entity.Invalid("file is required (a DXF, at most 20 MB)"))
-		return entity.Upload{}, false
+		writeErr(c, entity.Invalid("file is required (a DXF, PDF, PNG or JPG, at most 20 MB)"))
+		return entity.Upload{}, opts, false
 	}
 	if fh.Size > entity.MaxImportBytes {
 		writeErr(c, entity.Invalid("file must be at most 20 MB"))
-		return entity.Upload{}, false
+		return entity.Upload{}, opts, false
+	}
+	mimeType, ok := importTypes[strings.ToLower(filepath.Ext(fh.Filename))]
+	if !ok {
+		writeErr(c, entity.Invalid("file must be a DXF, PDF, PNG, or JPG"))
+		return entity.Upload{}, opts, false
+	}
+	if v := c.PostForm("scale"); v != "" {
+		if opts.Scale, err = strconv.Atoi(v); err != nil {
+			writeErr(c, entity.Invalid("scale must be an integer (the N of 1:N)"))
+			return entity.Upload{}, opts, false
+		}
+	}
+	if v := c.PostForm("longest_m"); v != "" {
+		if opts.LongestM, err = strconv.ParseFloat(v, 64); err != nil {
+			writeErr(c, entity.Invalid("longest_m must be a number of metres"))
+			return entity.Upload{}, opts, false
+		}
 	}
 	f, err := fh.Open()
 	if err != nil {
 		writeErr(c, err)
-		return entity.Upload{}, false
+		return entity.Upload{}, opts, false
 	}
 	defer f.Close()
 	data, err := io.ReadAll(io.LimitReader(f, entity.MaxImportBytes+1))
 	if err != nil {
 		writeErr(c, err)
-		return entity.Upload{}, false
+		return entity.Upload{}, opts, false
 	}
-	// browsers send "", octet-stream or image/vnd.dxf for a DXF, so the extension decides
-	if !strings.EqualFold(filepath.Ext(fh.Filename), ".dxf") {
-		writeErr(c, entity.Invalid("only DXF files can be imported"))
-		return entity.Upload{}, false
-	}
-	return entity.Upload{Name: filepath.Base(fh.Filename), MimeType: entity.DXFMimeType, Data: data}, true
+	return entity.Upload{Name: filepath.Base(fh.Filename), MimeType: mimeType, Data: data}, opts, true
 }
 
-// previewImport reads a DXF and returns its plans (each with the engine's drawing and checks) for the review
+// previewImport reads a DXF (or a PDF/image converted to one) and returns its plans (each with the engine's drawing and checks) for the review
 // step. Nothing is stored.
 func (h *BlueprintHandler) previewImport(c *gin.Context) {
-	file, ok := readDXF(c)
+	file, opts, ok := readImport(c)
 	if !ok {
 		return
 	}
-	res, err := h.uc.ImportPreviewer.Preview(c, actor(c), tenant(c), c.PostForm("project_id"), file, c.PostForm("unit"))
+	res, err := h.uc.ImportPreviewer.Preview(c, actor(c), tenant(c), c.PostForm("project_id"), file, c.PostForm("unit"), opts)
 	if err != nil {
 		writeErr(c, err)
 		return
@@ -227,13 +200,13 @@ func (h *BlueprintHandler) previewImport(c *gin.Context) {
 		plans = append(plans, map[string]any{"index": p.Index, "name": p.Name, "room_count": p.RoomCount, "net_area": p.NetArea,
 			"ok": p.OK, "checks": p.Checks, "svg": p.SVG})
 	}
-	c.JSON(http.StatusOK, map[string]any{"plans": plans, "report": res.Report,
+	c.JSON(http.StatusOK, map[string]any{"plans": plans, "report": res.Report, "conversion": res.Conversion,
 		"source": map[string]any{"name": file.Name, "mime_type": file.MimeType, "byte_size": len(file.Data)}})
 }
 
 // importDXF creates a blueprint from one plan of a DXF and stores the original file.
 func (h *BlueprintHandler) importDXF(c *gin.Context) {
-	file, ok := readDXF(c)
+	file, opts, ok := readImport(c)
 	if !ok {
 		return
 	}
@@ -247,7 +220,7 @@ func (h *BlueprintHandler) importDXF(c *gin.Context) {
 		plan = n
 	}
 	d, err := h.uc.Importer.Import(c, actor(c), tenant(c), usecase.ImportBlueprintInput{
-		ProjectID: c.PostForm("project_id"), Name: c.PostForm("name"), File: file, Unit: c.PostForm("unit"), PlanIndex: plan})
+		ProjectID: c.PostForm("project_id"), Name: c.PostForm("name"), File: file, Unit: c.PostForm("unit"), Convert: opts, PlanIndex: plan})
 	respond(c, http.StatusCreated, blueprintDetailView(d), err)
 }
 
@@ -355,20 +328,12 @@ func (h *BlueprintHandler) create(c *gin.Context) {
 		Name       string          `json:"name"`
 		Brief      json.RawMessage `json:"brief"`
 		SourceKind string          `json:"source_kind"`
-		Source     *struct {
-			Name     string `json:"name"`
-			MimeType string `json:"mime_type"`
-			ByteSize int64  `json:"byte_size"`
-		} `json:"source"`
-		Prompt string `json:"prompt"`
+		Prompt     string          `json:"prompt"`
 	}
 	if !bind(c, &body) {
 		return
 	}
 	in := usecase.CreateBlueprintInput{ProjectID: body.ProjectID, Name: body.Name, Brief: body.Brief, SourceKind: body.SourceKind, Prompt: body.Prompt}
-	if body.Source != nil {
-		in.Source = &entity.BlueprintSource{Name: body.Source.Name, MimeType: body.Source.MimeType, ByteSize: body.Source.ByteSize}
-	}
 	d, err := h.uc.Creator.Create(c, actor(c), tenant(c), in)
 	respond(c, http.StatusCreated, blueprintDetailView(d), err)
 }

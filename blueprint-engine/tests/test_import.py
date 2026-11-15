@@ -219,7 +219,7 @@ class _Scripted:
     def __init__(self, *answers):
         self.answers, self.prompts = list(answers), []
 
-    def structured(self, system, user, schema, *, images=None, vision=False):
+    def structured(self, system, user, schema):
         self.prompts.append(user)
         a = self.answers.pop(0) if len(self.answers) > 1 else self.answers[0]
         return schema.model_validate(a)

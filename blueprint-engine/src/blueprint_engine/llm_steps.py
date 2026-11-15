@@ -43,7 +43,6 @@ from .schemas import (
     Side,
 )
 
-MAX_UPLOAD = 10 * 1024 * 1024
 _HALL = re.compile(r"\b(hall|hallway|corridor|passage)\b", re.I)
 
 
@@ -214,104 +213,6 @@ def brief_from_text(llm: LLMClient, prompt: str, *, use_enhancer: bool = False) 
 
     _, (brief, draft_notes), _ = _with_feedback(llm, system, user, DraftBrief, to_brief)
     return brief, notes + draft_notes
-
-
-def _to_png(data: bytes, mime: str) -> bytes:
-    from PIL import Image
-
-    if mime == "application/pdf":
-        import pypdfium2 as pdfium
-
-        pdf = pdfium.PdfDocument(data)
-        if len(pdf) == 0:
-            raise EditError("the PDF has no pages")
-        img = pdf[0].render(scale=2).to_pil()
-    elif mime in ("image/png", "image/jpeg"):
-        img = Image.open(io.BytesIO(data))
-    else:
-        raise EditError("upload a PNG, JPG, PDF or DXF")
-    img = img.convert("RGB")
-    img.thumbnail((1600, 1600))
-    out = io.BytesIO()
-    img.save(out, format="PNG")
-    return out.getvalue()
-
-
-def _dxf_summary(data: bytes) -> str:
-    """Text labels and outline sizes of a DXF, in metres, for the text model (no vision needed)."""
-    import ezdxf
-    from ezdxf import bbox
-
-    try:
-        doc = ezdxf.read(io.StringIO(data.decode("utf-8", errors="replace")))
-    except Exception as e:  # ezdxf raises several error types on malformed files
-        raise EditError(f"cannot read the DXF: {e}") from e
-    msp = doc.modelspace()
-    labels: list[str] = []
-    for e in msp:
-        if e.dxftype() == "TEXT":
-            t = e.dxf.text
-        elif e.dxftype() == "MTEXT":
-            t = e.plain_text()
-        else:
-            continue
-        t = " ".join(t.split())
-        if t and t not in labels:
-            labels.append(t)
-    ext = bbox.extents(msp)
-    if not ext.has_data:
-        raise EditError("the DXF has no drawing content")
-    # $INSUNITS 4 = mm, 5 = cm; metres or unset is trusted only when the drawing is house-sized
-    # (many mm files never set it, and no house is 200 m wide).
-    big = max(ext.size.x, ext.size.y) > 200
-    scale = {4: 0.001, 5: 0.01}.get(doc.header.get("$INSUNITS", 0), 0.001 if big else 1.0)
-    if scale == 1.0 and big:
-        scale = 0.001
-    areas = []
-    for e in msp.query("LWPOLYLINE"):
-        if e.closed and len(e) >= 3:
-            pts = [(x * scale, y * scale) for x, y, *_ in e.get_points()]
-            a = abs(sum(x1 * y2 - x2 * y1 for (x1, y1), (x2, y2) in zip(pts, pts[1:] + pts[:1]))) / 2
-            if a >= 2:
-                areas.append(round(float(a), 1))
-    return (
-        f"Overall extents: {float(ext.size.x) * scale:.1f} x {float(ext.size.y) * scale:.1f} m.\n"
-        f"Text labels in the drawing: {'; '.join(labels[:80]) or 'none'}.\n"
-        f"Closed outline areas (m2): {sorted(areas, reverse=True)[:40] or 'none'}."
-    )
-
-
-def _brief_from_dxf(llm: LLMClient, data: bytes, note: str) -> tuple[Brief, list[str]]:
-    system = (
-        "You read the text content of a CAD floor plan (DXF) and extract the room program as a JSON brief. "
-        "Use the room labels and any areas written in them; do not invent rooms that are not labelled. "
-        "Ignore dimensions, titles, scales and sheet numbers. Estimate missing areas with typical values. "
-        "Set 'side' only if the user says so.\n" + prompts.CONVENTIONS
-    )
-    user = "Extract the brief from this DXF summary.\n" + _dxf_summary(data) + (f"\nNotes from the user: {note}" if note else "")
-    draft = llm.structured(system, user, DraftBrief)
-    for room in draft.rooms:
-        room.side = None
-    brief, notes = draft_to_brief(draft)
-    return brief, ["read from the DXF's text labels (geometry is not copied); review the rooms before generating", *notes]
-
-
-def brief_from_sketch(llm: LLMClient, data: bytes, mime: str, note: str = "") -> tuple[Brief, list[str]]:
-    if len(data) > MAX_UPLOAD:
-        raise EditError("upload is larger than 10 MB")
-    if mime == "image/vnd.dxf":
-        return _brief_from_dxf(llm, data, note)
-    png = _to_png(data, mime)
-    system = (
-        "You read a hand sketch or an existing floor plan and extract the room program as a JSON brief. "
-        "Do not copy geometry; estimate each room's area from any dimensions shown, otherwise use typical areas. "
-        "Set 'side' only for rooms clearly on one outside wall that matters (e.g. kitchen at the back). "
-        "If a north arrow is drawn use it, otherwise assume north is up.\n" + prompts.CONVENTIONS
-    )
-    user = "Extract the brief from this drawing." + (f" Notes from the user: {note}" if note else "")
-    draft = llm.structured(system, user, DraftBrief, images=[png], vision=True)
-    brief, notes = draft_to_brief(draft)
-    return brief, ["read from the uploaded drawing; review the rooms before generating", *notes]
 
 
 def _brief_for_prompt(brief: Brief) -> str:

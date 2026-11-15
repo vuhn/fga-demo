@@ -16,7 +16,7 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import dxf_patch, dxf_plan, llm_steps, pipeline, plan_edits, progress
+from . import convert, dxf_patch, dxf_plan, llm_steps, pipeline, plan_edits, progress
 from .checks import failed, run_imported_checks
 from .draw import TitleBlock, build_dxf, to_dxf_bytes, to_pdf, to_svg
 from .edits import EditError
@@ -97,6 +97,11 @@ class ImportPlanOut(dxf_plan.ImportedPlan):
     svg: str  # the plan as the engine draws it, for the review step
 
 
+class ConvertOut(BaseModel):
+    dxf: str  # base64 of the DXF (metres)
+    report: convert.ConvertReport
+
+
 class ImportOut(BaseModel):
     plans: list[ImportPlanOut]
     report: dxf_plan.ImportReport
@@ -128,12 +133,17 @@ def create_app(llm: LLMClient | None = None) -> FastAPI:
         brief, notes = llm_steps.brief_from_text(app.state.llm, body.prompt[:4000], use_enhancer=body.enhance)
         return BriefOut(brief=brief, notes=notes)
 
-    @app.post("/v1/brief/from-sketch", response_model=BriefOut)
-    async def from_sketch(file: UploadFile = File(...), note: str = Form("")) -> BriefOut:
-        data = await file.read(llm_steps.MAX_UPLOAD + 1)
-        mime = "image/vnd.dxf" if (file.filename or "").lower().endswith(".dxf") else (file.content_type or "")
-        brief, notes = llm_steps.brief_from_sketch(app.state.llm, data, mime, note[:1000])
-        return BriefOut(brief=brief, notes=notes)
+    @app.post("/v1/convert/dxf", response_model=ConvertOut)
+    async def convert_to_dxf(file: UploadFile = File(...), scale: int = Form(0), dpi: float = Form(0),
+                             longest_m: float = Form(0)) -> ConvertOut:
+        """PDF / PNG / JPEG floor plan -> DXF, no LLM. The caller then imports the DXF like any CAD file.
+        Zero means 'not given'; `longest_m` (real length of the drawing's longest side) beats `scale`."""
+        data = await file.read(20 * 1024 * 1024 + 1)
+        if len(data) > 20 * 1024 * 1024:
+            raise EditError("the file is larger than 20 MB")
+        mime = file.content_type or ""
+        out, rep = convert.to_dxf(data, mime, scale=scale or None, dpi=dpi or None, longest_m=longest_m or None)
+        return ConvertOut(dxf=base64.b64encode(out).decode("ascii"), report=rep)
 
     @app.post("/v1/import/dxf", response_model=ImportOut)
     async def import_dxf(file: UploadFile = File(...), unit: str = Form("")) -> ImportOut:

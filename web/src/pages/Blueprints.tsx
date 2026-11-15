@@ -12,6 +12,7 @@ import {
   Loader,
   Menu,
   Modal,
+  NumberInput,
   Radio,
   SegmentedControl,
   Select,
@@ -24,14 +25,14 @@ import {
 import { IconDots, IconForms, IconPencil, IconPlus, IconRuler2, IconShare, IconTrash, IconUpload, IconWand } from "@tabler/icons-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, apiUpload, IMPORT_UNITS, type Blueprint, type BlueprintDetail, type BlueprintDraft, type BlueprintSource, type Brief, type ImportPreview, type Project } from "../api";
+import { api, apiUpload, IMPORT_UNITS, type Blueprint, type BlueprintDetail, type BlueprintDraft, type Brief, type ImportPreview, type Project } from "../api";
 import { useAuth } from "../auth";
 import BriefEditor, { emptyBrief } from "../components/BriefEditor";
 import ShareDialog from "../components/ShareDialog";
 import { canAct, canProject } from "../permissions";
 import { confirmDanger, notifyError, run } from "../ui";
 
-const SOURCE_LABEL: Record<Blueprint["source_kind"], string> = { prompt: "prompt", sketch: "sketch", form: "form", import: "DXF import" };
+const SOURCE_LABEL: Record<Blueprint["source_kind"], string> = { prompt: "prompt", sketch: "sketch", form: "form", import: "uploaded plan" };
 
 /**
  * Blueprints tab of a project. Blueprints sit directly in the project (no
@@ -80,7 +81,7 @@ export default function Blueprints({ project }: { project: Project }) {
     <>
       <Group justify="space-between" mb="md">
         <Text size="sm" c="dimmed">
-          Floor plans drafted by a local AI from a description or a sketch. The AI edits only the brief; the drawing is computed from it.
+          Upload a floor plan (DXF, PDF, PNG or JPG) and it is kept as a DXF you can view and edit. Plans can also be drafted by a local AI from a description.
         </Text>
         {canProject(project, "createBlueprint") && (
           <Button leftSection={<IconPlus size={16} />} onClick={() => setCreating(true)}>
@@ -188,13 +189,13 @@ export default function Blueprints({ project }: { project: Project }) {
   );
 }
 
-type Mode = "prompt" | "sketch" | "form" | "import";
+type Mode = "import" | "prompt" | "form";
 
 const svgUrl = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
 /**
- * Create flow: describe or upload, review the drafted brief, then generate.
- * Drafting writes nothing; only Generate creates the blueprint.
+ * Create flow. Upload (DXF, PDF, PNG, JPG): the plan is read as drawn and stored with its DXF. Describe or form: review
+ * the drafted brief, then generate. Reading and drafting write nothing; only the last button creates the blueprint.
  */
 function NewBlueprintModal({
   opened,
@@ -207,13 +208,13 @@ function NewBlueprintModal({
   onClose: () => void;
   onCreated: (b: BlueprintDetail) => void;
 }) {
-  const [mode, setMode] = useState<Mode>("prompt");
+  const [mode, setMode] = useState<Mode>("import");
   const [prompt, setPrompt] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [note, setNote] = useState("");
+  const [scale, setScale] = useState<string | number>("");
+  const [longest, setLongest] = useState<string | number>("");
   const [brief, setBrief] = useState<Brief | null>(null);
   const [notes, setNotes] = useState<string[]>([]);
-  const [source, setSource] = useState<BlueprintSource | null>(null);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [unit, setUnit] = useState<string>("auto");
@@ -225,13 +226,13 @@ function NewBlueprintModal({
     setUnit("auto");
     setPreview(null);
     setPlan("1");
-    setMode("prompt");
+    setMode("import");
     setPrompt("");
     setFile(null);
-    setNote("");
+    setScale("");
+    setLongest("");
     setBrief(null);
     setNotes([]);
-    setSource(null);
     setName("");
   }, [opened]);
 
@@ -247,24 +248,14 @@ function NewBlueprintModal({
         const form = new FormData();
         form.set("project_id", project.id);
         form.set("file", file as File);
-        if (unit !== "auto") form.set("unit", unit);
+        appendImportOptions(form);
         const p = await apiUpload<ImportPreview>("/blueprint-drafts/dxf-import", form);
         setPreview(p);
         setPlan(String(p.plans[0]?.index ?? 1));
-        if (!name) setName((file as File).name.replace(/\.dxf$/i, ""));
+        if (!name) setName((file as File).name.replace(/\.[a-z]+$/i, ""));
         return;
       }
-      let d: BlueprintDraft;
-      if (mode === "prompt") {
-        d = await api<BlueprintDraft>("POST", "/blueprint-drafts", { project_id: project.id, prompt });
-      } else {
-        const form = new FormData();
-        form.set("project_id", project.id);
-        form.set("file", file as File);
-        form.set("note", note);
-        d = await apiUpload<BlueprintDraft>("/blueprint-drafts/sketch", form);
-        setSource(d.source ?? null);
-      }
+      const d = await api<BlueprintDraft>("POST", "/blueprint-drafts", { project_id: project.id, prompt });
       setBrief(d.brief);
       setNotes(d.notes);
       if (!name) setName(d.brief.title);
@@ -273,6 +264,17 @@ function NewBlueprintModal({
     } finally {
       setBusy(false);
     }
+  };
+
+  const isDxf = !file || /\.dxf$/i.test(file.name);
+  // a DXF carries its own units; a PDF or picture carries no scale, so the user may state it
+  const appendImportOptions = (form: FormData) => {
+    if (isDxf) {
+      if (unit !== "auto") form.set("unit", unit);
+      return;
+    }
+    if (longest !== "") form.set("longest_m", String(longest));
+    else if (scale !== "") form.set("scale", String(scale));
   };
 
   const importPlan = async () => {
@@ -285,7 +287,7 @@ function NewBlueprintModal({
       form.set("file", file);
       form.set("name", name.trim());
       form.set("plan", plan);
-      if (unit !== "auto") form.set("unit", unit);
+      appendImportOptions(form);
       out.created = await apiUpload<BlueprintDetail>("/blueprints/import", form);
     }, "Plan imported");
     setBusy(false);
@@ -305,9 +307,8 @@ function NewBlueprintModal({
         name: name.trim() || brief.title,
         brief,
         source_kind: mode,
-        source: mode === "sketch" ? source : undefined,
-        // the description (or sketch note) becomes version 1's message: the first chat entry
-        prompt: mode === "prompt" ? prompt.trim() : mode === "sketch" ? note.trim() : undefined,
+        // the description becomes version 1's message: the first chat entry
+        prompt: mode === "prompt" ? prompt.trim() : undefined,
       });
     }, "Blueprint created");
     setBusy(false);
@@ -329,6 +330,17 @@ function NewBlueprintModal({
               <List.Item>
                 Units: {preview.report.units} ({preview.report.unit_source}); {preview.report.plans_found} plan{preview.report.plans_found === 1 ? "" : "s"}, {preview.report.doors} doors, {preview.report.windows} windows, {preview.report.fixtures} fixtures
               </List.Item>
+              {preview.conversion && (
+                <List.Item>
+                  Converted from a {preview.conversion.method === "pdf-vector" ? "vector PDF" : "picture"}: {preview.conversion.metres_across} m across ({preview.conversion.scale_source}), {preview.conversion.walls} wall shapes, {preview.conversion.openings} openings
+                </List.Item>
+              )}
+              {preview.conversion?.skipped.map((t, i) => (
+                <List.Item key={`c${i}`}>Not converted: {t}</List.Item>
+              ))}
+              {preview.conversion?.warnings.map((w, i) => (
+                <List.Item key={`cw${i}`} c="orange">{w}</List.Item>
+              ))}
               <List.Item>Wall layers used: {preview.report.layers_used.join(", ") || "none"}</List.Item>
               {preview.report.layers_ignored.length > 0 && <List.Item>Ignored layers: {preview.report.layers_ignored.join(", ")}</List.Item>}
               {preview.report.unlabeled_rooms > 0 && <List.Item>{preview.report.unlabeled_rooms} room(s) have no label and are named Room n.</List.Item>}
@@ -357,7 +369,7 @@ function NewBlueprintModal({
             </Group>
           </Radio.Group>
           <Text size="sm" c="dimmed">
-            The plan is stored as read; the original DXF is kept with it and can be downloaded by editors. Edit it in the viewer or by chat; AI review and the brief form do not apply to a DXF plan.
+            The plan is stored as read; the original DXF is kept with it (for a PDF or picture, the DXF drawn from it) and can be downloaded by editors. Edit it in the viewer or by chat; AI review and the brief form do not apply to a DXF plan.
           </Text>
           <TextInput label="Name" required value={name} onChange={(e) => setName(e.currentTarget.value)} />
           <Group justify="space-between">
@@ -381,12 +393,55 @@ function NewBlueprintModal({
               value={mode}
               onChange={(v) => setMode(v as Mode)}
               data={[
+                { value: "import", label: "Upload plan" },
                 { value: "prompt", label: "Describe" },
-                { value: "sketch", label: "Upload sketch" },
-                { value: "import", label: "Import DXF" },
                 { value: "form", label: "Fill the form" },
               ]}
             />
+            {mode === "import" && (
+              <>
+                <FileInput
+                  label="Floor plan file"
+                  description="DXF, PDF, PNG or JPG, at most 20 MB. The plan is read as drawn, with no AI; the original (for a PDF or picture, the DXF drawn from it) is stored with the blueprint."
+                  accept=".dxf,.pdf,.png,.jpg,.jpeg"
+                  leftSection={<IconUpload size={16} />}
+                  clearable
+                  value={file}
+                  onChange={setFile}
+                />
+                {file && isDxf && (
+                  <Select label="Drawing units" description="Auto uses the file's own setting, or guesses from its size." data={["auto", ...IMPORT_UNITS]} value={unit} onChange={(v) => setUnit(v ?? "auto")} allowDeselect={false} />
+                )}
+                {file && !isDxf && (
+                  <>
+                    <NumberInput
+                      label="Longest side of the drawing (m)"
+                      description="Optional. Leave empty to read the scale from the picture (the room areas or the overall dimension written on it); fill it in when the picture has neither."
+                      placeholder="e.g. 12.5"
+                      min={1}
+                      max={500}
+                      decimalScale={2}
+                      value={longest}
+                      onChange={setLongest}
+                    />
+                    <NumberInput
+                      label="Or paper scale 1:N"
+                      description="Optional; used only when the length above is empty. A PDF defaults to 1:100."
+                      placeholder="100"
+                      min={1}
+                      max={5000}
+                      allowDecimal={false}
+                      disabled={longest !== ""}
+                      value={scale}
+                      onChange={setScale}
+                    />
+                    <Text size="xs" c="dimmed">
+                      A PDF drawn as vectors is read exactly. A picture is traced and its text is read (OCR): walls, openings and room names are found; door swings and furniture are not.
+                    </Text>
+                  </>
+                )}
+              </>
+            )}
             {mode === "prompt" && (
               <Textarea
                 label="Describe the house"
@@ -400,49 +455,17 @@ function NewBlueprintModal({
                 onChange={(e) => setPrompt(e.currentTarget.value)}
               />
             )}
-            {mode === "sketch" && (
-              <>
-                <FileInput
-                  label="Sketch or existing plan"
-                  description="PNG, JPG or PDF (first page), at most 10 MB. A vision model drafts a new brief from it, then the file is discarded. For a CAD file use Import DXF: it keeps the plan as drawn."
-                  accept="image/png,image/jpeg,application/pdf,.dxf"
-                  leftSection={<IconUpload size={16} />}
-                  clearable
-                  value={file}
-                  onChange={(f) => {
-                    // a DXF is read as drawn, not redrawn by the model: send it to the importer
-                    if (f && /\.dxf$/i.test(f.name)) setMode("import");
-                    setFile(f);
-                  }}
-                />
-                <Textarea label="Note (optional)" placeholder="Lot is 15 x 25, entrance on the east" autosize minRows={2} maxLength={1000} value={note} onChange={(e) => setNote(e.currentTarget.value)} />
-              </>
-            )}
-            {mode === "import" && (
-              <>
-                <FileInput
-                  label="CAD floor plan (DXF)"
-                  description="At most 20 MB. Walls, doors, windows and room labels are read as drawn, with no AI. The original file is stored with the blueprint."
-                  accept=".dxf"
-                  leftSection={<IconUpload size={16} />}
-                  clearable
-                  value={file}
-                  onChange={setFile}
-                />
-                <Select label="Drawing units" description="Auto uses the file's own setting, or guesses from its size." data={["auto", ...IMPORT_UNITS]} value={unit} onChange={(v) => setUnit(v ?? "auto")} allowDeselect={false} />
-              </>
-            )}
             {mode === "form" && <Text size="sm">Start from a blank brief and enter the rooms yourself.</Text>}
             {busy && (
               <Alert variant="light" icon={<Loader size="xs" />}>
-                {mode === "import" ? "Reading the DXF…" : "The local model is drafting the brief. This can take up to a minute."}
+                {mode === "import" ? (isDxf ? "Reading the DXF…" : "Converting the file to a DXF and reading it…") : "The local model is drafting the brief. This can take up to a minute."}
               </Alert>
             )}
             <Group justify="flex-end">
               <Button variant="default" onClick={onClose} disabled={busy}>
                 Cancel
               </Button>
-              <Button type="submit" loading={busy} disabled={!canDraft} leftSection={mode === "form" ? <IconForms size={16} /> : <IconWand size={16} />}>
+              <Button type="submit" loading={busy} disabled={!canDraft} leftSection={mode === "form" ? <IconForms size={16} /> : mode === "import" ? <IconUpload size={16} /> : <IconWand size={16} />}>
                 {mode === "form" ? "Open form" : mode === "import" ? "Read file" : "Draft brief"}
               </Button>
             </Group>

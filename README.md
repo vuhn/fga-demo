@@ -110,7 +110,6 @@ For Blueprints (optional; requires [uv](https://docs.astral.sh/uv/) and [Ollama]
 
 ```bash
 ollama pull qwen3           # text model (8B, installed as qwen3:latest)
-ollama pull qwen2.5vl:7b    # vision model, only for sketch upload
 make engine                 # blueprint-engine on :8090
 ```
 
