@@ -32,6 +32,19 @@ export type PlanOp =
   | { op: "remove_opening"; opening: string };
 
 export type ModelFixture = { id: string; kind: string; room_id: string; rect: [number, number, number, number]; facing: string };
+/** One CAD entity of an imported file kept as drawn (read-only): curves are already flattened to polylines. */
+export type ModelDrawItem = {
+  id: string;
+  type: string; // DXF entity type: LINE, CIRCLE, SPLINE, HATCH, TEXT, POINT, ...
+  layer: string;
+  color: string; // "#rrggbb" or "" for the default ink
+  paths: Pt[][];
+  filled: boolean;
+  at: Pt | null;
+  text: string;
+  height: number;
+  rotation: number;
+};
 export type PlanModel = {
   footprint: [number, number, number, number];
   outline: Pt[];
@@ -40,11 +53,12 @@ export type PlanModel = {
   walls: ModelWall[];
   openings: ModelOpening[];
   fixtures: ModelFixture[];
+  drawing: ModelDrawItem[];
 };
 
 export function asPlanModel(m: unknown): PlanModel | null {
   const p = m as Partial<PlanModel> | null;
   return p && Array.isArray(p.rooms) && Array.isArray(p.walls) && Array.isArray(p.openings) && p.footprint
-    ? ({ fixtures: [], outline: [], source: "generated", ...p } as PlanModel)
+    ? ({ fixtures: [], drawing: [], outline: [], source: "generated", ...p } as PlanModel)
     : null;
 }

@@ -291,6 +291,8 @@ def run_imported_checks(model: BuildingModel) -> list[CheckResult]:
     overlap is an error."""
     from .schemas import MIN_AREA
 
+    if not model.rooms:  # a drawing with no floor plan: nothing to judge
+        return []
     out: list[CheckResult] = []
 
     def add(rule, severity, ok, message, room_id=None, category="information", elements=None, hint=""):

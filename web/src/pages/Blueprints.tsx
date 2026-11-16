@@ -359,7 +359,7 @@ function NewBlueprintModal({
             <Group align="stretch" mt="xs" wrap="wrap">
               {preview.plans.map((p) => (
                 <Card key={p.index} withBorder padding="xs" w={260} style={{ borderColor: String(p.index) === plan ? "var(--mantine-primary-color-filled)" : undefined }}>
-                  <Radio value={String(p.index)} label={`${p.name}: ${p.room_count} rooms, ${p.net_area} m²`} mb="xs" />
+                  <Radio value={String(p.index)} label={p.room_count === 0 ? `${p.name}: no rooms (drawing only)` : `${p.name}: ${p.room_count} rooms, ${p.net_area} m²`} mb="xs" />
                   <img src={svgUrl(p.svg)} alt={p.name} style={{ width: "100%", height: 150, objectFit: "contain", background: "#fff" }} />
                   <Text size="xs" c={p.ok ? "dimmed" : "orange"} mt={4}>
                     {p.ok ? "No failing checks" : `${p.checks.filter((c) => !c.ok && c.severity === "error").length} failing check(s)`}

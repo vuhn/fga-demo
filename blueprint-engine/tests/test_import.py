@@ -207,9 +207,10 @@ def test_round_trip_keeps_fixtures_and_reports_unsupported_items():
     assert all(f.room_id in {r.id for r in got.rooms} for f in got.fixtures)
 
 
-def test_unsupported_items_are_named_in_the_report(sheet):
+def test_dimensions_and_other_entities_are_kept_as_drawing_items(sheet):
     res = sheet[2]
-    assert any("dimension" in s for s in res.report.skipped), res.report.skipped
+    assert not any("dimension" in s for s in res.report.skipped), res.report.skipped
+    assert sum(len(p.model.drawing) for p in res.plans) > 0  # the sheet's dimension rows and notes are drawn
 
 
 # ---------------------------------------------------------------- chat edits on an imported plan
@@ -278,3 +279,48 @@ def test_plan_revise_stream_reports_result(sheet):
     with c.stream("POST", "/v1/plan/revise/stream", json={"model": model.model_dump(mode="json"), "message": "rename"}) as r:
         lines = [json.loads(x) for x in r.iter_lines() if x]
     assert lines[-1]["event"] == "result" and lines[-1]["data"]["result"]["model"]["rooms"][0]["name"] == "Den"
+
+
+def _rect(msp, x0, y0, x1, y1, layer="WALLS"):
+    msp.add_lwpolyline([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True, dxfattribs={"layer": layer})
+
+
+def _hand_drawn_plan() -> bytes:
+    """A 9 x 8 m flat drawn the way hand-made CAD files are (mm): every wall a closed rectangle of its own, a
+    partition cut for a door that is only a leaf line and a swing arc on DOORS (hinge on the wall's lower face,
+    leaf into the room below, T-junction walls beside it), and a wall stub with a free end."""
+    import io
+
+    import ezdxf
+
+    doc = ezdxf.new("R2010")
+    doc.header["$INSUNITS"] = 4
+    for name in ("WALLS", "DOORS"):
+        doc.layers.add(name)
+    msp = doc.modelspace()
+    _rect(msp, -100, -100, 9100, 100)  # south
+    _rect(msp, -100, 7900, 9100, 8100)  # north
+    _rect(msp, -100, 100, 100, 7900)  # west
+    _rect(msp, 8900, 100, 9100, 7900)  # east
+    _rect(msp, 100, 3450, 6850, 3550, "WALLS")  # partition, left of the doorway
+    _rect(msp, 7700, 3450, 8900, 3550, "WALLS")  # partition, right of it
+    _rect(msp, 6600, 3550, 6700, 7900, "WALLS")  # a wall rising from the partition (T) just left of the door
+    _rect(msp, 5650, 100, 5750, 3450, "WALLS")  # a wall below it, ending on the partition
+    _rect(msp, 2000, 5500, 2100, 7900, "WALLS")  # a stub that hangs from the north wall and ends free
+    msp.add_line((6850, 3450), (6850, 2600), dxfattribs={"layer": "DOORS"})  # leaf
+    msp.add_arc((6850, 3450), 850, 270, 360, dxfattribs={"layer": "DOORS"})  # swing, to the jamb at (7700, 3450)
+    buf = io.StringIO()
+    doc.write(buf)
+    return buf.getvalue().encode()
+
+
+def test_a_loose_leaf_and_arc_door_sits_in_its_wall_and_a_free_wall_end_adds_no_wall():
+    m = import_dxf(_hand_drawn_plan()).plans[0].model
+    doors = [o for o in m.openings if o.kind == "door"]
+    assert len(doors) == 1 and abs(doors[0].width - 0.85) < 0.05, [(o.id, o.kind, o.width) for o in m.openings]
+    wall = next(w for w in m.walls if w.id == doors[0].wall_id)
+    assert abs(wall.start[1] - wall.end[1]) < 0.05  # the horizontal partition, not a crossing wall that happens to be near
+    o = m.origin
+    cx, cy = (doors[0].center[0] - o.dx) / o.scale, (doors[0].center[1] - o.dy) / o.scale
+    assert abs(cx - 7275) < 60 and abs(cy - 3500) < 60, (cx, cy)
+    assert all(w.thickness < 0.3 for w in m.walls), [(w.id, w.thickness) for w in m.walls if w.thickness >= 0.3]

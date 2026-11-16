@@ -25,8 +25,9 @@ from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 from shapely.geometry.polygon import orient
 from shapely.ops import polygonize, unary_union
 
+from . import dxf_drawing
 from .edits import EditError
-from .schemas import FIXTURE_KINDS, BuildingModel, Opening, Origin, PlacedFixture, PlacedRoom, Side, Wall
+from .schemas import FIXTURE_KINDS, BuildingModel, DrawItem, Opening, Origin, PlacedFixture, PlacedRoom, Side, Wall
 
 # $INSUNITS code -> metres per unit
 INSUNITS = {1: 0.0254, 2: 0.3048, 4: 0.001, 5: 0.01, 6: 1.0, 9: 2.54e-8, 10: 0.9144}
@@ -91,6 +92,10 @@ _TOKEN = re.compile(r"[^a-z0-9]+")
 NUMERIC_TEXT = re.compile(r"^[\d\s.,'\"x×*+\-–/mMcCfFtTinN²³%°()]*$")
 
 
+class NoFloorPlan(EditError):
+    """The file holds no floor plan (no wall linework, or walls that enclose no room): it is imported as a drawing."""
+
+
 class ImportReport(BaseModel):
     units: str  # "mm", "m", ...
     unit_source: str  # how the unit was decided
@@ -130,6 +135,9 @@ class _Marker:
     whole: bool = False  # a block reference is one complete symbol; loose lines and arcs are grouped by touching
     anchor: tuple[float, float] | None = None  # a block's insertion point: on the wall for most door/window blocks
     handles: list[str] = field(default_factory=list)  # entity handles in the file (top-level entities only)
+    # loose pieces of a door drawn as a leaf line and a swing arc: the arc (hinge, end A, end B) or the line (end, end)
+    arc: tuple[tuple[float, float], tuple[float, float], tuple[float, float]] | None = None
+    seg: tuple[tuple[float, float], tuple[float, float]] | None = None
 
 
 @dataclass
@@ -274,8 +282,7 @@ def collect(doc, scale_hint: float) -> _Raw:
                 raw.dims.append(float(e.get_measurement()))
             except Exception:
                 pass
-            raw.skipped["dimension"] = raw.skipped.get("dimension", 0) + 1
-            return
+            return  # drawn as part of the drawing items
         if t in ("TEXT", "MTEXT"):
             if role == "ignore" and "dim" in _norm(layer):
                 return
@@ -315,9 +322,6 @@ def collect(doc, scale_hint: float) -> _Raw:
                         raw.fixtures.append(_Fixture(kind, poly, e.dxf.name, _handles(e, depth)))
                         raw.layers_used.add(layer)
                         return
-                if role == "ignore":
-                    what = f"block '{e.dxf.name}'" if not _has(layer, ("anno", "text", "ttl", "title", "iden")) else "annotation block"
-                    raw.skipped[what] = raw.skipped.get(what, 0) + 1
             # attributes of fixture, door and window blocks are tags (ID, KIND, ROOM), not room labels
             if _has(layer, ("iden", "text", "label", "room", "name")) and "dim" not in _norm(layer):
                 for att in getattr(e, "attribs", []):
@@ -339,7 +343,16 @@ def collect(doc, scale_hint: float) -> _Raw:
         if role in ("door", "window"):
             poly = _extents_poly([e], tol)
             if poly is not None:
-                raw.markers.append(_Marker(role, poly, layer, handles=_handles(e, depth)))
+                mk = _Marker(role, poly, layer, handles=_handles(e, depth))
+                try:
+                    if t == "ARC":
+                        c, a, b = e.dxf.center, e.start_point, e.end_point
+                        mk.arc = ((float(c.x), float(c.y)), (float(a.x), float(a.y)), (float(b.x), float(b.y)))
+                    elif t == "LINE":
+                        mk.seg = ((float(e.dxf.start.x), float(e.dxf.start.y)), (float(e.dxf.end.x), float(e.dxf.end.y)))
+                except Exception:
+                    pass
+                raw.markers.append(mk)
                 raw.layers_used.add(layer)
             return
         for pts in _polylines(e, tol):
@@ -376,7 +389,7 @@ def detect_units(doc, raw: _Raw, override: str | None) -> tuple[str, float, str]
             raise EditError(f"unknown unit {override!r}; use one of {', '.join(UNIT_FACTORS)}")
         return override, UNIT_FACTORS[override], "chosen by you"
     if not raw.walls:
-        raise EditError("no wall linework found: name the wall layer like 'A-WALL' or draw the walls as lines")
+        raise NoFloorPlan("no wall linework found: name the wall layer like 'A-WALL' or draw the walls as lines")
     xs = [x for ls in raw.walls for x, _ in ls.coords]
     ys = [y for ls in raw.walls for _, y in ls.coords]
     extent = max(max(xs) - min(xs), max(ys) - min(ys))
@@ -404,8 +417,11 @@ def _scaled(raw: _Raw, k: float) -> _Raw:
     out = _Raw(layers_used=raw.layers_used, layers_ignored=raw.layers_ignored, dims=raw.dims, skipped=raw.skipped)
     out.fixtures = [_Fixture(f.kind, affinity.scale(f.geom, k, k, origin=(0, 0)), f.name, f.src) for f in raw.fixtures]
     out.walls = [affinity.scale(w, k, k, origin=(0, 0)) for w in raw.walls]
+    sc = lambda p: (p[0] * k, p[1] * k)  # noqa: E731
     out.markers = [_Marker(m.kind, affinity.scale(m.geom, k, k, origin=(0, 0)), m.layer, m.whole,
-                      (m.anchor[0] * k, m.anchor[1] * k) if m.anchor else None, m.handles) for m in raw.markers]
+                      (m.anchor[0] * k, m.anchor[1] * k) if m.anchor else None, m.handles,
+                      tuple(sc(p) for p in m.arc) if m.arc else None, tuple(sc(p) for p in m.seg) if m.seg else None)
+        for m in raw.markers]
     out.texts = [(t, x * k, y * k, h) for t, x, y, h in raw.texts]
     return out
 
@@ -496,6 +512,25 @@ class _Door:
     src: list[str] = field(default_factory=list)
 
 
+def _door_anchor(group: list[_Marker]) -> tuple[float, float] | None:
+    """The middle of the doorway of a door drawn as a swing arc (hinge at its centre) and a leaf line from the
+    hinge: the arc's end away from the leaf is the opposite jamb, so hinge and jamb are the wall line and their
+    midpoint is on it. The bounding box centre of leaf and arc lies in the room instead, up to half a door
+    width off the wall, and fits the wrong wall. None when the group is not a leaf and an arc."""
+    arcs = [m.arc for m in group if m.arc]
+    segs = [m.seg for m in group if m.seg]
+    if len(arcs) != 1 or not segs:
+        return None
+    hinge, a, b = arcs[0]
+    tol = 0.05 * max(1.0, math.hypot(a[0] - hinge[0], a[1] - hinge[1]))
+    for p, q in segs:
+        for h, leaf in ((p, q), (q, p)):
+            if math.hypot(h[0] - hinge[0], h[1] - hinge[1]) <= tol:
+                jamb = b if math.hypot(a[0] - leaf[0], a[1] - leaf[1]) <= math.hypot(b[0] - leaf[0], b[1] - leaf[1]) else a
+                return ((hinge[0] + jamb[0]) / 2, (hinge[1] + jamb[1]) / 2)
+    return None
+
+
 def _symbols(markers: list[_Marker]) -> list[tuple[str, tuple[float, float, float, float], tuple[float, float], list[str]]]:
     """One bounding box per symbol: loose pieces of one door (leaf + swing) are grouped by proximity.
     The last item is the handles of the file entities that draw it."""
@@ -515,8 +550,9 @@ def _symbols(markers: list[_Marker]) -> list[tuple[str, tuple[float, float, floa
             bb = (min(g.bounds[0] for g in members), min(g.bounds[1] for g in members),
                   max(g.bounds[2] for g in members), max(g.bounds[3] for g in members))
             hs = [h for m in group for h in m.handles]
+            hinge = _door_anchor(group) if kind == "door" else None
             # a piece with no handle (inside a nested block) makes the symbol unpatchable as a whole
-            out.append((kind, bb, ((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2), hs if all(m.handles for m in group) else []))
+            out.append((kind, bb, hinge or ((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2), hs if all(m.handles for m in group) else []))
     return out
 
 
@@ -627,6 +663,8 @@ def _walls_from_rooms(rooms: list[Polygon], solids, t_default: float) -> tuple[l
             t = min(min(hits), MAX_WALL) if hits else 0.0
             if t < 0.05:
                 continue  # open edge (a balcony rail): no wall
+            if length < 0.5 and min(hits) > 2.5 * length:
+                continue  # the free end of a dangling wall: the ray ran along it, not through it (its sides give the wall)
             probe = Point(mid.x + n[0] * (t + 0.06), mid.y + n[1] * (t + 0.06))
             interior = any(o is not room and o.contains(probe) for o in rooms)
             kind = "interior" if interior else "exterior"
@@ -847,14 +885,86 @@ def _place_fixtures(fixtures: list[_Fixture], poly_of: dict[str, Polygon], repor
 
 
 def import_dxf(data: bytes, unit: str | None = None) -> ImportResult:
+    """A floor plan when the file has one (rooms, walls, doors, windows, fixtures, plus every other entity as
+    drawing items); any other CAD file as a drawing of all its entities."""
     doc = read_doc(data)
+    try:
+        return _import_floorplan(doc, unit)
+    except NoFloorPlan as why:
+        return _import_drawing(doc, unit, str(why))
+
+
+def _skipped_lines(skipped: dict[str, int]) -> list[str]:
+    return [f"{n} x {what} (not imported)" for what, n in sorted(skipped.items())]
+
+
+def _import_drawing(doc, unit: str | None, why: str) -> ImportResult:
+    """No floor plan in the file: keep all its geometry as one read-only drawing plan."""
+    items, skipped, truncated = dxf_drawing.collect_drawing(doc)
+    box = dxf_drawing.bounds(items)
+    if box is None:
+        what = ", ".join(f"{n} {w}" for w, n in sorted(skipped.items())) or "nothing"
+        raise EditError(f"the DXF has nothing that can be drawn ({why}); it holds {what}")
+    extent = max(box[2] - box[0], box[3] - box[1])
+    code = int(doc.header.get("$INSUNITS", 0) or 0)
+    if unit:
+        if unit not in UNIT_FACTORS:
+            raise EditError(f"unknown unit {unit!r}; use one of {', '.join(UNIT_FACTORS)}")
+        name, k, how = unit, UNIT_FACTORS[unit], "chosen by you"
+    elif code in INSUNITS:
+        name, k, how = {1: "in", 2: "ft", 4: "mm", 5: "cm", 6: "m", 10: "yd"}.get(code, "m"), INSUNITS[code], "the file's $INSUNITS"
+    else:
+        fits = [(n, f) for n, f in GUESS_ORDER if 3.0 <= extent * f <= 80.0]
+        name, k = fits[0] if fits else ("m", 1.0)
+        how = (f"guessed from the {extent:g}-unit extent (the file sets no $INSUNITS)" if fits
+               else "assumed 1 unit = 1 m (the file sets no $INSUNITS and its size fits no unit)")
+    dx, dy = -box[0] * k, -box[1] * k
+    placed = dxf_drawing.scale_items(items, k, dx, dy)
+    w, h = round((box[2] - box[0]) * k, 3), round((box[3] - box[1]) * k, 3)
+    model = BuildingModel(footprint=(0.0, 0.0, w, h), lot=(round(w, 2), round(h, 2)), entrance_side="south",
+                          source="imported", origin=Origin(scale=k, dx=dx, dy=dy), rooms=[], walls=[], openings=[],
+                          drawing=placed)
+    report = ImportReport(units=name, unit_source=how, layers_used=sorted({i.layer for i in placed}), plans_found=1,
+                          skipped=_skipped_lines(skipped))
+    report.warnings.append(f"no floor plan in the file ({why}): imported as a drawing of its {len(placed)} entities")
+    if truncated:
+        report.warnings.append(f"the drawing is too big: only the first {len(placed)} entities were kept")
+    plan = ImportedPlan(index=1, name="Drawing", model=model, room_count=0, net_area=0.0)
+    return ImportResult(plans=[plan], report=report)
+
+
+def _attach_drawing(doc, raw: _Raw, plans: list[ImportedPlan], zones: list[Polygon], k: float, report: ImportReport) -> None:
+    """Every entity the floor-plan reader did not use (not on a wall, door or window layer, not a fixture or
+    opening block, not a room label) becomes a drawing item of the plan whose area holds it."""
+    items, skipped, truncated = dxf_drawing.collect_drawing(doc)
+    used_layers = set(raw.layers_used)
+    used_src = {h for f in raw.fixtures for h in f.src} | {h for m in raw.markers for h in m.handles}
+    used_src |= {h.split(":")[0] for p in plans for r in p.model.rooms for h in r.src}
+    left = [i for i in items if i.layer not in used_layers and i.src not in used_src]
+    metres = dxf_drawing.scale_items(left, k, 0.0, 0.0)
+    buckets: list[list[DrawItem]] = [[] for _ in plans]
+    for it in metres:  # the plan whose area is nearest (dimension rows, legends and title blocks lie outside it)
+        pt = Point(it.at) if it.at else Point(*it.paths[0][0])
+        buckets[min(range(len(zones)), key=lambda i: zones[i].distance(pt))].append(it)
+    for plan, group in zip(plans, buckets):
+        o = plan.model.origin
+        plan.model.drawing = dxf_drawing.scale_items(group, 1.0, o.dx, o.dy) if o else group
+        for n, it in enumerate(plan.model.drawing, 1):
+            it.id = f"g{n}"
+    for line in _skipped_lines(skipped):
+        report.skipped.append(line)
+    if truncated:
+        report.warnings.append("the drawing is too big: only the first entities were kept")
+
+
+def _import_floorplan(doc, unit: str | None = None) -> ImportResult:
     probe = collect(doc, 1.0)  # unit unknown yet: flatten finely enough for any unit but cheaply
     name, k, how = detect_units(doc, probe, unit)
     raw = _scaled(collect(doc, k), k) if k != 1.0 else collect(doc, 1.0)
     report = ImportReport(units=name, unit_source=how, layers_used=sorted(raw.layers_used),
                           layers_ignored=sorted(raw.layers_ignored))
     if not raw.walls:
-        raise EditError("no wall linework found: name the wall layer like 'A-WALL' or draw the walls as lines")
+        raise NoFloorPlan("no wall linework found: name the wall layer like 'A-WALL' or draw the walls as lines")
 
     thin0 = [f for f in _faces(raw.walls) if not _is_room(f)]
     t0 = _thin_thickness(unary_union(thin0)) if thin0 else DEFAULT_WALL
@@ -863,7 +973,7 @@ def import_dxf(data: bytes, unit: str | None = None) -> ImportResult:
     thin = [f for f in faces if not _is_room(f)]
     big = [f for f in faces if _is_room(f)]
     if not big:
-        raise EditError("no closed rooms found: the wall lines do not enclose any space (check for gaps)")
+        raise NoFloorPlan("no closed rooms found: the wall lines do not enclose any space (check for gaps)")
     solids = unary_union(thin) if thin else Polygon()
     thin_area = solids.area if not solids.is_empty else 0.0
     centerline_mode = thin_area < 0.02 * sum(f.area for f in big)
@@ -897,13 +1007,14 @@ def import_dxf(data: bytes, unit: str | None = None) -> ImportResult:
     if tiny:
         raw.skipped[f"space under {MIN_ROOM_AREA} m² or narrower than {ROOM_INSCRIBED} m"] = tiny
     if not pieces:
-        raise EditError("no rooms found after separating the doorways")
+        raise NoFloorPlan("no rooms found after separating the doorways")
 
     # one plan per connected cluster (a sheet may hold several plans)
     zone = unary_union([*(p.buffer(0.8) for p in pieces)])
     clusters = list(zone.geoms) if hasattr(zone, "geoms") else [zone]
     clusters.sort(key=lambda c: (-round(c.centroid.y / 5), c.centroid.x))
     plans: list[ImportedPlan] = []
+    zones: list[Polygon] = []
     for i, zc in enumerate(clusters, 1):
         in_rooms = [p for p in pieces if zc.contains(p.centroid)]
         if not in_rooms:
@@ -915,14 +1026,16 @@ def import_dxf(data: bytes, unit: str | None = None) -> ImportResult:
         plan = _build_plan(len(plans) + 1, in_rooms, sol, ds, txt, t_est, report, fx, k)
         if plan is not None:
             plans.append(plan)
+            zones.append(zc)
     report.plans_found = len(plans)
     stray = [f for f in raw.fixtures if not any(Polygon(zc).contains(f.geom.centroid) for zc in clusters)]
     if stray:
         report.skipped.append(f"{len(stray)} fixture block(s) outside every plan")
     for what, n in sorted(raw.skipped.items()):
-        report.skipped.append(f"{n} x {what} (not supported)")
+        report.skipped.append(f"{n} x {what} (not imported)")
     if not plans:
-        raise EditError("no plan could be built from the file")
+        raise NoFloorPlan("no plan could be built from the file")
+    _attach_drawing(doc, raw, plans, zones, k, report)
     if not raw.markers:
         report.warnings.append("no door or window symbols found (expected blocks on layers like A-DOOR / A-GLAZ): rooms are not connected")
     return ImportResult(plans=plans, report=report)

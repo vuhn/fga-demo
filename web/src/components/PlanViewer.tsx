@@ -1,7 +1,7 @@
 import { ActionIcon, Badge, Box, Button, Checkbox, Divider, Group, Paper, ScrollArea, SimpleGrid, Stack, Text } from "@mantine/core";
 import { IconEye, IconEyeOff, IconFocusCentered } from "@tabler/icons-react";
 import { useMemo, useRef, useState, type PointerEvent, type WheelEvent } from "react";
-import type { ModelOpening, ModelRoom, PlanModel, PlanOp, Pt } from "../blueprintModel";
+import type { ModelDrawItem, ModelOpening, ModelRoom, PlanModel, PlanOp, Pt } from "../blueprintModel";
 import PlanEditPanel from "./PlanEditPanel";
 
 /**
@@ -17,6 +17,7 @@ const LAYERS = [
   { key: "windows", label: "Windows" },
   { key: "fixtures", label: "Fixtures" },
   { key: "labels", label: "Labels" },
+  { key: "drawing", label: "Drawing" },
 ] as const;
 type Layer = (typeof LAYERS)[number]["key"];
 
@@ -59,13 +60,50 @@ function openingRect(o: ModelOpening, ang: number, thick: number, top: number) {
   return { transform: `translate(${cx} ${cy}) rotate(${deg})`, w: o.width, h: thick };
 }
 
+const INK = "#374151";
+
+/** One CAD entity: flattened paths (filled ones faintly, so a hatch does not hide what lies under it), a point
+ * as a small cross, a text at its height and rotation. `span` is the width of the fitted view, for sizes the
+ * file does not give. */
+function drawItem(d: ModelDrawItem, top: number, span: number, selected: boolean, onClick: () => void) {
+  const k = key("draw", d.id);
+  const ink = selected ? SELECT : d.color || INK;
+  const common = { style: { cursor: "pointer" }, onClick };
+  if (d.at && d.text) {
+    const [x, y] = flip(d.at, top);
+    const h = d.height > 0 ? d.height : span / 80;
+    return (
+      <text key={k} x={x} y={y} fontSize={h} fill={ink} transform={d.rotation ? `rotate(${-d.rotation} ${x} ${y})` : undefined} {...common}>
+        {d.text.split("\n").map((ln, i) => (
+          <tspan key={i} x={x} dy={i ? h * 1.2 : 0}>
+            {ln}
+          </tspan>
+        ))}
+      </text>
+    );
+  }
+  if (d.at) {
+    const [x, y] = flip(d.at, top);
+    const s = span / 200;
+    return (
+      <path key={k} d={`M${x - s} ${y} L${x + s} ${y} M${x} ${y - s} L${x} ${y + s}`} stroke={ink} strokeWidth={selected ? 3 : 1.5} fill="none"
+        vectorEffect="non-scaling-stroke" {...common} />
+    );
+  }
+  const path = d.paths.map((p) => "M" + p.map((q) => flip(q, top).join(" ")).join(" L")).join(" ");
+  return (
+    <path key={k} d={path} fill={d.filled ? ink : "none"} fillOpacity={d.filled ? 0.18 : undefined} fillRule="evenodd" stroke={ink}
+      strokeWidth={selected ? 3 : 1} vectorEffect="non-scaling-stroke" {...common} />
+  );
+}
+
 export default function PlanViewer({ model, onEdit, busy = false }: { model: PlanModel; onEdit?: (ops: PlanOp[]) => Promise<boolean>; busy?: boolean }) {
   const [x0, y0, x1, y1] = model.footprint;
   const top = y1 + y0; // flip about the footprint's middle so the plan keeps its place
-  const pad = 1;
+  const pad = model.rooms.length ? 1 : Math.max(x1 - x0, y1 - y0) * 0.05 || 1; // a drawing of a small part needs a small margin
   const fit = useMemo<View>(() => ({ x: x0 - pad, y: top - y1 - pad, w: x1 - x0 + 2 * pad, h: y1 - y0 + 2 * pad }), [x0, y0, x1, y1, top]);
   const [view, setView] = useState<View>(fit);
-  const [layers, setLayers] = useState<Record<Layer, boolean>>({ rooms: true, walls: true, doors: true, windows: true, fixtures: true, labels: true });
+  const [layers, setLayers] = useState<Record<Layer, boolean>>({ rooms: true, walls: true, doors: true, windows: true, fixtures: true, labels: true, drawing: true });
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<string | null>(null);
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
@@ -117,10 +155,18 @@ export default function PlanViewer({ model, onEdit, busy = false }: { model: Pla
   }
 
   const sel = (k: string) => (selected === k ? { stroke: SELECT, strokeWidth: 3 } : {});
+  // the drawing is listed by CAD layer (a file can hold thousands of entities); clicking one in the drawing selects it
+  const drawLayers = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const d of model.drawing) n.set(d.layer, (n.get(d.layer) ?? 0) + 1);
+    return [...n.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [model.drawing]);
+  const drawn = useMemo(() => model.drawing.filter((d) => !hidden.has(key("dlayer", d.layer)) && !hidden.has(key("draw", d.id))), [model.drawing, hidden]);
   const items = [
     ...model.rooms.map((r) => ({ k: key("room", r.id), label: r.name, group: "Rooms" })),
     ...model.openings.map((o) => ({ k: key("opening", o.id), label: `${o.id} · ${o.kind}`, group: "Doors and windows" })),
     ...model.fixtures.map((f) => ({ k: key("fixture", f.id), label: `${pretty(f.kind)} · ${rooms.get(f.room_id)?.name ?? f.room_id}`, group: "Fixtures" })),
+    ...drawLayers.map(([layer, n]) => ({ k: key("dlayer", layer), label: `${layer} (${n})`, group: "Drawing layers" })),
   ];
   const groups = [...new Set(items.map((i) => i.group))];
 
@@ -193,6 +239,7 @@ export default function PlanViewer({ model, onEdit, busy = false }: { model: Pla
                     {...sel(k)} onClick={() => setSelected(k)} />
                 );
               })}
+            {layers.drawing && drawn.map((d) => drawItem(d, top, fit.w, selected === key("draw", d.id), () => setSelected(key("draw", d.id))))}
             {layers.labels &&
               model.rooms.filter((r) => show("room", r.id)).map((r) => {
                 const [a, b, c, d] = r.net_rect;
@@ -300,6 +347,18 @@ function Details({ model, selected, rooms, walls, hidden, onToggle, onEdit, busy
     const [a, b, c, d] = f.rect;
     title = pretty(f.kind);
     rows = [["Room", name(f.room_id)], ["Size", `${(c - a).toFixed(2)} × ${(d - b).toFixed(2)} m`], ["Faces", f.facing]];
+  } else if (kind === "draw") {
+    const it = model.drawing.find((x) => x.id === id);
+    if (!it) return null;
+    title = it.type;
+    const pts = it.paths.flat();
+    rows = [["Layer", it.layer]];
+    if (it.text) rows.push(["Text", it.text.length > 60 ? `${it.text.slice(0, 60)}…` : it.text]);
+    if (it.at) rows.push(["At", `${it.at[0].toFixed(3)}, ${it.at[1].toFixed(3)} m`]);
+    if (pts.length) {
+      const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+      rows.push(["Size", `${(Math.max(...xs) - Math.min(...xs)).toFixed(3)} × ${(Math.max(...ys) - Math.min(...ys)).toFixed(3)} m`], ["Vertices", String(pts.length)]);
+    }
   }
   return (
     <Paper withBorder p="xs" mt="xs">

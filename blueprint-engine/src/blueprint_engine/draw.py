@@ -21,7 +21,7 @@ from ezdxf.document import Drawing
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 from shapely.ops import unary_union
 
-from .schemas import BuildingModel, Opening, PlacedFixture, Wall
+from .schemas import BuildingModel, DrawItem, Opening, PlacedFixture, Wall
 
 PAPERS: dict[str, tuple[float, float]] = {  # landscape, metres of paper
     "A3": (0.420, 0.297),
@@ -30,6 +30,7 @@ PAPERS: dict[str, tuple[float, float]] = {  # landscape, metres of paper
     "A0": (1.189, 0.841),
 }
 SCALES = (50, 100, 200, 500)
+DRAWING_SCALES = (0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000)  # files with no floor plan
 # AIA-style layer names: name -> (aci colour, lineweight in 1/100 mm, description)
 LAYERS = {
     "C-PROP": (3, 18, "Lot boundary"),
@@ -85,7 +86,7 @@ class Sheet:
     y0: float
     x1: float
     y1: float
-    denom: int
+    denom: float
     paper: str
 
     @property
@@ -94,17 +95,23 @@ class Sheet:
         return (w * 1000, h * 1000)
 
 
-def _fits(w: float, d: float, denom: int, paper: str) -> bool:
+def _fits(w: float, d: float, denom: float, paper: str) -> bool:
     pw, ph = PAPERS[paper]
     sw, sh = pw * denom, ph * denom
     gap = 0.025 * denom  # frame margins plus breathing room (dimension rows are already in w, d)
     return w <= sw - gap and d <= sh - 0.045 * denom - gap
 
 
-def _scale_for(model: BuildingModel) -> tuple[int, str]:
+def _scale_for(model: BuildingModel) -> tuple[float, str]:
     """1:50 on the smallest paper that fits the house and its dimension chains (the lot is context
     only); a smaller scale only when A0 is not enough."""
     fx0, fy0, fx1, fy1 = model.footprint
+    if not model.rooms:  # a drawing of any size (a 10 mm part, a site): the largest scale that fits, no dimension rows
+        for denom in DRAWING_SCALES:
+            for paper in PAPERS:
+                if _fits(fx1 - fx0, fy1 - fy0, denom, paper):
+                    return denom, paper
+        return DRAWING_SCALES[-1], "A0"
     for denom in SCALES:
         margin = 2 * 2.2 * denom / 100  # two dimension rows each side
         for paper in PAPERS:
@@ -245,6 +252,9 @@ def build_dxf(model: BuildingModel, tb: TitleBlock | None = None) -> tuple[Drawi
     for f in model.fixtures:
         _draw_fixture(doc, msp, f, rooms[f.room_id].name if f.room_id in rooms else f.room_id)
 
+    for item in model.drawing:  # the rest of an imported CAD file, as drawn
+        _draw_item(doc, msp, item)
+
     # room boundaries (net floor area): one closed polyline per room, what area take-offs read
     for r in model.rooms:
         msp.add_lwpolyline(r.net_polygon(), close=True, dxfattribs={"layer": "A-AREA-BNDY"})
@@ -288,12 +298,13 @@ def build_dxf(model: BuildingModel, tb: TitleBlock | None = None) -> tuple[Drawi
         return out
 
     step = 0.9 * k
-    chain(touching("south"), fy0, True, -step)
-    chain([fx0, fx1], fy0, True, -2 * step, "A-ANNO-DIMS-OVAL")
-    chain(touching("north"), fy1, True, step)
-    chain(touching("west"), fx0, False, -step)
-    chain([fy0, fy1], fx0, False, -2 * step, "A-ANNO-DIMS-OVAL")
-    chain(touching("east"), fx1, False, step)
+    if model.rooms:  # a drawing with no floor plan has no room chains to dimension
+        chain(touching("south"), fy0, True, -step)
+        chain([fx0, fx1], fy0, True, -2 * step, "A-ANNO-DIMS-OVAL")
+        chain(touching("north"), fy1, True, step)
+        chain(touching("west"), fx0, False, -step)
+        chain([fy0, fy1], fx0, False, -2 * step, "A-ANNO-DIMS-OVAL")
+        chain(touching("east"), fx1, False, step)
 
     # sheet frame, north arrow, title block
     sw, sh = PAPERS[paper][0] * denom, PAPERS[paper][1] * denom
@@ -318,7 +329,7 @@ def build_dxf(model: BuildingModel, tb: TitleBlock | None = None) -> tuple[Drawi
 
     cols = [
         (0.0, [tb.project, f"{tb.sheet}  {tb.sheet_title}"]),
-        (0.45, [f"Scale 1:{denom} @ {paper}   Version v{tb.version}",
+        (0.45, [f"Scale 1:{denom:g} @ {paper}   Version v{tb.version}",
                 f"Issued {tb.issued or date.today().isoformat()}" + (f"   By {tb.author}" if tb.author else "")]),
         (0.68, ["Dimensions in metres to wall centerlines",
                 "Text2Blueprint POC - not for construction"]),
@@ -335,6 +346,32 @@ def build_dxf(model: BuildingModel, tb: TitleBlock | None = None) -> tuple[Drawi
             msp.add_line((fx, oy + m), (fx, oy + m + strip), dxfattribs=ttl)
 
     return doc, sheet
+
+
+def _draw_item(doc: Drawing, msp, it: DrawItem) -> None:
+    """One imported drawing item on a layer of its own name (prefixed so it never meets our A-* layers)."""
+    name = "X-" + re.sub(r'[<>/\\":;?*|=`,]', "_", it.layer)[:200]
+    if name not in doc.layers:
+        doc.layers.add(name)
+    attribs: dict = {"layer": name}
+    if re.fullmatch(r"#[0-9a-f]{6}", it.color):
+        attribs["true_color"] = ezdxf.colors.rgb2int((int(it.color[1:3], 16), int(it.color[3:5], 16), int(it.color[5:7], 16)))
+    if it.at is not None and it.text:
+        if "\n" in it.text:
+            msp.add_mtext(it.text, dxfattribs={**attribs, "char_height": it.height or 0.2, "rotation": it.rotation}).set_location(it.at)
+        else:
+            msp.add_text(it.text, height=it.height or 0.2, rotation=it.rotation, dxfattribs=attribs).set_placement(it.at)
+    elif it.at is not None:
+        msp.add_point(it.at, dxfattribs=attribs)
+    else:
+        for path in it.paths:
+            closed = len(path) > 2 and path[0] == path[-1]
+            msp.add_lwpolyline(path[:-1] if closed else path, close=closed, dxfattribs=attribs)
+        if it.filled and it.type != "HATCH":  # a pattern hatch stays an outline: a solid fill would black it out
+            for path in it.paths:
+                if len(path) > 3 and path[0] == path[-1]:
+                    h = msp.add_hatch(dxfattribs=attribs)
+                    h.paths.add_polyline_path(path[:-1], is_closed=True)
 
 
 def _inside_spot(polygon: list[tuple[float, float]], spot: tuple[float, float]) -> tuple[float, float]:

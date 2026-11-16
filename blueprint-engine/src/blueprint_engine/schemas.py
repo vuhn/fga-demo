@@ -230,6 +230,24 @@ class Origin(_Strict):
     dy: float
 
 
+class DrawItem(_Strict):
+    """One CAD entity kept as drawn, read-only: everything the plan model has no semantic type for (circles,
+    splines, points, hatches, dimensions, text, furniture linework, ...). Curves are already flattened to
+    polylines, in metres in model coordinates; `type` is the DXF entity type it came from."""
+
+    id: str
+    type: str  # LINE, LWPOLYLINE, CIRCLE, SPLINE, HATCH, TEXT, POINT, ...
+    layer: str
+    color: str = ""  # "#rrggbb" ("" = the viewer's default ink)
+    paths: list[list[Point]] = Field(default_factory=list)  # a closed outline repeats its first point
+    filled: bool = False  # hatches, solids: fill the paths (even-odd)
+    at: Point | None = None  # points and texts
+    text: str = ""
+    height: float = 0.0  # text height, m
+    rotation: float = 0.0  # text rotation, degrees
+    src: str = ""  # handle of the top-level entity in the file
+
+
 class BuildingModel(_Strict):
     footprint: tuple[float, float, float, float]  # bounding box of the outline
     outline: list[Point] = Field(default_factory=list)  # counter-clockwise footprint polygon (the rectangle when empty)
@@ -243,6 +261,8 @@ class BuildingModel(_Strict):
     walls: list[Wall]
     openings: list[Opening]
     fixtures: list[PlacedFixture] = Field(default_factory=list)
+    # imported: the rest of the CAD file as drawn (read-only); a file with no floor plan is only this
+    drawing: list[DrawItem] = Field(default_factory=list)
     unplaced_fixtures: list[tuple[str, str]] = Field(default_factory=list)  # (room_id, kind) that did not fit
 
     @model_validator(mode="after")
