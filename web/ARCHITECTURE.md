@@ -16,7 +16,7 @@ src/
   styles.css            small tweaks on Mantine CSS variables
 ```
 
-Pages: Login, Home, Users, Tenants, TenantDetail, Companies, Projects, ProjectDetail, BlueprintDetail, Roles, RoleDetail, Inspector. Documents and Photos are not routes: they are tabs of ProjectDetail (thin wrappers over one `ContentPage` that takes the project as a prop and renders folders/albums as a tree). Blueprints is a third tab with its own page (`Blueprints.tsx`, no containers); a row opens `/projects/:id/blueprints/:bid`. `BriefEditor` is the room/lot form shared by the create modal and the detail page. Drawings and downloads go through `apiBlob` (they need the auth headers) and plan uploads through `apiUpload`. Page-by-page behavior: [web UI reference](../docs/web-ui.md).
+Pages: Login, Home, Users, Tenants, TenantDetail, Companies, Projects, ProjectDetail, BlueprintDetail, Roles, RoleDetail, Inspector. Documents and Photos are not routes: they are tabs of ProjectDetail (thin wrappers over one `ContentPage` that takes the project as a prop and renders folders/albums as a tree). Blueprints is a third tab with its own page (`Blueprints.tsx`, no containers); a row opens `/projects/:id/blueprints/:bid`. `EstimateChat` is the streaming cost-estimation chat (the Estimate tab of the blueprint page; `apiChatStream` reads every event of the SSE answer). `BriefEditor` is the room/lot form shared by the create modal and the detail page. Drawings and downloads go through `apiBlob` (they need the auth headers) and plan uploads through `apiUpload`. Page-by-page behavior: [web UI reference](../docs/web-ui.md).
 
 ## Data flow
 

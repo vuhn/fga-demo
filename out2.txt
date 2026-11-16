@@ -1,0 +1,585 @@
+event: progress
+data: {"kind":"step","message":"reading your message","stage":"understand"}
+
+event: fact
+data: {"name": "overhead_percent", "value": 6.5, "source": "assumed"}
+
+event: fact
+data: {"name": "profit_percent", "value": 7.5, "source": "assumed"}
+
+event: fact
+data: {"name": "design_percent", "value": 5.5, "source": "assumed"}
+
+event: fact
+data: {"name": "contingency_percent", "value": 7.5, "source": "assumed"}
+
+event: fact
+data: {"name": "vat_percent", "value": 8.0, "source": "assumed"}
+
+event: progress
+data: {"kind":"step","message":"looking up 10 unit price(s) in Ho Chi Minh City","stage":"research"}
+
+event: rate
+data: {"code": "plaster", "low": 90000.0, "base": 94000.0, "high": 97500.0, "unit": "m2", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "", "sources": [{"url": "https://demo.invalid/plaster/0?r=Ho+Chi+Minh+City&q=", "quote": "Cement plaster 15 mm on walls: 86.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/plaster/1?r=Ho+Chi+Minh+City&q=", "quote": "Cement plaster 15 mm on walls: 94.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/plaster/2?r=Ho+Chi+Minh+City&q=", "quote": "Cement plaster 15 mm on walls: 101.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}
+
+event: rate
+data: {"code": "floor_tile", "low": 573500.0, "base": 603000.0, "high": 632000.0, "unit": "m2", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/floor_tile/0?r=Ho+Chi+Minh+City&q=good", "quote": "Ceramic or porcelain floor tile: 544.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/floor_tile/1?r=Ho+Chi+Minh+City&q=good", "quote": "Ceramic or porcelain floor tile: 603.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/floor_tile/2?r=Ho+Chi+Minh+City&q=good", "quote": "Ceramic or porcelain floor tile: 661.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}
+
+event: rate
+data: {"code": "ceiling", "low": 285000.0, "base": 295000.0, "high": 307500.0, "unit": "m2", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/ceiling/0?r=Ho+Chi+Minh+City&q=good", "quote": "Gypsum board false ceiling: 275.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/ceiling/1?r=Ho+Chi+Minh+City&q=good", "quote": "Gypsum board false ceiling: 295.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/ceiling/2?r=Ho+Chi+Minh+City&q=good", "quote": "Gypsum board false ceiling: 320.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}
+
+event: rate
+data: {"code": "paint", "low": 97000.0, "base": 101000.0, "high": 105500.0, "unit": "m2", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/paint/0?r=Ho+Chi+Minh+City&q=good", "quote": "Interior wall paint: 93.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/paint/1?r=Ho+Chi+Minh+City&q=good", "quote": "Interior wall paint: 101.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/paint/2?r=Ho+Chi+Minh+City&q=good", "quote": "Interior wall paint: 110.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}
+
+event: rate
+data: {"code": "skirting", "low": 96000.0, "base": 100000.0, "high": 103000.0, "unit": "m", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/skirting/0?r=Ho+Chi+Minh+City&q=good", "quote": "Floor skirting: 92.000\u0111/m (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng). Gi\u00e1 ch\u01b0a g\u1ed3m VAT.", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/skirting/1?r=Ho+Chi+Minh+City&q=good", "quote": "Floor skirting: 100.000\u0111/m (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/skirting/2?r=Ho+Chi+Minh+City&q=good", "quote": "Floor skirting: 106.000\u0111/m (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}
+
+event: rate
+data: {"code": "electrical_point", "low": 405500.0, "base": 424000.0, "high": 447000.0, "unit": "each", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/electrical_point/0?r=Ho+Chi+Minh+City&q=good", "quote": "Electrical point (outlet or light) including wiring: 387.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng). Gi\u00e1 ch\u01b0a g\u1ed3m VAT.", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/electrical_point/1?r=Ho+Chi+Minh+City&q=good", "quote": "Electrical point (outlet or light) including wiring: 424.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/electrical_point/2?r=Ho+Chi+Minh+City&q=good", "quote": "Electrical point (outlet or light) including wiring: 470.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}
+
+event: rate
+data: {"code": "waterproofing", "low": 149000.0, "base": 156000.0, "high": 160500.0, "unit": "m2", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "", "sources": [{"url": "https://demo.invalid/waterproofing/0?r=Ho+Chi+Minh+City&q=", "quote": "Waterproofing membrane for bathroom floor: 142.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/waterproofing/1?r=Ho+Chi+Minh+City&q=", "quote": "Waterproofing membrane for bathroom floor: 156.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/waterproofing/2?r=Ho+Chi+Minh+City&q=", "quote": "Waterproofing membrane for bathroom floor: 165.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}
+
+event: rate
+data: {"code": "door_entrance", "low": 14014000.0, "base": 14729000.0, "high": 15229500.0, "unit": "each", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/door_entrance/0?r=Ho+Chi+Minh+City&q=good", "quote": "Entrance door with frame: 13.299.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/door_entrance/1?r=Ho+Chi+Minh+City&q=good", "quote": "Entrance door with frame: 14.729.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/door_entrance/2?r=Ho+Chi+Minh+City&q=good", "quote": "Entrance door with frame: 15.730.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}
+
+event: rate
+data: {"code": "door_interior", "low": 6146500.0, "base": 6490000.0, "high": 6646000.0, "unit": "each", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/door_interior/0?r=Ho+Chi+Minh+City&q=good", "quote": "Interior door with frame: 5.803.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/door_interior/1?r=Ho+Chi+Minh+City&q=good", "quote": "Interior door with frame: 6.490.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/door_interior/2?r=Ho+Chi+Minh+City&q=good", "quote": "Interior door with frame: 6.802.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}
+
+event: progress
+data: {"kind":"step","message":"searching: aluminium glass window (Ho Chi Minh City)","stage":"research"}
+
+event: rate
+data: {"code": "window", "low": 3042000.0, "base": 3182000.0, "high": 3354000.0, "unit": "m2", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/window/0?r=Ho+Chi+Minh+City&q=good", "quote": "Aluminium glass window: 2.902.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/window/1?r=Ho+Chi+Minh+City&q=good", "quote": "Aluminium glass window: 3.182.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng). Gi\u00e1 ch\u01b0a g\u1ed3m VAT.", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/window/2?r=Ho+Chi+Minh+City&q=good", "quote": "Aluminium glass window: 3.526.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng). Gi\u00e1 ch\u01b0a g\u1ed3m VAT.", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}
+
+event: progress
+data: {"kind":"step","message":"computing quantities and totals","stage":"compute"}
+
+event: estimate
+data: {"currency": "VND", "lines": [{"code": "plaster", "package": "Plaster", "description": "cement plaster 15 mm on walls, material and labour", "quantity": 258.722, "unit": "m2", "basis": "Bedroom 3: room perimeter 16.1 m \u00d7 3.0 m \u2212 openings; Master bedroom / Dressing: room perimeter 32.5 m \u00d7 3.0 m \u2212 openings; Foyer / Kitchen / Dining area / Living room: room perimeter 30.1 m \u00d7 3.0 m \u2212 openings; Bedroom 2: room perimeter 12.6 m \u00d7 3.0 m \u2212 openings; Loggia / Laundry: room perimeter 6.4 m \u00d7 3.0 m \u2212 openings", "confidence": "derived", "rate_low": 90000.0, "rate_base": 94000.0, "rate_high": 97500.0, "low": 23284980.0, "base": 24319867.999999996, "high": 25225394.999999996, "priced": true, "rate_confidence": "ok"}, {"code": "floor_tile", "package": "Finishes", "description": "ceramic or porcelain floor tile, supply and install", "quantity": 98.88, "unit": "m2", "basis": "Bedroom 3: net floor area; Master bedroom / Dressing: net floor area; Foyer / Kitchen / Dining area / Living room: net floor area; Bedroom 2: net floor area; Loggia / Laundry: net floor area", "confidence": "measured", "rate_low": 573500.0, "rate_base": 603000.0, "rate_high": 632000.0, "low": 56707680.0, "base": 59624640.0, "high": 62492160.0, "priced": true, "rate_confidence": "ok"}, {"code": "ceiling", "package": "Finishes", "description": "gypsum board false ceiling, supply and install", "quantity": 98.88, "unit": "m2", "basis": "Bedroom 3: net floor area; Master bedroom / Dressing: net floor area; Foyer / Kitchen / Dining area / Living room: net floor area; Bedroom 2: net floor area; Loggia / Laundry: net floor area", "confidence": "measured", "rate_low": 285000.0, "rate_base": 295000.0, "rate_high": 307500.0, "low": 28180800.0, "base": 29169600.0, "high": 30405600.0, "priced": true, "rate_confidence": "ok"}, {"code": "paint", "package": "Finishes", "description": "interior wall paint, putty and 2 coats, material and labour", "quantity": 357.602, "unit": "m2", "basis": "Bedroom 3: plastered wall not tiled + ceiling; Master bedroom / Dressing: plastered wall not tiled + ceiling; Foyer / Kitchen / Dining area / Living room: plastered wall not tiled + ceiling; Bedroom 2: plastered wall not tiled + ceiling; Loggia / Laundry: plastered wall not tiled + ceiling", "confidence": "derived", "rate_low": 97000.0, "rate_base": 101000.0, "rate_high": 105500.0, "low": 34687394.0, "base": 36117802.0, "high": 37727011.0, "priced": true, "rate_confidence": "ok"}, {"code": "skirting", "package": "Finishes", "description": "floor skirting, supply and install", "quantity": 84.49, "unit": "m", "basis": "Bedroom 3: perimeter 16.1 m \u2212 door widths 1.6 m; Master bedroom / Dressing: perimeter 32.5 m \u2212 door widths 2.5 m; Foyer / Kitchen / Dining area / Living room: perimeter 30.1 m \u2212 door widths 1.9 m; Bedroom 2: perimeter 12.6 m \u2212 door widths 0.8 m", "confidence": "derived", "rate_low": 96000.0, "rate_base": 100000.0, "rate_high": 103000.0, "low": 8111039.999999999, "base": 8449000.0, "high": 8702470.0, "priced": true, "rate_confidence": "ok"}, {"code": "electrical_point", "package": "MEP", "description": "electrical point (outlet or light) including wiring, supply and install", "quantity": 38.0, "unit": "each", "basis": "Bedroom 3: 4 outlets (1 per 4 m\u00b2) + 2 lights (1 per 8 m\u00b2); Master bedroom / Dressing: 8 outlets (1 per 4 m\u00b2) + 4 lights (1 per 8 m\u00b2); Foyer / Kitchen / Dining area / Living room: 9 outlets (1 per 4 m\u00b2) + 5 lights (1 per 8 m\u00b2); Bedroom 2: 2 outlets (1 per 4 m\u00b2) + 1 lights (1 per 8 m\u00b2); Loggia / Laundry: 2 outlets (1 per 4 m\u00b2) + 1 lights (1 per 8 m\u00b2)", "confidence": "assumed", "rate_low": 405500.0, "rate_base": 424000.0, "rate_high": 447000.0, "low": 15409000.0, "base": 16112000.0, "high": 16986000.0, "priced": true, "rate_confidence": "ok"}, {"code": "waterproofing", "package": "Finishes", "description": "waterproofing membrane for bathroom floor, material and labour", "quantity": 4.284, "unit": "m2", "basis": "Loggia / Laundry: floor 2.4 m\u00b2 + 0.3 m upturn on 6.4 m", "confidence": "derived", "rate_low": 149000.0, "rate_base": 156000.0, "rate_high": 160500.0, "low": 638316.0, "base": 668304.0, "high": 687582.0, "priced": true, "rate_confidence": "ok"}, {"code": "door_entrance", "package": "Openings", "description": "entrance door with frame, supply and install", "quantity": 1.0, "unit": "each", "basis": "d1: entrance, 1.10 m wide", "confidence": "measured", "rate_low": 14014000.0, "rate_base": 14729000.0, "rate_high": 15229500.0, "low": 14014000.0, "base": 14729000.0, "high": 15229500.0, "priced": true, "rate_confidence": "ok"}, {"code": "door_interior", "package": "Openings", "description": "interior door with frame, supply and install", "quantity": 5.0, "unit": "each", "basis": "d2: 0.80 m wide; d3: 0.85 m wide; d5: 0.75 m wide; d4: 0.85 m wide; d6: 0.75 m wide", "confidence": "measured", "rate_low": 6146500.0, "rate_base": 6490000.0, "rate_high": 6646000.0, "low": 30732500.0, "base": 32450000.0, "high": 33230000.0, "priced": true, "rate_confidence": "ok"}, {"code": "window", "package": "Openings", "description": "aluminium glass window, supply and install", "quantity": 18.33, "unit": "m2", "basis": "w8: 1.40 m \u00d7 1.5 m; w7: 1.62 m \u00d7 1.5 m; w10: 2.20 m \u00d7 1.5 m; w11: 2.60 m \u00d7 1.5 m; w14: 1.60 m \u00d7 1.5 m; w9: 1.60 m \u00d7 1.5 m; w13: 1.20 m \u00d7 1.5 m", "confidence": "measured", "rate_low": 3042000.0, "rate_base": 3182000.0, "rate_high": 3354000.0, "low": 55759859.99999999, "base": 58326059.99999999, "high": 61478819.99999999, "priced": true, "rate_confidence": "ok"}], "packages": {"Plaster": {"low": 23284980.0, "base": 24319868.0, "high": 25225395.0}, "Finishes": {"low": 128325230.0, "base": 134029346.0, "high": 140014823.0}, "MEP": {"low": 15409000.0, "base": 16112000.0, "high": 16986000.0}, "Openings": {"low": 100506360.0, "base": 105505060.0, "high": 109938320.0}}, "direct": {"low": 267525570.0, "base": 279966274.0, "high": 292164538.0}, "markups": [{"name": "Site overhead and temporary works", "percent": 6.5, "base_label": "direct cost", "low": 17389162.0, "base": 18197808.0, "high": 18990695.0}, {"name": "Contractor profit", "percent": 7.5, "base_label": "direct cost + overhead", "low": 21368605.0, "base": 22362306.0, "high": 23336642.0}, {"name": "Design, supervision and permits", "percent": 5.5, "base_label": "direct cost + overhead + profit", "low": 16845584.0, "base": 17628951.0, "high": 18397053.0}, {"name": "Contingency", "percent": 7.79, "base_label": "all of the above", "low": 25171743.0, "base": 26342301.0, "high": 27490048.0}, {"name": "VAT", "percent": 8.0, "base_label": "all of the above", "low": 27864053.0, "base": 29159811.0, "high": 30430318.0}], "total": {"low": 376164716.0, "base": 393657451.0, "high": 410809294.0}, "assumed_share": 0.058, "assumptions": ["overhead_percent = 6.5 (assumed, you asked me to decide)", "profit_percent = 7.5 (assumed, you asked me to decide)", "design_percent = 5.5 (assumed, you asked me to decide)", "contingency_percent = 7.5 (assumed, you asked me to decide)", "vat_percent = 8.0 (assumed, you asked me to decide)", "6% of the direct cost rests on assumed quantities or low-confidence rates; contingency is raised to 7.8%."], "warnings": ["MEP is in scope but the plan has no sanitary fixtures, so no plumbing points were counted.", "DEMO DATA: the unit prices come from the fake demo search (ESTIMATE_SEARCH_PROVIDER=demo), not from the market. Do not use this total."], "rates": [{"code": "plaster", "low": 90000.0, "base": 94000.0, "high": 97500.0, "unit": "m2", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "", "sources": [{"url": "https://demo.invalid/plaster/0?r=Ho+Chi+Minh+City&q=", "quote": "Cement plaster 15 mm on walls: 86.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/plaster/1?r=Ho+Chi+Minh+City&q=", "quote": "Cement plaster 15 mm on walls: 94.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/plaster/2?r=Ho+Chi+Minh+City&q=", "quote": "Cement plaster 15 mm on walls: 101.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}, {"code": "floor_tile", "low": 573500.0, "base": 603000.0, "high": 632000.0, "unit": "m2", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/floor_tile/0?r=Ho+Chi+Minh+City&q=good", "quote": "Ceramic or porcelain floor tile: 544.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/floor_tile/1?r=Ho+Chi+Minh+City&q=good", "quote": "Ceramic or porcelain floor tile: 603.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/floor_tile/2?r=Ho+Chi+Minh+City&q=good", "quote": "Ceramic or porcelain floor tile: 661.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}, {"code": "ceiling", "low": 285000.0, "base": 295000.0, "high": 307500.0, "unit": "m2", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/ceiling/0?r=Ho+Chi+Minh+City&q=good", "quote": "Gypsum board false ceiling: 275.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/ceiling/1?r=Ho+Chi+Minh+City&q=good", "quote": "Gypsum board false ceiling: 295.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/ceiling/2?r=Ho+Chi+Minh+City&q=good", "quote": "Gypsum board false ceiling: 320.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}, {"code": "paint", "low": 97000.0, "base": 101000.0, "high": 105500.0, "unit": "m2", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/paint/0?r=Ho+Chi+Minh+City&q=good", "quote": "Interior wall paint: 93.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/paint/1?r=Ho+Chi+Minh+City&q=good", "quote": "Interior wall paint: 101.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/paint/2?r=Ho+Chi+Minh+City&q=good", "quote": "Interior wall paint: 110.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}, {"code": "skirting", "low": 96000.0, "base": 100000.0, "high": 103000.0, "unit": "m", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/skirting/0?r=Ho+Chi+Minh+City&q=good", "quote": "Floor skirting: 92.000\u0111/m (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng). Gi\u00e1 ch\u01b0a g\u1ed3m VAT.", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/skirting/1?r=Ho+Chi+Minh+City&q=good", "quote": "Floor skirting: 100.000\u0111/m (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/skirting/2?r=Ho+Chi+Minh+City&q=good", "quote": "Floor skirting: 106.000\u0111/m (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}, {"code": "electrical_point", "low": 405500.0, "base": 424000.0, "high": 447000.0, "unit": "each", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/electrical_point/0?r=Ho+Chi+Minh+City&q=good", "quote": "Electrical point (outlet or light) including wiring: 387.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng). Gi\u00e1 ch\u01b0a g\u1ed3m VAT.", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/electrical_point/1?r=Ho+Chi+Minh+City&q=good", "quote": "Electrical point (outlet or light) including wiring: 424.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/electrical_point/2?r=Ho+Chi+Minh+City&q=good", "quote": "Electrical point (outlet or light) including wiring: 470.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}, {"code": "waterproofing", "low": 149000.0, "base": 156000.0, "high": 160500.0, "unit": "m2", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "", "sources": [{"url": "https://demo.invalid/waterproofing/0?r=Ho+Chi+Minh+City&q=", "quote": "Waterproofing membrane for bathroom floor: 142.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/waterproofing/1?r=Ho+Chi+Minh+City&q=", "quote": "Waterproofing membrane for bathroom floor: 156.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/waterproofing/2?r=Ho+Chi+Minh+City&q=", "quote": "Waterproofing membrane for bathroom floor: 165.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}, {"code": "door_entrance", "low": 14014000.0, "base": 14729000.0, "high": 15229500.0, "unit": "each", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/door_entrance/0?r=Ho+Chi+Minh+City&q=good", "quote": "Entrance door with frame: 13.299.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/door_entrance/1?r=Ho+Chi+Minh+City&q=good", "quote": "Entrance door with frame: 14.729.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/door_entrance/2?r=Ho+Chi+Minh+City&q=good", "quote": "Entrance door with frame: 15.730.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}, {"code": "door_interior", "low": 6146500.0, "base": 6490000.0, "high": 6646000.0, "unit": "each", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/door_interior/0?r=Ho+Chi+Minh+City&q=good", "quote": "Interior door with frame: 5.803.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/door_interior/1?r=Ho+Chi+Minh+City&q=good", "quote": "Interior door with frame: 6.490.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/door_interior/2?r=Ho+Chi+Minh+City&q=good", "quote": "Interior door with frame: 6.802.000\u0111/c\u00e1i (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}, {"code": "window", "low": 3042000.0, "base": 3182000.0, "high": 3354000.0, "unit": "m2", "currency": "VND", "confidence": "ok", "region": "Ho Chi Minh City", "quality": "good", "sources": [{"url": "https://demo.invalid/window/0?r=Ho+Chi+Minh+City&q=good", "quote": "Aluminium glass window: 2.902.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng).", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/window/1?r=Ho+Chi+Minh+City&q=good", "quote": "Aluminium glass window: 3.182.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng). Gi\u00e1 ch\u01b0a g\u1ed3m VAT.", "retrieved_at": "2026-11-16"}, {"url": "https://demo.invalid/window/2?r=Ho+Chi+Minh+City&q=good", "quote": "Aluminium glass window: 3.526.000\u0111/m2 (\u0111\u00e3 g\u1ed3m v\u1eadt t\u01b0 v\u00e0 nh\u00e2n c\u00f4ng). Gi\u00e1 ch\u01b0a g\u1ed3m VAT.", "retrieved_at": "2026-11-16"}], "note": "3 price(s) from 3 page(s)"}]}
+
+event: token
+data: {"text": "The"}
+
+event: token
+data: {"text": " base"}
+
+event: token
+data: {"text": " total"}
+
+event: token
+data: {"text": " is"}
+
+event: token
+data: {"text": " "}
+
+event: token
+data: {"text": "3"}
+
+event: token
+data: {"text": "9"}
+
+event: token
+data: {"text": "3"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": "6"}
+
+event: token
+data: {"text": "5"}
+
+event: token
+data: {"text": "7"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": "4"}
+
+event: token
+data: {"text": "5"}
+
+event: token
+data: {"text": "1"}
+
+event: token
+data: {"text": " V"}
+
+event: token
+data: {"text": "ND"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": " with"}
+
+event: token
+data: {"text": " a"}
+
+event: token
+data: {"text": " range"}
+
+event: token
+data: {"text": " from"}
+
+event: token
+data: {"text": " "}
+
+event: token
+data: {"text": "3"}
+
+event: token
+data: {"text": "7"}
+
+event: token
+data: {"text": "6"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": "1"}
+
+event: token
+data: {"text": "6"}
+
+event: token
+data: {"text": "4"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": "7"}
+
+event: token
+data: {"text": "1"}
+
+event: token
+data: {"text": "6"}
+
+event: token
+data: {"text": " V"}
+
+event: token
+data: {"text": "ND"}
+
+event: token
+data: {"text": " to"}
+
+event: token
+data: {"text": " "}
+
+event: token
+data: {"text": "4"}
+
+event: token
+data: {"text": "1"}
+
+event: token
+data: {"text": "0"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": "8"}
+
+event: token
+data: {"text": "0"}
+
+event: token
+data: {"text": "9"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": "2"}
+
+event: token
+data: {"text": "9"}
+
+event: token
+data: {"text": "4"}
+
+event: token
+data: {"text": " V"}
+
+event: token
+data: {"text": "ND"}
+
+event: token
+data: {"text": "."}
+
+event: token
+data: {"text": " The"}
+
+event: token
+data: {"text": " largest"}
+
+event: token
+data: {"text": " packages"}
+
+event: token
+data: {"text": " are"}
+
+event: token
+data: {"text": " Fin"}
+
+event: token
+data: {"text": "ishes"}
+
+event: token
+data: {"text": " ("}
+
+event: token
+data: {"text": "1"}
+
+event: token
+data: {"text": "3"}
+
+event: token
+data: {"text": "4"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": "0"}
+
+event: token
+data: {"text": "2"}
+
+event: token
+data: {"text": "9"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": "3"}
+
+event: token
+data: {"text": "4"}
+
+event: token
+data: {"text": "6"}
+
+event: token
+data: {"text": " V"}
+
+event: token
+data: {"text": "ND"}
+
+event: token
+data: {"text": "),"}
+
+event: token
+data: {"text": " Open"}
+
+event: token
+data: {"text": "ings"}
+
+event: token
+data: {"text": " ("}
+
+event: token
+data: {"text": "1"}
+
+event: token
+data: {"text": "0"}
+
+event: token
+data: {"text": "5"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": "5"}
+
+event: token
+data: {"text": "0"}
+
+event: token
+data: {"text": "5"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": "0"}
+
+event: token
+data: {"text": "6"}
+
+event: token
+data: {"text": "0"}
+
+event: token
+data: {"text": " V"}
+
+event: token
+data: {"text": "ND"}
+
+event: token
+data: {"text": "),"}
+
+event: token
+data: {"text": " Pl"}
+
+event: token
+data: {"text": "aster"}
+
+event: token
+data: {"text": " ("}
+
+event: token
+data: {"text": "2"}
+
+event: token
+data: {"text": "4"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": "3"}
+
+event: token
+data: {"text": "1"}
+
+event: token
+data: {"text": "9"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": "8"}
+
+event: token
+data: {"text": "6"}
+
+event: token
+data: {"text": "8"}
+
+event: token
+data: {"text": " V"}
+
+event: token
+data: {"text": "ND"}
+
+event: token
+data: {"text": "),"}
+
+event: token
+data: {"text": " and"}
+
+event: token
+data: {"text": " MEP"}
+
+event: token
+data: {"text": " ("}
+
+event: token
+data: {"text": "1"}
+
+event: token
+data: {"text": "6"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": "1"}
+
+event: token
+data: {"text": "1"}
+
+event: token
+data: {"text": "2"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": "0"}
+
+event: token
+data: {"text": "0"}
+
+event: token
+data: {"text": "0"}
+
+event: token
+data: {"text": " V"}
+
+event: token
+data: {"text": "ND"}
+
+event: token
+data: {"text": ")."}
+
+event: token
+data: {"text": " Ass"}
+
+event: token
+data: {"text": "um"}
+
+event: token
+data: {"text": "ptions"}
+
+event: token
+data: {"text": " include"}
+
+event: token
+data: {"text": " overhead"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": " profit"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": " design"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": " contingency"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": " and"}
+
+event: token
+data: {"text": " VAT"}
+
+event: token
+data: {"text": " percentages"}
+
+event: token
+data: {"text": ","}
+
+event: token
+data: {"text": " as"}
+
+event: token
+data: {"text": " well"}
+
+event: token
+data: {"text": " as"}
+
+event: token
+data: {"text": " "}
+
+event: token
+data: {"text": "6"}
+
+event: token
+data: {"text": "%"}
+
+event: token
+data: {"text": " of"}
+
+event: token
+data: {"text": " direct"}
+
+event: token
+data: {"text": " cost"}
+
+event: token
+data: {"text": " based"}
+
+event: token
+data: {"text": " on"}
+
+event: token
+data: {"text": " assumed"}
+
+event: token
+data: {"text": " quantities"}
+
+event: token
+data: {"text": "."}
+
+event: token
+data: {"text": " No"}
+
+event: token
+data: {"text": " items"}
+
+event: token
+data: {"text": " are"}
+
+event: token
+data: {"text": " un"}
+
+event: token
+data: {"text": "pr"}
+
+event: token
+data: {"text": "iced"}
+
+event: token
+data: {"text": "."}
+
+event: token
+data: {"text": " Let"}
+
+event: token
+data: {"text": " me"}
+
+event: token
+data: {"text": " know"}
+
+event: token
+data: {"text": " if"}
+
+event: token
+data: {"text": " you"}
+
+event: token
+data: {"text": " need"}
+
+event: token
+data: {"text": " to"}
+
+event: token
+data: {"text": " adjust"}
+
+event: token
+data: {"text": " anything"}
+
+event: token
+data: {"text": " or"}
+
+event: token
+data: {"text": " want"}
+
+event: token
+data: {"text": " more"}
+
+event: token
+data: {"text": " details"}
+
+event: token
+data: {"text": "."}
+
+event: done
+data: {"blueprint_id":"0bae2508-2e48-4c2d-b0e6-6dd426e40c1c","blueprint_version":1,"created_at":"2026-11-16T17:17:32.469778+07:00","created_by":"33333333-3333-3333-3333-333333333333","estimate":{"blueprint_id":"0bae2508-2e48-4c2d-b0e6-6dd426e40c1c","created_at":"2026-11-16T17:20:39.997711+07:00","id":"71951130-419d-4a07-8de2-7c160fda0583","result":{"lines":[{"low":23284980.0,"base":24319867.999999996,"code":"plaster","high":25225394.999999996,"unit":"m2","basis":"Bedroom 3: room perimeter 16.1 m × 3.0 m − openings; Master bedroom / Dressing: room perimeter 32.5 m × 3.0 m − openings; Foyer / Kitchen / Dining area / Living room: room perimeter 30.1 m × 3.0 m − openings; Bedroom 2: room perimeter 12.6 m × 3.0 m − openings; Loggia / Laundry: room perimeter 6.4 m × 3.0 m − openings","priced":true,"package":"Plaster","quantity":258.722,"rate_low":90000.0,"rate_base":94000.0,"rate_high":97500.0,"confidence":"derived","description":"cement plaster 15 mm on walls, material and labour","rate_confidence":"ok"},{"low":56707680.0,"base":59624640.0,"code":"floor_tile","high":62492160.0,"unit":"m2","basis":"Bedroom 3: net floor area; Master bedroom / Dressing: net floor area; Foyer / Kitchen / Dining area / Living room: net floor area; Bedroom 2: net floor area; Loggia / Laundry: net floor area","priced":true,"package":"Finishes","quantity":98.88,"rate_low":573500.0,"rate_base":603000.0,"rate_high":632000.0,"confidence":"measured","description":"ceramic or porcelain floor tile, supply and install","rate_confidence":"ok"},{"low":28180800.0,"base":29169600.0,"code":"ceiling","high":30405600.0,"unit":"m2","basis":"Bedroom 3: net floor area; Master bedroom / Dressing: net floor area; Foyer / Kitchen / Dining area / Living room: net floor area; Bedroom 2: net floor area; Loggia / Laundry: net floor area","priced":true,"package":"Finishes","quantity":98.88,"rate_low":285000.0,"rate_base":295000.0,"rate_high":307500.0,"confidence":"measured","description":"gypsum board false ceiling, supply and install","rate_confidence":"ok"},{"low":34687394.0,"base":36117802.0,"code":"paint","high":37727011.0,"unit":"m2","basis":"Bedroom 3: plastered wall not tiled + ceiling; Master bedroom / Dressing: plastered wall not tiled + ceiling; Foyer / Kitchen / Dining area / Living room: plastered wall not tiled + ceiling; Bedroom 2: plastered wall not tiled + ceiling; Loggia / Laundry: plastered wall not tiled + ceiling","priced":true,"package":"Finishes","quantity":357.602,"rate_low":97000.0,"rate_base":101000.0,"rate_high":105500.0,"confidence":"derived","description":"interior wall paint, putty and 2 coats, material and labour","rate_confidence":"ok"},{"low":8111039.999999999,"base":8449000.0,"code":"skirting","high":8702470.0,"unit":"m","basis":"Bedroom 3: perimeter 16.1 m − door widths 1.6 m; Master bedroom / Dressing: perimeter 32.5 m − door widths 2.5 m; Foyer / Kitchen / Dining area / Living room: perimeter 30.1 m − door widths 1.9 m; Bedroom 2: perimeter 12.6 m − door widths 0.8 m","priced":true,"package":"Finishes","quantity":84.49,"rate_low":96000.0,"rate_base":100000.0,"rate_high":103000.0,"confidence":"derived","description":"floor skirting, supply and install","rate_confidence":"ok"},{"low":15409000.0,"base":16112000.0,"code":"electrical_point","high":16986000.0,"unit":"each","basis":"Bedroom 3: 4 outlets (1 per 4 m²) + 2 lights (1 per 8 m²); Master bedroom / Dressing: 8 outlets (1 per 4 m²) + 4 lights (1 per 8 m²); Foyer / Kitchen / Dining area / Living room: 9 outlets (1 per 4 m²) + 5 lights (1 per 8 m²); Bedroom 2: 2 outlets (1 per 4 m²) + 1 lights (1 per 8 m²); Loggia / Laundry: 2 outlets (1 per 4 m²) + 1 lights (1 per 8 m²)","priced":true,"package":"MEP","quantity":38.0,"rate_low":405500.0,"rate_base":424000.0,"rate_high":447000.0,"confidence":"assumed","description":"electrical point (outlet or light) including wiring, supply and install","rate_confidence":"ok"},{"low":638316.0,"base":668304.0,"code":"waterproofing","high":687582.0,"unit":"m2","basis":"Loggia / Laundry: floor 2.4 m² + 0.3 m upturn on 6.4 m","priced":true,"package":"Finishes","quantity":4.284,"rate_low":149000.0,"rate_base":156000.0,"rate_high":160500.0,"confidence":"derived","description":"waterproofing membrane for bathroom floor, material and labour","rate_confidence":"ok"},{"low":14014000.0,"base":14729000.0,"code":"door_entrance","high":15229500.0,"unit":"each","basis":"d1: entrance, 1.10 m wide","priced":true,"package":"Openings","quantity":1.0,"rate_low":14014000.0,"rate_base":14729000.0,"rate_high":15229500.0,"confidence":"measured","description":"entrance door with frame, supply and install","rate_confidence":"ok"},{"low":30732500.0,"base":32450000.0,"code":"door_interior","high":33230000.0,"unit":"each","basis":"d2: 0.80 m wide; d3: 0.85 m wide; d5: 0.75 m wide; d4: 0.85 m wide; d6: 0.75 m wide","priced":true,"package":"Openings","quantity":5.0,"rate_low":6146500.0,"rate_base":6490000.0,"rate_high":6646000.0,"confidence":"measured","description":"interior door with frame, supply and install","rate_confidence":"ok"},{"low":55759859.99999999,"base":58326059.99999999,"code":"window","high":61478819.99999999,"unit":"m2","basis":"w8: 1.40 m × 1.5 m; w7: 1.62 m × 1.5 m; w10: 2.20 m × 1.5 m; w11: 2.60 m × 1.5 m; w14: 1.60 m × 1.5 m; w9: 1.60 m × 1.5 m; w13: 1.20 m × 1.5 m","priced":true,"package":"Openings","quantity":18.33,"rate_low":3042000.0,"rate_base":3182000.0,"rate_high":3354000.0,"confidence":"measured","description":"aluminium glass window, supply and install","rate_confidence":"ok"}],"rates":[{"low":90000.0,"base":94000.0,"code":"plaster","high":97500.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"","sources":[{"url":"https://demo.invalid/plaster/0?r=Ho+Chi+Minh+City\u0026q=","quote":"Cement plaster 15 mm on walls: 86.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/plaster/1?r=Ho+Chi+Minh+City\u0026q=","quote":"Cement plaster 15 mm on walls: 94.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/plaster/2?r=Ho+Chi+Minh+City\u0026q=","quote":"Cement plaster 15 mm on walls: 101.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":573500.0,"base":603000.0,"code":"floor_tile","high":632000.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/floor_tile/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Ceramic or porcelain floor tile: 544.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/floor_tile/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Ceramic or porcelain floor tile: 603.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/floor_tile/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Ceramic or porcelain floor tile: 661.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":285000.0,"base":295000.0,"code":"ceiling","high":307500.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/ceiling/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Gypsum board false ceiling: 275.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/ceiling/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Gypsum board false ceiling: 295.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/ceiling/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Gypsum board false ceiling: 320.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":97000.0,"base":101000.0,"code":"paint","high":105500.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/paint/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior wall paint: 93.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/paint/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior wall paint: 101.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/paint/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior wall paint: 110.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":96000.0,"base":100000.0,"code":"skirting","high":103000.0,"note":"3 price(s) from 3 page(s)","unit":"m","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/skirting/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Floor skirting: 92.000đ/m (đã gồm vật tư và nhân công). Giá chưa gồm VAT.","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/skirting/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Floor skirting: 100.000đ/m (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/skirting/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Floor skirting: 106.000đ/m (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":405500.0,"base":424000.0,"code":"electrical_point","high":447000.0,"note":"3 price(s) from 3 page(s)","unit":"each","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/electrical_point/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Electrical point (outlet or light) including wiring: 387.000đ/cái (đã gồm vật tư và nhân công). Giá chưa gồm VAT.","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/electrical_point/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Electrical point (outlet or light) including wiring: 424.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/electrical_point/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Electrical point (outlet or light) including wiring: 470.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":149000.0,"base":156000.0,"code":"waterproofing","high":160500.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"","sources":[{"url":"https://demo.invalid/waterproofing/0?r=Ho+Chi+Minh+City\u0026q=","quote":"Waterproofing membrane for bathroom floor: 142.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/waterproofing/1?r=Ho+Chi+Minh+City\u0026q=","quote":"Waterproofing membrane for bathroom floor: 156.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/waterproofing/2?r=Ho+Chi+Minh+City\u0026q=","quote":"Waterproofing membrane for bathroom floor: 165.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":14014000.0,"base":14729000.0,"code":"door_entrance","high":15229500.0,"note":"3 price(s) from 3 page(s)","unit":"each","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/door_entrance/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Entrance door with frame: 13.299.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/door_entrance/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Entrance door with frame: 14.729.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/door_entrance/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Entrance door with frame: 15.730.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":6146500.0,"base":6490000.0,"code":"door_interior","high":6646000.0,"note":"3 price(s) from 3 page(s)","unit":"each","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/door_interior/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior door with frame: 5.803.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/door_interior/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior door with frame: 6.490.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/door_interior/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior door with frame: 6.802.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":3042000.0,"base":3182000.0,"code":"window","high":3354000.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/window/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Aluminium glass window: 2.902.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/window/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Aluminium glass window: 3.182.000đ/m2 (đã gồm vật tư và nhân công). Giá chưa gồm VAT.","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/window/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Aluminium glass window: 3.526.000đ/m2 (đã gồm vật tư và nhân công). Giá chưa gồm VAT.","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"}],"total":{"low":376164716.0,"base":393657451.0,"high":410809294.0},"direct":{"low":267525570.0,"base":279966274.0,"high":292164538.0},"markups":[{"low":17389162.0,"base":18197808.0,"high":18990695.0,"name":"Site overhead and temporary works","percent":6.5,"base_label":"direct cost"},{"low":21368605.0,"base":22362306.0,"high":23336642.0,"name":"Contractor profit","percent":7.5,"base_label":"direct cost + overhead"},{"low":16845584.0,"base":17628951.0,"high":18397053.0,"name":"Design, supervision and permits","percent":5.5,"base_label":"direct cost + overhead + profit"},{"low":25171743.0,"base":26342301.0,"high":27490048.0,"name":"Contingency","percent":7.79,"base_label":"all of the above"},{"low":27864053.0,"base":29159811.0,"high":30430318.0,"name":"VAT","percent":8.0,"base_label":"all of the above"}],"currency":"VND","packages":{"MEP":{"low":15409000.0,"base":16112000.0,"high":16986000.0},"Plaster":{"low":23284980.0,"base":24319868.0,"high":25225395.0},"Finishes":{"low":128325230.0,"base":134029346.0,"high":140014823.0},"Openings":{"low":100506360.0,"base":105505060.0,"high":109938320.0}},"warnings":["MEP is in scope but the plan has no sanitary fixtures, so no plumbing points were counted.","DEMO DATA: the unit prices come from the fake demo search (ESTIMATE_SEARCH_PROVIDER=demo), not from the market. Do not use this total."],"assumptions":["overhead_percent = 6.5 (assumed, you asked me to decide)","profit_percent = 7.5 (assumed, you asked me to decide)","design_percent = 5.5 (assumed, you asked me to decide)","contingency_percent = 7.5 (assumed, you asked me to decide)","vat_percent = 8.0 (assumed, you asked me to decide)","6% of the direct cost rests on assumed quantities or low-confidence rates; contingency is raised to 7.8%."],"assumed_share":0.058},"session_id":"e1b180f1-f127-476f-b0cd-132c2f195ef7","total_base":393657451,"total_high":410809294,"total_low":376164716,"version":1},"id":"e1b180f1-f127-476f-b0cd-132c2f195ef7","messages":[{"content":"Apartment, good quality, Ho Chi Minh City, floor height 3 m, fit-out only, finishes only, include MEP. Everything is empty, only the toilets exist.","created_at":"2026-11-16T17:18:22.320534+07:00","role":"user","seq":1},{"content":"Should I include VAT at 10% as well?","created_at":"2026-11-16T17:18:22.320534+07:00","role":"assistant","seq":2},{"content":"None of them exist","created_at":"2026-11-16T17:19:20.675409+07:00","role":"user","seq":3},{"content":"Should I add the typical mid-range percentages for site overhead and temporary works, contractor profit, design and permits, contingency, and VAT based on the current rate in Ho Chi Minh City?","created_at":"2026-11-16T17:19:20.675409+07:00","role":"assistant","seq":4},{"content":"use typical markups","created_at":"2026-11-16T17:20:39.997711+07:00","role":"user","seq":5},{"content":"The base total is 393,657,451 VND, with a range from 376,164,716 VND to 410,809,294 VND. The largest packages are Finishes (134,029,346 VND), Openings (105,505,060 VND), Plaster (24,319,868 VND), and MEP (16,112,000 VND). Assumptions include overhead, profit, design, contingency, and VAT percentages, as well as 6% of direct cost based on assumed quantities. No items are unpriced. Let me know if you need to adjust anything or want more details.","created_at":"2026-11-16T17:20:39.997711+07:00","role":"assistant","seq":6}],"state":{"facts":{"city":{"value":"Ho Chi Minh City","source":"user"},"kind":{"value":"apartment","source":"user"},"quality":{"value":"good","source":"user"},"work_type":{"value":"fit_out","source":"user"},"vat_percent":{"value":8.0,"source":"assumed"},"floor_height":{"value":3.0,"source":"user"},"mep_in_scope":{"value":true,"source":"user"},"design_percent":{"value":5.5,"source":"assumed"},"profit_percent":{"value":7.5,"source":"assumed"},"overhead_percent":{"value":6.5,"source":"assumed"},"structure_in_scope":{"value":false,"source":"user"},"contingency_percent":{"value":7.5,"source":"assumed"}},"rates":[{"low":90000.0,"base":94000.0,"code":"plaster","high":97500.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"","sources":[{"url":"https://demo.invalid/plaster/0?r=Ho+Chi+Minh+City\u0026q=","quote":"Cement plaster 15 mm on walls: 86.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/plaster/1?r=Ho+Chi+Minh+City\u0026q=","quote":"Cement plaster 15 mm on walls: 94.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/plaster/2?r=Ho+Chi+Minh+City\u0026q=","quote":"Cement plaster 15 mm on walls: 101.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":573500.0,"base":603000.0,"code":"floor_tile","high":632000.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/floor_tile/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Ceramic or porcelain floor tile: 544.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/floor_tile/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Ceramic or porcelain floor tile: 603.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/floor_tile/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Ceramic or porcelain floor tile: 661.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":285000.0,"base":295000.0,"code":"ceiling","high":307500.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/ceiling/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Gypsum board false ceiling: 275.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/ceiling/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Gypsum board false ceiling: 295.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/ceiling/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Gypsum board false ceiling: 320.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":97000.0,"base":101000.0,"code":"paint","high":105500.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/paint/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior wall paint: 93.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/paint/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior wall paint: 101.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/paint/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior wall paint: 110.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":96000.0,"base":100000.0,"code":"skirting","high":103000.0,"note":"3 price(s) from 3 page(s)","unit":"m","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/skirting/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Floor skirting: 92.000đ/m (đã gồm vật tư và nhân công). Giá chưa gồm VAT.","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/skirting/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Floor skirting: 100.000đ/m (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/skirting/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Floor skirting: 106.000đ/m (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":405500.0,"base":424000.0,"code":"electrical_point","high":447000.0,"note":"3 price(s) from 3 page(s)","unit":"each","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/electrical_point/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Electrical point (outlet or light) including wiring: 387.000đ/cái (đã gồm vật tư và nhân công). Giá chưa gồm VAT.","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/electrical_point/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Electrical point (outlet or light) including wiring: 424.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/electrical_point/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Electrical point (outlet or light) including wiring: 470.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":149000.0,"base":156000.0,"code":"waterproofing","high":160500.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"","sources":[{"url":"https://demo.invalid/waterproofing/0?r=Ho+Chi+Minh+City\u0026q=","quote":"Waterproofing membrane for bathroom floor: 142.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/waterproofing/1?r=Ho+Chi+Minh+City\u0026q=","quote":"Waterproofing membrane for bathroom floor: 156.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/waterproofing/2?r=Ho+Chi+Minh+City\u0026q=","quote":"Waterproofing membrane for bathroom floor: 165.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":14014000.0,"base":14729000.0,"code":"door_entrance","high":15229500.0,"note":"3 price(s) from 3 page(s)","unit":"each","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/door_entrance/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Entrance door with frame: 13.299.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/door_entrance/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Entrance door with frame: 14.729.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/door_entrance/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Entrance door with frame: 15.730.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":6146500.0,"base":6490000.0,"code":"door_interior","high":6646000.0,"note":"3 price(s) from 3 page(s)","unit":"each","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/door_interior/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior door with frame: 5.803.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/door_interior/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior door with frame: 6.490.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/door_interior/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior door with frame: 6.802.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":3042000.0,"base":3182000.0,"code":"window","high":3354000.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/window/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Aluminium glass window: 2.902.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/window/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Aluminium glass window: 3.182.000đ/m2 (đã gồm vật tư và nhân công). Giá chưa gồm VAT.","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/window/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Aluminium glass window: 3.526.000đ/m2 (đã gồm vật tư và nhân công). Giá chưa gồm VAT.","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"}],"scope":{"r1":{"state":"existing","source":"user"},"r2":{"state":"empty","source":"user"},"r3":{"state":"existing","source":"user"},"r4":{"state":"empty","source":"user"},"r5":{"state":"empty","source":"user"},"r6":{"state":"empty","source":"user"},"r7":{"state":"empty","source":"user"}},"turns":3,"status":"ready","pending":[],"estimate":{"lines":[{"low":23284980.0,"base":24319867.999999996,"code":"plaster","high":25225394.999999996,"unit":"m2","basis":"Bedroom 3: room perimeter 16.1 m × 3.0 m − openings; Master bedroom / Dressing: room perimeter 32.5 m × 3.0 m − openings; Foyer / Kitchen / Dining area / Living room: room perimeter 30.1 m × 3.0 m − openings; Bedroom 2: room perimeter 12.6 m × 3.0 m − openings; Loggia / Laundry: room perimeter 6.4 m × 3.0 m − openings","priced":true,"package":"Plaster","quantity":258.722,"rate_low":90000.0,"rate_base":94000.0,"rate_high":97500.0,"confidence":"derived","description":"cement plaster 15 mm on walls, material and labour","rate_confidence":"ok"},{"low":56707680.0,"base":59624640.0,"code":"floor_tile","high":62492160.0,"unit":"m2","basis":"Bedroom 3: net floor area; Master bedroom / Dressing: net floor area; Foyer / Kitchen / Dining area / Living room: net floor area; Bedroom 2: net floor area; Loggia / Laundry: net floor area","priced":true,"package":"Finishes","quantity":98.88,"rate_low":573500.0,"rate_base":603000.0,"rate_high":632000.0,"confidence":"measured","description":"ceramic or porcelain floor tile, supply and install","rate_confidence":"ok"},{"low":28180800.0,"base":29169600.0,"code":"ceiling","high":30405600.0,"unit":"m2","basis":"Bedroom 3: net floor area; Master bedroom / Dressing: net floor area; Foyer / Kitchen / Dining area / Living room: net floor area; Bedroom 2: net floor area; Loggia / Laundry: net floor area","priced":true,"package":"Finishes","quantity":98.88,"rate_low":285000.0,"rate_base":295000.0,"rate_high":307500.0,"confidence":"measured","description":"gypsum board false ceiling, supply and install","rate_confidence":"ok"},{"low":34687394.0,"base":36117802.0,"code":"paint","high":37727011.0,"unit":"m2","basis":"Bedroom 3: plastered wall not tiled + ceiling; Master bedroom / Dressing: plastered wall not tiled + ceiling; Foyer / Kitchen / Dining area / Living room: plastered wall not tiled + ceiling; Bedroom 2: plastered wall not tiled + ceiling; Loggia / Laundry: plastered wall not tiled + ceiling","priced":true,"package":"Finishes","quantity":357.602,"rate_low":97000.0,"rate_base":101000.0,"rate_high":105500.0,"confidence":"derived","description":"interior wall paint, putty and 2 coats, material and labour","rate_confidence":"ok"},{"low":8111039.999999999,"base":8449000.0,"code":"skirting","high":8702470.0,"unit":"m","basis":"Bedroom 3: perimeter 16.1 m − door widths 1.6 m; Master bedroom / Dressing: perimeter 32.5 m − door widths 2.5 m; Foyer / Kitchen / Dining area / Living room: perimeter 30.1 m − door widths 1.9 m; Bedroom 2: perimeter 12.6 m − door widths 0.8 m","priced":true,"package":"Finishes","quantity":84.49,"rate_low":96000.0,"rate_base":100000.0,"rate_high":103000.0,"confidence":"derived","description":"floor skirting, supply and install","rate_confidence":"ok"},{"low":15409000.0,"base":16112000.0,"code":"electrical_point","high":16986000.0,"unit":"each","basis":"Bedroom 3: 4 outlets (1 per 4 m²) + 2 lights (1 per 8 m²); Master bedroom / Dressing: 8 outlets (1 per 4 m²) + 4 lights (1 per 8 m²); Foyer / Kitchen / Dining area / Living room: 9 outlets (1 per 4 m²) + 5 lights (1 per 8 m²); Bedroom 2: 2 outlets (1 per 4 m²) + 1 lights (1 per 8 m²); Loggia / Laundry: 2 outlets (1 per 4 m²) + 1 lights (1 per 8 m²)","priced":true,"package":"MEP","quantity":38.0,"rate_low":405500.0,"rate_base":424000.0,"rate_high":447000.0,"confidence":"assumed","description":"electrical point (outlet or light) including wiring, supply and install","rate_confidence":"ok"},{"low":638316.0,"base":668304.0,"code":"waterproofing","high":687582.0,"unit":"m2","basis":"Loggia / Laundry: floor 2.4 m² + 0.3 m upturn on 6.4 m","priced":true,"package":"Finishes","quantity":4.284,"rate_low":149000.0,"rate_base":156000.0,"rate_high":160500.0,"confidence":"derived","description":"waterproofing membrane for bathroom floor, material and labour","rate_confidence":"ok"},{"low":14014000.0,"base":14729000.0,"code":"door_entrance","high":15229500.0,"unit":"each","basis":"d1: entrance, 1.10 m wide","priced":true,"package":"Openings","quantity":1.0,"rate_low":14014000.0,"rate_base":14729000.0,"rate_high":15229500.0,"confidence":"measured","description":"entrance door with frame, supply and install","rate_confidence":"ok"},{"low":30732500.0,"base":32450000.0,"code":"door_interior","high":33230000.0,"unit":"each","basis":"d2: 0.80 m wide; d3: 0.85 m wide; d5: 0.75 m wide; d4: 0.85 m wide; d6: 0.75 m wide","priced":true,"package":"Openings","quantity":5.0,"rate_low":6146500.0,"rate_base":6490000.0,"rate_high":6646000.0,"confidence":"measured","description":"interior door with frame, supply and install","rate_confidence":"ok"},{"low":55759859.99999999,"base":58326059.99999999,"code":"window","high":61478819.99999999,"unit":"m2","basis":"w8: 1.40 m × 1.5 m; w7: 1.62 m × 1.5 m; w10: 2.20 m × 1.5 m; w11: 2.60 m × 1.5 m; w14: 1.60 m × 1.5 m; w9: 1.60 m × 1.5 m; w13: 1.20 m × 1.5 m","priced":true,"package":"Openings","quantity":18.33,"rate_low":3042000.0,"rate_base":3182000.0,"rate_high":3354000.0,"confidence":"measured","description":"aluminium glass window, supply and install","rate_confidence":"ok"}],"rates":[{"low":90000.0,"base":94000.0,"code":"plaster","high":97500.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"","sources":[{"url":"https://demo.invalid/plaster/0?r=Ho+Chi+Minh+City\u0026q=","quote":"Cement plaster 15 mm on walls: 86.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/plaster/1?r=Ho+Chi+Minh+City\u0026q=","quote":"Cement plaster 15 mm on walls: 94.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/plaster/2?r=Ho+Chi+Minh+City\u0026q=","quote":"Cement plaster 15 mm on walls: 101.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":573500.0,"base":603000.0,"code":"floor_tile","high":632000.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/floor_tile/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Ceramic or porcelain floor tile: 544.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/floor_tile/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Ceramic or porcelain floor tile: 603.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/floor_tile/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Ceramic or porcelain floor tile: 661.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":285000.0,"base":295000.0,"code":"ceiling","high":307500.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/ceiling/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Gypsum board false ceiling: 275.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/ceiling/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Gypsum board false ceiling: 295.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/ceiling/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Gypsum board false ceiling: 320.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":97000.0,"base":101000.0,"code":"paint","high":105500.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/paint/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior wall paint: 93.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/paint/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior wall paint: 101.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/paint/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior wall paint: 110.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":96000.0,"base":100000.0,"code":"skirting","high":103000.0,"note":"3 price(s) from 3 page(s)","unit":"m","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/skirting/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Floor skirting: 92.000đ/m (đã gồm vật tư và nhân công). Giá chưa gồm VAT.","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/skirting/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Floor skirting: 100.000đ/m (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/skirting/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Floor skirting: 106.000đ/m (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":405500.0,"base":424000.0,"code":"electrical_point","high":447000.0,"note":"3 price(s) from 3 page(s)","unit":"each","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/electrical_point/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Electrical point (outlet or light) including wiring: 387.000đ/cái (đã gồm vật tư và nhân công). Giá chưa gồm VAT.","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/electrical_point/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Electrical point (outlet or light) including wiring: 424.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/electrical_point/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Electrical point (outlet or light) including wiring: 470.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":149000.0,"base":156000.0,"code":"waterproofing","high":160500.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"","sources":[{"url":"https://demo.invalid/waterproofing/0?r=Ho+Chi+Minh+City\u0026q=","quote":"Waterproofing membrane for bathroom floor: 142.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/waterproofing/1?r=Ho+Chi+Minh+City\u0026q=","quote":"Waterproofing membrane for bathroom floor: 156.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/waterproofing/2?r=Ho+Chi+Minh+City\u0026q=","quote":"Waterproofing membrane for bathroom floor: 165.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":14014000.0,"base":14729000.0,"code":"door_entrance","high":15229500.0,"note":"3 price(s) from 3 page(s)","unit":"each","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/door_entrance/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Entrance door with frame: 13.299.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/door_entrance/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Entrance door with frame: 14.729.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/door_entrance/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Entrance door with frame: 15.730.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":6146500.0,"base":6490000.0,"code":"door_interior","high":6646000.0,"note":"3 price(s) from 3 page(s)","unit":"each","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/door_interior/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior door with frame: 5.803.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/door_interior/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior door with frame: 6.490.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/door_interior/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Interior door with frame: 6.802.000đ/cái (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"},{"low":3042000.0,"base":3182000.0,"code":"window","high":3354000.0,"note":"3 price(s) from 3 page(s)","unit":"m2","region":"Ho Chi Minh City","quality":"good","sources":[{"url":"https://demo.invalid/window/0?r=Ho+Chi+Minh+City\u0026q=good","quote":"Aluminium glass window: 2.902.000đ/m2 (đã gồm vật tư và nhân công).","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/window/1?r=Ho+Chi+Minh+City\u0026q=good","quote":"Aluminium glass window: 3.182.000đ/m2 (đã gồm vật tư và nhân công). Giá chưa gồm VAT.","retrieved_at":"2026-11-16"},{"url":"https://demo.invalid/window/2?r=Ho+Chi+Minh+City\u0026q=good","quote":"Aluminium glass window: 3.526.000đ/m2 (đã gồm vật tư và nhân công). Giá chưa gồm VAT.","retrieved_at":"2026-11-16"}],"currency":"VND","confidence":"ok"}],"total":{"low":376164716.0,"base":393657451.0,"high":410809294.0},"direct":{"low":267525570.0,"base":279966274.0,"high":292164538.0},"markups":[{"low":17389162.0,"base":18197808.0,"high":18990695.0,"name":"Site overhead and temporary works","percent":6.5,"base_label":"direct cost"},{"low":21368605.0,"base":22362306.0,"high":23336642.0,"name":"Contractor profit","percent":7.5,"base_label":"direct cost + overhead"},{"low":16845584.0,"base":17628951.0,"high":18397053.0,"name":"Design, supervision and permits","percent":5.5,"base_label":"direct cost + overhead + profit"},{"low":25171743.0,"base":26342301.0,"high":27490048.0,"name":"Contingency","percent":7.79,"base_label":"all of the above"},{"low":27864053.0,"base":29159811.0,"high":30430318.0,"name":"VAT","percent":8.0,"base_label":"all of the above"}],"currency":"VND","packages":{"MEP":{"low":15409000.0,"base":16112000.0,"high":16986000.0},"Plaster":{"low":23284980.0,"base":24319868.0,"high":25225395.0},"Finishes":{"low":128325230.0,"base":134029346.0,"high":140014823.0},"Openings":{"low":100506360.0,"base":105505060.0,"high":109938320.0}},"warnings":["MEP is in scope but the plan has no sanitary fixtures, so no plumbing points were counted.","DEMO DATA: the unit prices come from the fake demo search (ESTIMATE_SEARCH_PROVIDER=demo), not from the market. Do not use this total."],"assumptions":["overhead_percent = 6.5 (assumed, you asked me to decide)","profit_percent = 7.5 (assumed, you asked me to decide)","design_percent = 5.5 (assumed, you asked me to decide)","contingency_percent = 7.5 (assumed, you asked me to decide)","vat_percent = 8.0 (assumed, you asked me to decide)","6% of the direct cost rests on assumed quantities or low-confidence rates; contingency is raised to 7.8%."],"assumed_share":0.058},"fingerprint":"050e4027be1127d7","rate_overrides":{},"fixtures_existing":[]},"status":"ready","turns":3,"updated_at":"2026-11-16T17:20:39.997711+07:00"}
+

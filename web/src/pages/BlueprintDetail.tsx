@@ -26,6 +26,7 @@ import {
   IconAlertTriangle,
   IconArrowBackUp,
   IconCheck,
+  IconCalculator,
   IconDownload,
   IconEye,
   IconForms,
@@ -43,6 +44,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, apiBlob, apiDownload, apiStream, type ExportReport, type Progress, type BlueprintDetail as Detail, type BlueprintVersionSummary } from "../api";
 import { useAuth } from "../auth";
+import EstimateChat from "../components/EstimateChat";
 import PlanViewer from "../components/PlanViewer";
 import ShareDialog from "../components/ShareDialog";
 import { asPlanModel, type PlanOp } from "../blueprintModel";
@@ -370,6 +372,9 @@ export default function BlueprintDetail() {
                   Summary
                 </Tabs.Tab>
               )}
+              <Tabs.Tab value="estimate" leftSection={<IconCalculator size={14} />}>
+                Estimate
+              </Tabs.Tab>
               <Tabs.Tab value="checks" leftSection={<IconListCheck size={14} />}>
                 Checks
               </Tabs.Tab>
@@ -497,6 +502,15 @@ export default function BlueprintDetail() {
                 </Stack>
               </Tabs.Panel>
             )}
+
+            <Tabs.Panel value="estimate">
+              <EstimateChat
+                blueprintId={bid}
+                currentVersion={detail.current_version}
+                canEstimate={canAct(detail, "blueprint", "estimate")}
+                rooms={(planModel?.rooms ?? []).map((r) => ({ id: r.id, name: r.name }))}
+              />
+            </Tabs.Panel>
 
             <Tabs.Panel value="checks">
               <Stack gap="xs">

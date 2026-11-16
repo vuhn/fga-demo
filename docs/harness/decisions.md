@@ -49,3 +49,10 @@ Why the repo is shaped this way. One entry per decision; add new ones at the top
 - **Picture and PDF bytes are transient.** An uploaded PDF or picture is converted to a DXF by the engine and discarded (name, type and size stay on the blueprint); the converted DXF is the one stored original (respects the "no file bytes" non-goal). The vision model and the sketch-to-brief path are gone: a model reading a picture into a brief gave a plan unlike the picture.
 - **Seed enables blueprints on Acme only** so Globex shows the product-off state; no blueprints are seeded (seed must not depend on the engine).
 
+## 2026-11: Cost estimation agent (prds/plans/cost-estimation.md)
+
+- **An agent that asks, not a form with defaults.** A 2D plan cannot give heights, what exists or the quality level, and those move the cost more than the geometry does. The agent asks, and an assumption is recorded (`assumed`) only when the person says "I don't know / you decide".
+- **Code owns the flow and the numbers, the LLM owns language.** Missing slots, takeoff, pricing and every guard are code. A small local model proved unreliable at flags and scope (it assumed unprompted and read "rooms exist" as "finished"), so its reading is gated by what the message actually says.
+- **No price database yet.** Unit rates are researched on the web per estimate through a `PriceSource` interface (a database can replace it) and stored with source, quote and date inside the estimate; a price without a quote that is on the page is rejected, and a code with no price is shown as unpriced, never as zero.
+- **Engine stays stateless.** The API stores the agent's state as opaque JSON and sends it each turn; sessions are guarded by a turn counter like blueprint versions by `base_version`. A turn is saved only if it completes.
+- **Authorization reuses the model.** Sessions are `can_edit` (they spend LLM and search calls; a viewer gets 403 and cannot read the chat), finished estimates are `can_view`. No `model.fga` change.

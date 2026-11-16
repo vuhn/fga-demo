@@ -44,6 +44,9 @@ Object ids below are bare. The fga infrastructure formats them.
 | List blueprints | actor | ListObjects `can_view` | type `blueprint` |
 | Get a blueprint, list its versions, render its drawing | actor | `can_view` (404 when denied) | that blueprint |
 | Revise by chat, fix issues with AI (review), edit the brief, edit an imported plan directly (`plan-edits`), convert a blueprint made from a brief into a DXF plan (`convert`), restore a version, rename a blueprint | actor | `can_edit` | that blueprint |
+| Start an estimate session, send a message to the cost-estimation agent | actor | `can_edit` | that blueprint (403; the engine call and the web searches happen only after it) |
+| Get or list estimate sessions (the chat) | actor | `can_edit` (404 when denied) | that blueprint |
+| List or get finished estimates | actor | `can_view` (404 when denied) | that blueprint |
 | Delete a blueprint | actor | `can_delete` | that blueprint |
 | Share or revoke on a blueprint, list its grants or share candidates | actor | `can_share` | that blueprint |
 

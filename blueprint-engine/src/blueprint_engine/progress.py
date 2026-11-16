@@ -22,6 +22,31 @@ def emit(stage: str, message: str) -> None:
         fn({"event": "progress", "kind": "step", "stage": stage, "message": message})
 
 
+def emit_event(name: str, data: dict) -> None:
+    """A non-progress event for the chat streams (token, fact, question, rate, estimate)."""
+    fn = _sink.get()
+    if fn is not None:
+        fn({"event": name, "data": data})
+
+
+_quiet: ContextVar[bool] = ContextVar("progress_quiet_thinking", default=False)
+
+
+@contextmanager
+def quiet_thinking() -> Iterator[None]:
+    """Narrow, mechanical LLM calls (reading a message into fields) do not need to think out loud: the
+    client skips the thinking stream for them, which is much faster on a local model."""
+    token = _quiet.set(True)
+    try:
+        yield
+    finally:
+        _quiet.reset(token)
+
+
+def thinking_wanted() -> bool:
+    return _sink.get() is not None and not _quiet.get()
+
+
 def active() -> bool:
     """True while a streaming endpoint is listening (the LLM client then streams the model's thinking)."""
     return _sink.get() is not None

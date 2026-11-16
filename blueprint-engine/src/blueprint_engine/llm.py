@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections.abc import Iterator
 from typing import Protocol, TypeVar
 
 import httpx
@@ -21,6 +22,8 @@ class LLMError(RuntimeError):
 
 class LLMClient(Protocol):
     def structured(self, system: str, user: str, schema: type[T]) -> T: ...
+
+    def stream_text(self, system: str, user: str) -> Iterator[str]: ...
 
 
 class OllamaClient:
@@ -39,7 +42,7 @@ class OllamaClient:
         self.stream_thinking = os.getenv("BLUEPRINT_STREAM_THINKING", "1") != "0"
 
     def _chat(self, model: str, messages: list[dict], schema: dict) -> str:
-        if self.stream_thinking and progress.active():
+        if self.stream_thinking and progress.thinking_wanted():
             return self._chat_streaming(model, messages, schema)
         try:
             resp = self.http.post(
@@ -107,3 +110,23 @@ class OllamaClient:
                     {"role": "user", "content": f"That JSON is invalid:\n{last_err}\nReturn corrected JSON only."},
                 ]
         raise LLMError(f"model returned invalid JSON twice: {last_err}")
+
+    def stream_text(self, system, user):
+        """Plain-text reply, yielded as it is generated (no `format`, thinking off). Raises
+        progress.Cancelled through the caller's sink, not here: the caller checks between chunks."""
+        body = {"model": self.text_model, "stream": True, "think": False,
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                "options": {"temperature": 0.3, "num_ctx": 8192}}
+        try:
+            with self.http.stream("POST", f"{self.base_url}/api/chat", json=body) as resp:
+                if resp.status_code != 200:
+                    resp.read()
+                    raise LLMError(f"Ollama {resp.status_code}: {resp.text[:300]}")
+                for line in resp.iter_lines():
+                    if not line:
+                        continue
+                    piece = json.loads(line).get("message", {}).get("content", "")
+                    if piece:
+                        yield piece
+        except httpx.HTTPError as e:
+            raise LLMError(f"cannot reach Ollama at {self.base_url}: {e}") from e

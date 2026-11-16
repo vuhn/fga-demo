@@ -41,6 +41,8 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		photoGrant     = postgres.NewPhotoGrantRepo(pool)
 		blueprints     = postgres.NewBlueprintRepo(pool)
 		bpGrant        = postgres.NewBlueprintGrantRepo(pool)
+		estSessions    = postgres.NewEstimateSessionRepo(pool)
+		estimates      = postgres.NewBlueprintEstimateRepo(pool)
 
 		memberRels        = fga.MembershipRelations{}
 		roleRels          = fga.RoleRelations{}
@@ -176,6 +178,14 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 			CandidateLister: service.NewPhotoShareCandidateLister(photos, members, authz),
 			Sharer:          service.NewPhotoSharer(photos, photoGrant, photoRels, authz, policy, guard, ids),
 			ShareRevoker:    service.NewPhotoShareRevoker(photos, photoGrant, photoRels, authz, policy, guard),
+		}),
+		httph.NewEstimateHandler(httph.EstimateUsecases{
+			SessionCreator: service.NewEstimateSessionCreator(blueprints, estSessions, authz, ids),
+			Messenger:      service.NewEstimateSessionMessenger(blueprints, estSessions, estimates, engine, authz, ids),
+			SessionGetter:  service.NewEstimateSessionGetter(blueprints, estSessions, estimates, authz),
+			SessionLister:  service.NewEstimateSessionLister(blueprints, estSessions, authz),
+			EstimateGetter: service.NewEstimateGetter(blueprints, estimates, authz),
+			EstimateLister: service.NewEstimateLister(blueprints, estimates, authz),
 		}),
 		httph.NewBlueprintHandler(httph.BlueprintUsecases{
 			Lister:          service.NewBlueprintLister(blueprints, authz),

@@ -28,7 +28,7 @@ Postgres :5432          OpenFGA :8080  (gRPC :8081, Playground :3000)     bluepr
 | API (`api/`) | The only authenticated edge. Validates, asks OpenFGA, reads and writes Postgres. |
 | Postgres `fgademo` | Display record: names, membership labels, file metadata, grant rows. Never decides access. |
 | OpenFGA | Relationship tuples. Answers Check, BatchCheck, ListObjects. Allow-only model. |
-| `blueprint-engine/` | Python FastAPI sidecar for the Blueprints product. A local LLM (Ollama) turns a prompt into a JSON brief and a chat message into plan edit operations; deterministic code makes the floor plan, the DXF/SVG/PDF sheets, and an IFC4 BIM model; an LLM reviewer can propose brief fixes for failed checks. No auth, no storage: only the API calls it, after its Checks. See [blueprint-engine/README.md](blueprint-engine/README.md). |
+| `blueprint-engine/` | Python FastAPI sidecar for the Blueprints product. A local LLM (Ollama) turns a prompt into a JSON brief and a chat message into plan edit operations, and runs the cost-estimation agent (an interview, LLM web price research and deterministic quantity takeoff and pricing); deterministic code makes the floor plan, the DXF/SVG/PDF sheets, and an IFC4 BIM model; an LLM reviewer can propose brief fixes for failed checks. No auth, no storage: only the API calls it, after its Checks. See [blueprint-engine/README.md](blueprint-engine/README.md). |
 | `deploy/` | Docker Compose for Postgres and OpenFGA. The API, engine, and Vite run on the host. |
 
 ## Core principles

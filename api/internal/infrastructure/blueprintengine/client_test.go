@@ -275,3 +275,52 @@ func TestDrawPlanSendsTheModelAndTheTitle(t *testing.T) {
 		t.Fatalf("outcome %+v err %v", out, err)
 	}
 }
+
+func TestEstimateTurnRelaysEventsThenReturnsTheDoneOutcome(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&got)
+		io.WriteString(w, `{"event":"progress","kind":"step","stage":"understand","message":"reading"}`+"\n"+
+			`{"event":"token","data":{"text":"Hel"}}`+"\n"+`{"event":"token","data":{"text":"lo"}}`+"\n"+
+			`{"event":"question","data":{"id":"city","text":"Where?","options":[]}}`+"\n"+
+			`{"event":"done","data":{"state":{"status":"interviewing"},"reply":"Hello","estimate":null}}`+"\n")
+	}))
+	defer srv.Close()
+	var names []string
+	turn, err := New(srv.URL).EstimateTurn(context.Background(), []byte(`{"rooms":[]}`), nil, "hi",
+		[]entity.EstimateMessage{{Role: "assistant", Content: "Where?"}}, map[string]float64{"paint": 5},
+		func(ev entity.EstimateEvent) { names = append(names, ev.Name) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(names, ",") != "progress,token,token,question" || turn.Reply != "Hello" || !strings.Contains(string(turn.State), "interviewing") {
+		t.Fatalf("names %v turn %+v", names, turn)
+	}
+	if got["message"] != "hi" || got["state"] == nil || got["rate_overrides"].(map[string]any)["paint"] != 5.0 ||
+		got["messages"].([]any)[0].(map[string]any)["role"] != "assistant" {
+		t.Fatalf("payload %v", got)
+	}
+}
+
+func TestEstimateTurnErrorEventsAndRefusalsMapToSentinels(t *testing.T) {
+	for _, tc := range []struct {
+		body   string
+		status int
+		want   error
+	}{
+		{`{"event":"token","data":{"text":"x"}}` + "\n" + `{"event":"error","status":502,"error":"llm_unavailable","message":"down"}` + "\n", 200, entity.ErrEngineUnavailable},
+		{`{"event":"error","status":422,"error":"invalid_edit","message":"bad"}` + "\n", 200, entity.ErrValidation},
+		{`{"event":"token","data":{"text":"x"}}` + "\n", 200, entity.ErrEngineUnavailable}, // ended without done
+		{`{"detail":"nope"}`, 422, entity.ErrValidation},
+	} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(tc.status)
+			io.WriteString(w, tc.body)
+		}))
+		_, err := New(srv.URL).EstimateTurn(context.Background(), []byte(`{}`), nil, "hi", nil, nil, func(entity.EstimateEvent) {})
+		srv.Close()
+		if !errors.Is(err, tc.want) {
+			t.Errorf("%s: got %v want %v", tc.body, err, tc.want)
+		}
+	}
+}

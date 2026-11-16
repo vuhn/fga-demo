@@ -341,12 +341,17 @@ func (c *Client) do(ctx context.Context, path, contentType string, body io.Reade
 // send returns the response on 2xx. A request the engine rejects (4xx) is
 // ErrValidation with its message; anything else is ErrEngineUnavailable.
 func (c *Client) send(ctx context.Context, path, contentType string, body io.Reader) (*http.Response, error) {
+	return c.sendWith(ctx, c.HTTP, path, contentType, body)
+}
+
+// sendWith is send over a given HTTP client (the estimate agent streams for longer than the plain client allows).
+func (c *Client) sendWith(ctx context.Context, hc *http.Client, path, contentType string, body io.Reader) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+path, body)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", contentType)
-	resp, err := c.HTTP.Do(req)
+	resp, err := hc.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", entity.ErrEngineUnavailable, err)
 	}

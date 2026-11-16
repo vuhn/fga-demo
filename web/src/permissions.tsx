@@ -93,6 +93,8 @@ const ACTIONS = {
   share: { folder: "can_share", album: "can_share", document: "can_share", photo: "can_share", blueprint: "can_share" },
   /** Blueprint chat revision, brief form save, and version restore. */
   revise: { blueprint: "can_edit" },
+  /** Blueprint cost-estimation chat (spends LLM and search calls); a viewer only reads finished estimates. */
+  estimate: { blueprint: "can_edit" },
   addItem: { folder: "can_create_document", album: "can_create_photo" },
   /** Create a subfolder/subalbum inside this container. */
   addChild: { folder: "can_edit", album: "can_edit" },

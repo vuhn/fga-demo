@@ -16,12 +16,15 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import convert, dxf_patch, dxf_plan, llm_steps, pipeline, plan_edits, progress
+from . import convert, dxf_patch, dxf_plan, estimate_agent, llm_steps, pipeline, plan_edits, progress
 from .checks import failed, run_imported_checks
 from .draw import TitleBlock, build_dxf, to_dxf_bytes, to_pdf, to_svg
 from .edits import EditError
 from .ifc import to_ifc
+from .estimate_models import Message, SessionState
 from .llm import LLMClient, LLMError, OllamaClient
+from .price_research import LLMWebPriceSource
+from .price_source import PriceSource
 from .schemas import Brief, BuildingModel, CheckResult
 
 STATIC = Path(__file__).parent / "static"
@@ -76,6 +79,14 @@ class RenderIn(BaseModel):
     title_block: TitleBlockIn = TitleBlockIn()
 
 
+class EstimateTurnIn(BaseModel):
+    model: BuildingModel
+    state: SessionState = Field(default_factory=SessionState)
+    message: str = Field(default="", max_length=2000)
+    messages: list[Message] = Field(default_factory=list, max_length=12)  # recent chat, oldest first
+    rate_overrides: dict[str, float] = Field(default_factory=dict)
+
+
 class PlanDrawIn(BaseModel):
     model: BuildingModel
     title: str = Field(default="", max_length=200)
@@ -110,9 +121,10 @@ class ImportOut(BaseModel):
 MEDIA = {"svg": "image/svg+xml", "dxf": "image/vnd.dxf", "pdf": "application/pdf", "ifc": "application/x-step"}
 
 
-def create_app(llm: LLMClient | None = None) -> FastAPI:
+def create_app(llm: LLMClient | None = None, prices: PriceSource | None = None) -> FastAPI:
     app = FastAPI(title="blueprint-engine", version="0.1.0")
     app.state.llm = llm or OllamaClient()
+    app.state.prices = prices or LLMWebPriceSource(app.state.llm)
 
     @app.exception_handler(EditError)
     async def _edit_error(_: Request, e: EditError):
@@ -186,7 +198,7 @@ def create_app(llm: LLMClient | None = None) -> FastAPI:
             raise EditError("say what to change")
         return llm_steps.revise(app.state.llm, body.brief, body.previous, body.message[:2000], body.history)
 
-    def ndjson(run) -> StreamingResponse:
+    def ndjson(run, final: str = "result") -> StreamingResponse:
         """Run `run()` on a thread and stream NDJSON: progress lines while it works, then one result or
         error line. Closing the connection cancels at the next step."""
         events: queue.Queue[dict | None] = queue.Queue()
@@ -201,7 +213,7 @@ def create_app(llm: LLMClient | None = None) -> FastAPI:
             try:
                 with progress.sink(put):
                     step = run()
-                put({"event": "result", "data": step.model_dump(mode="json")})
+                put({"event": final, "data": step.model_dump(mode="json")})
             except progress.Cancelled:
                 pass
             except EditError as e:
@@ -223,6 +235,12 @@ def create_app(llm: LLMClient | None = None) -> FastAPI:
                 cancelled.set()
 
         return StreamingResponse(lines(), media_type="application/x-ndjson")
+
+    @app.post("/v1/estimate/agent/turn")
+    def estimate_turn(body: EstimateTurnIn) -> StreamingResponse:
+        """One turn of the estimate chat, as NDJSON: progress, token, fact, question, rate, estimate, then done."""
+        return ndjson(lambda: estimate_agent.run_turn(app.state.llm, app.state.prices, body.model, body.state, body.message,
+                                                      body.messages, body.rate_overrides), final="done")
 
     @app.post("/v1/revise/stream")
     def revise_stream(body: ReviseIn) -> StreamingResponse:

@@ -164,6 +164,18 @@ export type Progress = { kind: "step" | "thinking"; stage: string; message: stri
  * before the stream opens is the usual JSON error; an `error` event throws the same ApiError.
  */
 export async function apiStream<T>(path: string, body: unknown, onProgress: (p: Progress) => void, signal?: AbortSignal): Promise<T> {
+  return apiChatStream<T>(path, body, (event, data) => {
+    if (event === "progress") onProgress(data as Progress);
+  }, signal);
+}
+
+/**
+ * Same transport as apiStream but every event goes to onEvent(name, data) (the estimate chat streams
+ * progress, token, fact, question, rate and estimate events). Returns the `done` payload; an `error`
+ * event throws the same ApiError; aborting the signal rejects with an AbortError and the server
+ * cancels the run and saves nothing.
+ */
+export async function apiChatStream<T>(path: string, body: unknown, onEvent: (event: string, data: unknown) => void, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`/api/v1${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...authHeaders() },
@@ -189,9 +201,9 @@ export async function apiStream<T>(path: string, body: unknown, onProgress: (p: 
       }
       if (!data) continue;
       const payload = JSON.parse(data);
-      if (event === "progress") onProgress(payload as Progress);
-      else if (event === "done") return payload as T;
-      else if (event === "error") throw new ApiError(payload.status ?? 500, payload.error ?? "error", payload.check, payload.message);
+      if (event === "done") return payload as T;
+      if (event === "error") throw new ApiError(payload.status ?? 500, payload.error ?? "error", payload.check, payload.message);
+      onEvent(event, payload);
     }
   }
   throw new ApiError(502, "stream_ended", undefined, "the server closed the stream before finishing");
@@ -316,3 +328,89 @@ export type ImportReport = {
 export type ConversionReport = { method: "pdf-vector" | "raster-trace"; scale_source: string; metres_across: number; walls: number; openings: number; texts: number; skipped: string[]; warnings: string[] };
 export type ImportPreview = { plans: ImportPlan[]; report: ImportReport; conversion: ConversionReport | null; source: BlueprintSource };
 export const IMPORT_UNITS = ["mm", "cm", "m", "in", "ft"] as const;
+
+// ---- Cost estimation (the engine's agent owns the state schema; these mirror it) ----
+
+export type FactSource = "user" | "plan" | "assumed";
+export type EstimateFact = { value: string | number | boolean; source: FactSource };
+export type RoomCondition = "empty" | "existing" | "to_replace" | "new";
+export type EstimateRateSource = { url: string; quote: string; retrieved_at: string };
+export type EstimateRate = {
+  code: string;
+  low: number | null;
+  base: number | null;
+  high: number | null;
+  unit: string;
+  currency: string;
+  confidence: "ok" | "low_confidence" | "user" | "none";
+  region: string;
+  quality: string;
+  sources: EstimateRateSource[];
+  note: string;
+};
+export type EstimateLine = {
+  code: string;
+  package: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  basis: string;
+  confidence: "measured" | "derived" | "assumed";
+  rate_low: number | null;
+  rate_base: number | null;
+  rate_high: number | null;
+  low: number;
+  base: number;
+  high: number;
+  priced: boolean;
+  rate_confidence: string;
+};
+export type Money3 = { low: number; base: number; high: number };
+export type EstimateResult = {
+  currency: string;
+  lines: EstimateLine[];
+  packages: Record<string, Money3>;
+  direct: Money3;
+  markups: ({ name: string; percent: number; base_label: string } & Money3)[];
+  total: Money3;
+  assumed_share: number;
+  assumptions: string[];
+  warnings: string[];
+  rates: EstimateRate[];
+};
+export type EstimateStatus = "interviewing" | "researching" | "ready" | "failed";
+export type EstimateState = {
+  facts?: Record<string, EstimateFact>;
+  scope?: Record<string, { state: RoomCondition; source: FactSource }>;
+  pending?: string[];
+  status?: EstimateStatus;
+  estimate?: EstimateResult | null;
+};
+export type EstimateQuestion = { id: string; text: string; options: string[]; allow_unknown: boolean };
+export type EstimateMessage = { seq: number; role: "user" | "assistant"; content: string; created_at: string };
+export type EstimateSessionSummary = {
+  id: string;
+  blueprint_id: string;
+  blueprint_version: number;
+  status: EstimateStatus;
+  turns: number;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+};
+export type EstimateSessionDetail = EstimateSessionSummary & {
+  state: EstimateState;
+  messages: EstimateMessage[];
+  estimate?: StoredEstimate;
+};
+export type StoredEstimateSummary = {
+  id: string;
+  session_id: string;
+  blueprint_id: string;
+  version: number;
+  total_low: number;
+  total_base: number;
+  total_high: number;
+  created_at: string;
+};
+export type StoredEstimate = StoredEstimateSummary & { result: EstimateResult };
