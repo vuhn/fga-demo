@@ -146,6 +146,8 @@ class SessionState(_Strict):
     scope: dict[str, RoomScope] = Field(default_factory=dict)
     # plan fixture ids the person says are already installed; every other priced fixture is assumed NOT there
     fixtures_existing: list[str] = Field(default_factory=list)
+    # rate codes the person took out of the estimate ("the doors already exist"); the takeoff leaves them out
+    excluded: list[str] = Field(default_factory=list)
     rate_overrides: dict[str, float] = Field(default_factory=dict)
     rates: list[RateResult] = Field(default_factory=list)  # researched rates (kept to re-price without searching)
     status: Status = "interviewing"

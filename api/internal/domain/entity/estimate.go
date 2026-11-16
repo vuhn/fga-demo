@@ -19,15 +19,15 @@ const (
 	MaxEstimateMessage = 2000
 )
 
-// EstimateSession is a chat with the cost-estimation agent about one blueprint version. State is the agent's
-// own JSON (facts, room scope, researched rates, the latest estimate): opaque to Go. Seq counts the turns and
-// guards concurrent turns the way base_version guards blueprint edits.
+// EstimateSession is the chat with the cost-estimation agent about a blueprint: there is at most one per
+// blueprint, keyed by it (starting over replaces it). It is pinned to one blueprint version. State is the
+// agent's own JSON (facts, room scope, researched rates, the latest estimate, its status): opaque to Go apart
+// from the status. Seq counts the turns and Epoch the restarts; a turn is saved only while both are what it
+// read, the way base_version guards blueprint edits.
 type EstimateSession struct {
-	ID               string
-	TenantID         string
 	BlueprintID      string
 	BlueprintVersion int
-	Status           string
+	Epoch            int
 	State            json.RawMessage
 	Seq              int
 	CreatedBy        string
@@ -35,19 +35,37 @@ type EstimateSession struct {
 	UpdatedAt        time.Time
 }
 
-type EstimateMessage struct {
-	SessionID string
-	Seq       int
-	Role      string // user | assistant
-	Content   string
-	CreatedAt time.Time
+// Status is the agent's status kept in State ("interviewing" for a state that has none yet).
+func (s EstimateSession) Status() string {
+	if st := EstimateStatusOf(s.State); st != "" {
+		return st
+	}
+	return EstimateInterviewing
 }
 
-// BlueprintEstimate is one finished, priced estimate. Result holds the lines, markups, totals and every rate
-// with its sources; the totals are copied out for lists.
+// EstimateStatusOf reads the status field of an engine state ("" when absent or unreadable).
+func EstimateStatusOf(state json.RawMessage) string {
+	var v struct {
+		Status string `json:"status"`
+	}
+	if json.Unmarshal(state, &v) != nil {
+		return ""
+	}
+	return v.Status
+}
+
+type EstimateMessage struct {
+	BlueprintID string
+	Seq         int
+	Role        string // user | assistant
+	Content     string
+	CreatedAt   time.Time
+}
+
+// BlueprintEstimate is one finished, priced estimate of a blueprint version, append-only. Result holds the
+// lines, markups, totals and every rate with its sources; the totals are copied out for lists.
 type BlueprintEstimate struct {
 	ID          string
-	SessionID   string
 	BlueprintID string
 	Version     int
 	TotalLow    int64

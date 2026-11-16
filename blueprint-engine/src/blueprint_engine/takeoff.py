@@ -226,7 +226,11 @@ def takeoff(model: BuildingModel, state: SessionState) -> Takeoff:
 
     # merge per-room lines of the same code into one line per code, keeping the basis list readable
     out.lines = _merge(lines)
-    if not out.lines:
+    dropped = [ln for ln in out.lines if ln.code in state.excluded]
+    if dropped:
+        out.lines = [ln for ln in out.lines if ln.code not in state.excluded]
+        out.warnings.append("Left out at your request: " + ", ".join(ln.description.split(",")[0] for ln in dropped) + ".")
+    if not out.lines and not dropped:
         out.warnings.append("Nothing to build: every room is marked as existing.")
     return out
 

@@ -19,6 +19,9 @@ engine-test:
 engine-eval:
 	cd blueprint-engine && uv run python eval/run.py
 
+engine-eval-estimate:
+	cd blueprint-engine && uv run python eval/estimate_run.py
+
 test:
 	cd api && go test ./...
 
@@ -36,4 +39,4 @@ verify-live: compose-up seed test-integration
 init:
 	bash scripts/init.sh
 
-.PHONY: compose-up seed api web engine engine-test engine-eval test test-integration check verify-live init
+.PHONY: compose-up seed api web engine engine-test engine-eval engine-eval-estimate test test-integration check verify-live init

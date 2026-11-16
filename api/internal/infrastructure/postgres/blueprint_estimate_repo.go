@@ -21,9 +21,9 @@ func NewBlueprintEstimateRepo(pool *pgxpool.Pool) *BlueprintEstimateRepo {
 func (r *BlueprintEstimateRepo) Get(ctx context.Context, blueprintID, id string) (entity.BlueprintEstimate, error) {
 	var e entity.BlueprintEstimate
 	var result string
-	err := r.pool.QueryRow(ctx, `SELECT id, session_id, blueprint_id, version, total_low, total_base, total_high, result::text, created_at
+	err := r.pool.QueryRow(ctx, `SELECT id, blueprint_id, version, total_low, total_base, total_high, result::text, created_at
 		FROM blueprint_estimates WHERE blueprint_id = $1 AND id = $2`, blueprintID, id).
-		Scan(&e.ID, &e.SessionID, &e.BlueprintID, &e.Version, &e.TotalLow, &e.TotalBase, &e.TotalHigh, &result, &e.CreatedAt)
+		Scan(&e.ID, &e.BlueprintID, &e.Version, &e.TotalLow, &e.TotalBase, &e.TotalHigh, &result, &e.CreatedAt)
 	if err != nil {
 		return entity.BlueprintEstimate{}, mapErr(err)
 	}
@@ -32,7 +32,7 @@ func (r *BlueprintEstimateRepo) Get(ctx context.Context, blueprintID, id string)
 }
 
 func (r *BlueprintEstimateRepo) ListByBlueprint(ctx context.Context, blueprintID string) ([]entity.BlueprintEstimate, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id, session_id, blueprint_id, version, total_low, total_base, total_high, created_at
+	rows, err := r.pool.Query(ctx, `SELECT id, blueprint_id, version, total_low, total_base, total_high, created_at
 		FROM blueprint_estimates WHERE blueprint_id = $1 ORDER BY created_at DESC`, blueprintID)
 	if err != nil {
 		return nil, mapErr(err)
@@ -41,7 +41,7 @@ func (r *BlueprintEstimateRepo) ListByBlueprint(ctx context.Context, blueprintID
 	out := []entity.BlueprintEstimate{}
 	for rows.Next() {
 		var e entity.BlueprintEstimate
-		if err := rows.Scan(&e.ID, &e.SessionID, &e.BlueprintID, &e.Version, &e.TotalLow, &e.TotalBase, &e.TotalHigh, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.BlueprintID, &e.Version, &e.TotalLow, &e.TotalBase, &e.TotalHigh, &e.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, e)

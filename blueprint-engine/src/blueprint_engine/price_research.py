@@ -283,6 +283,16 @@ class LLMWebPriceSource:
                         on_result(res)
         return [results[r.code] for r in requests]
 
+    @staticmethod
+    def _map(fn, items):
+        """fn over items on threads, results in input order; a failing call raises as it would in a plain loop."""
+        items = list(items)
+        if len(items) < 2:
+            return [fn(i) for i in items]
+        ctx = contextvars.copy_context()
+        with ThreadPoolExecutor(max_workers=len(items)) as pool:
+            return list(pool.map(lambda i: ctx.copy().run(fn, i), items))
+
     def _none(self, r: RateRequest, note: str) -> RateResult:
         return RateResult(code=r.code, unit=r.unit, region=r.region, quality=r.quality, confidence="none", note=note)
 
@@ -298,14 +308,16 @@ class LLMWebPriceSource:
         hits: list[Hit] = []
         seen: set[str] = set()
         queries = [q for q in (region_query(x, r.region) for x in qs.queries) if q] or [f"unit price {r.description} {r.region} Vietnam"[:150]]
-        for q in queries:
-            for h in self.search.search(q, 5):
+        for found_hits in self._map(lambda q: self.search.search(q, 5), queries):  # searches run at once, order kept
+            for h in found_hits:
                 if h.url not in seen:
                     seen.add(h.url)
                     hits.append(h)
         found: list[tuple[float, RateSource]] = []
-        for h in hits[: self.max_pages]:
-            page = self.fetch(h.url) or norm_ws(f"{h.title}. {h.snippet}")
+        top = hits[: self.max_pages]
+        # pages are fetched at once (network); the model reads them one after another, as the local model serves one request at a time
+        pages = self._map(lambda h: self.fetch(h.url) or norm_ws(f"{h.title}. {h.snippet}"), top)
+        for h, page in zip(top, pages):
             if not page:
                 continue
             finds = self.llm.structured(

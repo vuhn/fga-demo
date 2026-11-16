@@ -6,18 +6,20 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 )
 
-// EstimateSessionGateway is the estimate_sessions and estimate_messages display record.
+// EstimateSessionGateway is the estimate_sessions and estimate_messages display record: one session per blueprint.
 type EstimateSessionGateway interface {
-	Create(ctx context.Context, s entity.EstimateSession) error
-	Get(ctx context.Context, id string) (entity.EstimateSession, error)
-	// ListByBlueprint returns the sessions of a blueprint, newest first, without their state.
-	ListByBlueprint(ctx context.Context, blueprintID string) ([]entity.EstimateSession, error)
+	// Replace makes s the blueprint's session: any earlier one is reset (messages deleted, state cleared, epoch
+	// raised) and s's version, creator and empty state stored, in one transaction. The blueprint's finished
+	// estimates are not touched.
+	Replace(ctx context.Context, s entity.EstimateSession) error
+	// Get returns the blueprint's session (ErrNotFound when it has none).
+	Get(ctx context.Context, blueprintID string) (entity.EstimateSession, error)
 	// Messages returns the session's messages in order.
-	Messages(ctx context.Context, sessionID string) ([]entity.EstimateMessage, error)
-	// AppendTurn stores the user message, the assistant message, the new state and status, and the estimate when
-	// there is one, in one transaction, only while the session's seq is still `seq` (ErrConflict and nothing
-	// written otherwise).
-	AppendTurn(ctx context.Context, s entity.EstimateSession, seq int, user, assistant entity.EstimateMessage, est *entity.BlueprintEstimate) error
+	Messages(ctx context.Context, blueprintID string) ([]entity.EstimateMessage, error)
+	// AppendTurn stores the user message, the assistant message and the new state, and the estimate when there is
+	// one, in one transaction, only while the session's epoch and seq are still those of s read before the turn
+	// (ErrConflict and nothing written otherwise).
+	AppendTurn(ctx context.Context, s entity.EstimateSession, state []byte, user, assistant entity.EstimateMessage, est *entity.BlueprintEstimate) error
 }
 
 // BlueprintEstimateGateway reads the finished estimates (they are written by AppendTurn).

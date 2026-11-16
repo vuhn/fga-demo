@@ -21,7 +21,7 @@ class LLMError(RuntimeError):
 
 
 class LLMClient(Protocol):
-    def structured(self, system: str, user: str, schema: type[T]) -> T: ...
+    def structured(self, system: str, user: str, schema: type[T], max_tokens: int | None = None) -> T: ...
 
     def stream_text(self, system: str, user: str) -> Iterator[str]: ...
 
@@ -41,9 +41,9 @@ class OllamaClient:
         # show the model's reasoning on the streaming endpoints; BLUEPRINT_STREAM_THINKING=0 turns it off
         self.stream_thinking = os.getenv("BLUEPRINT_STREAM_THINKING", "1") != "0"
 
-    def _chat(self, model: str, messages: list[dict], schema: dict) -> str:
+    def _chat(self, model: str, messages: list[dict], schema: dict, max_tokens: int | None = None) -> str:
         if self.stream_thinking and progress.thinking_wanted():
-            return self._chat_streaming(model, messages, schema)
+            return self._chat_streaming(model, messages, schema, max_tokens)
         try:
             resp = self.http.post(
                 f"{self.base_url}/api/chat",
@@ -53,7 +53,7 @@ class OllamaClient:
                     "format": schema,
                     "stream": False,
                     "think": False,
-                    "options": {"temperature": 0, "num_ctx": 8192},
+                    "options": {"temperature": 0, "num_ctx": 8192, **({"num_predict": max_tokens} if max_tokens else {})},
                 },
             )
         except httpx.HTTPError as e:
@@ -62,7 +62,7 @@ class OllamaClient:
             raise LLMError(f"Ollama {resp.status_code}: {resp.text[:300]}")
         return resp.json()["message"]["content"]
 
-    def _chat_streaming(self, model: str, messages: list[dict], schema: dict) -> str:
+    def _chat_streaming(self, model: str, messages: list[dict], schema: dict, max_tokens: int | None = None) -> str:
         """Same call with thinking on and the answer streamed: the model's reasoning goes to the
         progress sink (shown live, never stored); the JSON answer is returned whole. Chunks are
         coalesced to about one event per 150 ms."""
@@ -70,7 +70,7 @@ class OllamaClient:
         messages = [{**m, "content": m["content"] + "\n\nThink briefly: a few short sentences, then answer."}
                     if m["role"] == "system" else m for m in messages]
         body = {"model": model, "messages": messages, "format": schema, "stream": True, "think": True,
-                "options": {"temperature": 0, "num_ctx": 8192}}
+                "options": {"temperature": 0, "num_ctx": 8192, **({"num_predict": max_tokens} if max_tokens else {})}}
         content: list[str] = []
         pending: list[str] = []
         last = time.monotonic()
@@ -94,13 +94,13 @@ class OllamaClient:
         progress.emit_thinking("".join(pending))
         return "".join(content)
 
-    def structured(self, system, user, schema):
+    def structured(self, system, user, schema, max_tokens=None):
         model = self.text_model
         messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
         json_schema = schema.model_json_schema()
         last_err = ""
         for _ in range(2):
-            raw = self._chat(model, messages, json_schema)
+            raw = self._chat(model, messages, json_schema, max_tokens)
             try:
                 return schema.model_validate(json.loads(raw))
             except (json.JSONDecodeError, ValidationError) as e:

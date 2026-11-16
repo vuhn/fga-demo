@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import math
+import threading
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,6 +13,7 @@ from shapely.geometry import Polygon
 
 import sample_dxf
 from blueprint_engine import estimate_agent as ag
+from blueprint_engine import estimate_reading as rd
 from blueprint_engine import price_research as pr
 from blueprint_engine.app import create_app
 from blueprint_engine.dxf_plan import import_dxf
@@ -47,17 +49,43 @@ class FakePrices:
 
 
 class FakeLLM:
-    """structured(): the next scripted Extracted (or the schema's own default); stream_text(): scripted chunks."""
+    """structured(): the next scripted reading, turned into the claims the model would return for the two calls the agent makes per
+    message. A script entry is one message's reading in the agent's field names; its quotes are the whole message unless "evidence"
+    ({field: quote}) is given, and then a field without an entry gets no claim. stream_text(): scripted chunks."""
 
     def __init__(self, *extractions, chunks=("Hello ", "there.")):
         self.extractions = list(extractions)
         self.chunks = chunks
         self.streams: list[str] = []
+        self.calls = 0
+        self.lock = threading.Lock()
 
-    def structured(self, system, user, schema):
-        if schema is ag.Extracted:
-            data = self.extractions.pop(0) if self.extractions else {}
-            return ag.Extracted.model_validate(data)
+    @staticmethod
+    def _claims(data, message, table, cls):
+        ev = data.get("evidence")
+        out = []
+        for claim_field, (name, many) in table.items():
+            v = data.get(name)
+            if v is None or v == [] or (v is False and name in ("use_typical_markups", "fixtures_all_exist", "fixtures_none_exist")):
+                continue
+            quote = message if ev is None else ev.get(name)
+            if quote is None:
+                continue
+            vals = v if many else [v]
+            for x in vals:
+                if name == "scope_rooms":
+                    x = f"{x['room_id']}={x['state']}"
+                out.append({"quote": quote, "field": claim_field, "value": str(x).lower() if isinstance(x, bool) else str(x)})
+        return cls.model_validate({"claims": out})
+
+    def structured(self, system, user, schema, max_tokens=None):
+        with self.lock:
+            n = self.calls
+            self.calls += 1
+            data = self.extractions[n // 4] if n // 4 < len(self.extractions) else {}
+        message = user.split("<message>\n", 1)[1].rsplit("\n</message>", 1)[0]
+        if schema in rd.CLAIM_TABLES:
+            return self._claims(data, message, rd.CLAIM_TABLES[schema], schema)
         raise AssertionError(schema)
 
     def stream_text(self, system, user):
@@ -203,7 +231,7 @@ class ResearchLLM:
     def __init__(self, finds):
         self.finds, self.user_prompts = finds, []
 
-    def structured(self, system, user, schema):
+    def structured(self, system, user, schema, max_tokens=None):
         self.user_prompts.append(user)
         if schema is pr.Queries:
             return pr.Queries(queries=["đơn giá gạch lát nền"])
@@ -275,6 +303,20 @@ def test_the_example_conversation_asks_before_it_assumes(plan):
     t3 = turn(llm, plan, t2.state, "Except the toilets, everything is empty", prices)
     assert t3.question.id == "floor_height"  # the next missing thing, not an estimate
     assert {t3.state.scope[i].state for i in wc_ids} == {"existing"} and prices.seen == []
+
+
+def test_a_place_answer_is_split_by_code_and_an_empty_shell_is_a_fit_out(plan):
+    # the model hands back the whole answer as the city; code knows the city and keeps the rest as the district
+    st = SessionState(pending=["city"])
+    out = turn(FakeLLM({"city": "District 7, Ho Chi Minh City", "district": "Ho Chi Minh City"}), plan, st, "District 7, Ho Chi Minh City")
+    assert out.state.facts["city"].value == "Ho Chi Minh City" and out.state.facts["district"].value == "District 7"
+    out = turn(FakeLLM({"city": "Thu Duc"}), plan, SessionState(pending=["city"]), "Thu Duc, Ho Chi Minh City")
+    assert out.state.facts["city"].value == "Ho Chi Minh City" and out.state.facts["district"].value == "Thu Duc"
+    # "empty shell" already says what kind of work it is, so it is not asked again
+    out = turn(FakeLLM({"kind": "house", "scope_default": "empty"}), plan, SessionState(), "A house in Hanoi, only the empty shell")
+    assert out.state.facts["work_type"].value == "fit_out" and "work_type" not in out.state.pending
+    out = turn(FakeLLM({}), plan, SessionState(), "Renovation of an empty shell")
+    assert out.state.facts["work_type"].value == "renovation"
 
 
 def test_i_dont_know_is_recorded_as_assumed_and_shown_in_the_result(plan):
@@ -465,14 +507,14 @@ def test_extraction_calls_ask_for_no_live_thinking(plan):
     seen = []
 
     class Spy(FakeLLM):
-        def structured(self, system, user, schema):
+        def structured(self, system, user, schema, max_tokens=None):
             from blueprint_engine import progress
             seen.append(progress.thinking_wanted())
-            return super().structured(system, user, schema)
+            return super().structured(system, user, schema, max_tokens)
 
     c = stream_client(Spy({}))
     post(c, plan, SessionState(), "hi")
-    assert seen == [False]
+    assert seen == [False] * 4  # every reading is quiet
 
 
 def test_code_reads_what_the_llm_missed_and_drops_an_unprompted_scope(plan):
@@ -531,10 +573,10 @@ def test_the_region_is_pinned_by_code_not_the_model():
 
 def test_a_query_naming_the_wrong_city_never_reaches_the_search_provider():
     class WrongCity(ResearchLLM):
-        def structured(self, system, user, schema):
+        def structured(self, system, user, schema, max_tokens=None):
             if schema is pr.Queries:
                 return pr.Queries(queries=["đơn giá gạch lát nền Hà Nội", "floor tile price"])
-            return super().structured(system, user, schema)
+            return super().structured(system, user, schema, max_tokens)
 
     search = OneSearch()
     src = pr.LLMWebPriceSource(WrongCity([]), search, fetch=lambda u: "x", parallel=1)
@@ -622,7 +664,7 @@ def test_demo_search_prices_every_code_through_the_real_pipeline_and_labels_it()
     assert set(BASE) == set(RATE_CATALOG)  # nothing the takeoff can ask for is missing
 
     class Reader(ResearchLLM):  # a stand-in for the LLM that reads the page text it is given
-        def structured(self, system, user, schema):
+        def structured(self, system, user, schema, max_tokens=None):
             if schema is pr.Queries:
                 return pr.Queries(queries=["đơn giá"])
             import re
@@ -665,3 +707,118 @@ def test_include_or_exclude_mep_is_read_by_code(plan):
 def test_work_type_and_structure_keywords_are_read_by_code(plan):
     out = turn(FakeLLM({}), plan, SessionState(), "fit-out only, finishes only")
     assert out.state.facts["work_type"].value == "fit_out" and out.state.facts["structure_in_scope"].value is False
+
+
+# ---------- changing a finished estimate ----------
+
+
+def _finished(plan, prices=None):
+    st = full_state(plan)
+    first = turn(FakeLLM({}), plan, st, "go", prices=prices)
+    assert first.estimate is not None
+    return first
+
+
+def test_removing_an_item_from_a_finished_estimate_really_removes_it(plan):
+    first = _finished(plan)
+    assert {"door_interior", "door_entrance"} & {ln.code for ln in first.estimate.lines}
+    out = turn(FakeLLM({}), plan, first.state, "Remove the cost for the doors, they already exist")
+    codes = {ln.code for ln in out.estimate.lines}
+    assert not codes & {"door_interior", "door_entrance"} and "floor_tile" in codes
+    assert out.state.excluded == ["door_entrance", "door_interior"]
+    assert out.estimate.total["base"] < first.estimate.total["base"]
+    assert any(w.startswith("Left out at your request") for w in out.estimate.warnings)
+
+
+def test_the_model_cannot_remove_items_the_message_never_mentions(plan):
+    first = _finished(plan)
+    out = turn(FakeLLM({"exclude_items": ["floor_tile"]}), plan, first.state, "What is the biggest cost?")
+    assert out.state.excluded == [] and out.estimate is None  # nothing changed, no re-price
+
+
+def test_an_item_can_be_put_back(plan):
+    first = _finished(plan)
+    gone = turn(FakeLLM({}), plan, first.state, "skip the windows")
+    back = turn(FakeLLM({}), plan, gone.state, "add the windows back")
+    assert "window" not in {ln.code for ln in gone.estimate.lines}
+    assert "window" in {ln.code for ln in back.estimate.lines} and back.state.excluded == []
+
+
+def test_a_message_that_changes_nothing_never_claims_a_change(plan):
+    first = _finished(plan)
+    llm = FakeLLM({})
+    turn(llm, plan, first.state, "make the kitchen bigger")
+    assert any("Nothing in the estimate was changed" in s for s in llm.streams)
+    assert any("Never say or imply that anything was updated" in s for s in llm.streams)
+
+
+def test_the_reply_after_a_real_change_is_given_exactly_what_changed(plan):
+    first = _finished(plan)
+    llm = FakeLLM({})
+    turn(llm, plan, first.state, "the doors already exist")
+    assert any("changes_applied_this_turn" in s and "door_interior" in s for s in llm.streams)
+
+
+def test_an_exception_in_the_first_message_takes_that_opening_out(plan):
+    msg = ("This is an apartment in Da Nang, estimate the cost with normal quality.\n- Fixtures are almost empty, except entrance door.\n"
+           "- Rooms are empty cells")
+    out = turn(FakeLLM({}), plan, SessionState(), msg)
+    assert out.state.excluded == ["door_entrance"]
+    assert out.state.facts["fixtures"].value == "none exist"
+
+
+def test_exception_and_only_phrases_name_openings_only():
+    assert ag.exception_items("everything is empty except the entrance door") == ["door_entrance"]
+    assert ag.exception_items("only the windows are installed") == ["window"]
+    assert ag.exception_items("everything is empty except the toilets") == []  # a fixture: its own slot
+    assert ag.exception_items("estimate the cost, normal quality") == []
+
+
+# ---------- reading any language: the quote check, with the keyword rules off ----------
+
+
+@pytest.fixture
+def no_rules(monkeypatch):
+    monkeypatch.setattr(ag, "RULES", False)
+
+
+@pytest.mark.parametrize("quote,message,ok", [
+    ("except entrance door", "Fixtures are almost empty, except entrance door.", True),
+    ("EXCEPT   the Entrance Door", "fixtures are empty, except the entrance door", True),
+    ("trừ cửa chính", "Trừ cửa chính, thiết bị chưa có cái nào", True),
+    ("tru cua chinh", "Trừ cửa chính, thiết bị chưa có", True),                 # accents dropped by the model
+    ("入口のドアを除いて", "入口のドアを除いて、設備は何もありません", True),
+    ("typical percentages", "This is an apartment in Da Nang", False),           # invented
+    ("the doors exist", "Fixtures are empty, except the entrance door", False),  # not said
+    ("a", "a b c", False),                                                        # too short to prove anything
+])
+def test_a_quote_counts_only_when_it_is_in_the_message(quote, message, ok):
+    assert rd.grounded(quote, message) is ok
+
+
+def test_values_without_a_verified_quote_are_dropped(no_rules, plan):
+    llm = FakeLLM({"use_typical_markups": True, "exclude_items": ["door_interior"], "scope_default": "existing",
+                   "evidence": {"use_typical_markups": "typical percentages", "exclude_items": "doors exist"}})
+    out = turn(llm, plan, SessionState(), "This is an apartment, the rooms already exist, normal quality")
+    assert out.state.excluded == [] and out.state.scope == {}
+    assert not any(k.endswith("_percent") for k in out.state.facts)
+
+
+@pytest.mark.parametrize("message,quote,items", [
+    ("Fixtures are almost empty, except entrance door.", "except entrance door", ["door_entrance"]),
+    ("Trừ cửa chính, thiết bị chưa có cái nào", "Trừ cửa chính", ["door_entrance"]),
+    ("入口のドアを除いて、設備は何もありません", "入口のドアを除いて", ["door_entrance"]),
+])
+def test_the_model_reads_an_exception_in_any_language(no_rules, plan, message, quote, items):
+    llm = FakeLLM({"exclude_items": items, "fixtures_none_exist": True,
+                   "evidence": {"exclude_items": quote, "fixtures_none_exist": message}})
+    out = turn(llm, plan, SessionState(), message)
+    assert out.state.excluded == items and out.state.facts["fixtures"].value == "none exist"
+
+
+def test_the_two_readings_run_for_every_message_and_a_failure_is_not_hidden(plan):
+    class Down(FakeLLM):
+        def structured(self, system, user, schema, max_tokens=None):
+            raise ag.LLMError("ollama down")
+    with pytest.raises(ag.LLMError):
+        turn(Down(), plan, SessionState(), "apartment in Da Nang")

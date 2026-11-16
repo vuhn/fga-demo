@@ -16,7 +16,6 @@ type EstimateUsecases struct {
 	SessionCreator usecase.EstimateSessionCreator
 	Messenger      usecase.EstimateSessionMessenger
 	SessionGetter  usecase.EstimateSessionGetter
-	SessionLister  usecase.EstimateSessionLister
 	EstimateGetter usecase.EstimateGetter
 	EstimateLister usecase.EstimateLister
 }
@@ -27,24 +26,16 @@ func NewEstimateHandler(uc EstimateUsecases) *EstimateHandler { return &Estimate
 
 func (h *EstimateHandler) Register(r Routes) {
 	g := r.Tenanted
-	g.POST("/blueprints/:id/estimate-sessions", h.createSession)
-	g.GET("/blueprints/:id/estimate-sessions", h.listSessions)
+	g.POST("/blueprints/:id/estimate-session", h.startSession)
+	g.GET("/blueprints/:id/estimate-session", h.getSession)
+	g.POST("/blueprints/:id/estimate-session/messages", h.send)
 	g.GET("/blueprints/:id/estimates", h.listEstimates)
 	g.GET("/blueprints/:id/estimates/:eid", h.getEstimate)
-	g.POST("/estimate-sessions/:sid/messages", h.send)
-	g.GET("/estimate-sessions/:sid", h.getSession)
-}
-
-func estimateSessionSummary(s entity.EstimateSession) map[string]any {
-	return map[string]any{
-		"id": s.ID, "blueprint_id": s.BlueprintID, "blueprint_version": s.BlueprintVersion, "status": s.Status, "turns": s.Seq,
-		"created_by": s.CreatedBy, "created_at": s.CreatedAt, "updated_at": s.UpdatedAt,
-	}
 }
 
 func estimateSummary(e entity.BlueprintEstimate) map[string]any {
 	return map[string]any{
-		"id": e.ID, "session_id": e.SessionID, "blueprint_id": e.BlueprintID, "version": e.Version,
+		"id": e.ID, "blueprint_id": e.BlueprintID, "version": e.Version,
 		"total_low": e.TotalLow, "total_base": e.TotalBase, "total_high": e.TotalHigh, "created_at": e.CreatedAt,
 	}
 }
@@ -56,27 +47,20 @@ func estimateView(e entity.BlueprintEstimate) map[string]any {
 }
 
 func estimateSessionView(d usecase.EstimateSessionDetail) map[string]any {
-	m := estimateSessionSummary(d.Session)
-	m["state"] = d.Session.State
 	msgs := make([]map[string]any, 0, len(d.Messages))
 	for _, x := range d.Messages {
 		msgs = append(msgs, map[string]any{"seq": x.Seq, "role": x.Role, "content": x.Content, "created_at": x.CreatedAt})
 	}
-	m["messages"] = msgs
-	if d.Estimate != nil {
-		m["estimate"] = estimateView(*d.Estimate)
+	s := d.Session
+	return map[string]any{
+		"blueprint_id": s.BlueprintID, "blueprint_version": s.BlueprintVersion, "status": s.Status(), "turns": s.Seq,
+		"state": s.State, "messages": msgs, "created_by": s.CreatedBy, "created_at": s.CreatedAt, "updated_at": s.UpdatedAt,
 	}
-	return m
 }
 
-func (h *EstimateHandler) createSession(c *gin.Context) {
+func (h *EstimateHandler) startSession(c *gin.Context) {
 	d, err := h.uc.SessionCreator.Create(c, actor(c), tenant(c), c.Param("id"))
 	respond(c, http.StatusCreated, estimateSessionView(d), err)
-}
-
-func (h *EstimateHandler) listSessions(c *gin.Context) {
-	ss, err := h.uc.SessionLister.List(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ss, estimateSessionSummary), err)
 }
 
 func (h *EstimateHandler) listEstimates(c *gin.Context) {
@@ -90,7 +74,7 @@ func (h *EstimateHandler) getEstimate(c *gin.Context) {
 }
 
 func (h *EstimateHandler) getSession(c *gin.Context) {
-	d, err := h.uc.SessionGetter.Get(c, actor(c), tenant(c), c.Param("sid"))
+	d, err := h.uc.SessionGetter.Get(c, actor(c), tenant(c), c.Param("id"))
 	respond(c, http.StatusOK, estimateSessionView(d), err)
 }
 
@@ -122,7 +106,7 @@ func (h *EstimateHandler) send(c *gin.Context) {
 		fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", event, data)
 		c.Writer.Flush()
 	}
-	d, err := h.uc.Messenger.Send(c.Request.Context(), actor(c), tenant(c), c.Param("sid"), body.Message, body.Overrides,
+	d, err := h.uc.Messenger.Send(c.Request.Context(), actor(c), tenant(c), c.Param("id"), body.Message, body.Overrides,
 		func(ev entity.EstimateEvent) { emit(ev.Name, ev.Data) })
 	if err != nil {
 		if !started {

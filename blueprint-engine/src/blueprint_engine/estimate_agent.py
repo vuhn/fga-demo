@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from dataclasses import dataclass
 from typing import Callable, Literal
@@ -15,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from . import progress
 from .estimate import DEFAULT_MARKUPS, price
+from .estimate_reading import ExistingReading, FactsReading, RoomStateIn, read_message
 from .estimate_models import (
     Estimate, Fact, Message, Question, Quality, RateResult, RateSource, RoomScope, RoomState, SessionState, Takeoff, WorkType,
 )
@@ -24,6 +26,9 @@ from .schemas import BuildingModel
 from .takeoff import PRICED_FIXTURES, RATE_CATALOG, pending_fixtures, structure_in_scope, takeoff
 
 MAX_RATES = 40
+# Language-specific rules (English keyword guards) on top of the model's reading. The model's reading is always verified against the
+# message; ESTIMATE_RULES=off drops the keyword layer, which is how eval/estimate_run.py measures what each rule still buys.
+RULES = os.getenv("ESTIMATE_RULES", "on") != "off"
 UNKNOWN_OPTION = "I don't know, you decide"
 UNKNOWN_RE = re.compile(r"don'?t know|do not know|you decide|up to you|not sure|không biết|tùy|tuỳ|bạn quyết|bạn chọn", re.I)
 TYPICAL_RE = re.compile(r"\btypical (rates|percent|markup)|\busual (rates|percent)|\bstandard rates\b|thông thường", re.I)
@@ -33,8 +38,9 @@ KIND_RE = {"apartment": re.compile(r"\b(apartment|flat|condo|condominium)\b|căn
            "house": re.compile(r"\b(house|villa|townhouse)\b|nhà phố|biệt thự", re.I)}
 QUALITY_RE = {"typical": re.compile(r"\b(typical|economy|basic)\b", re.I), "normal": re.compile(r"\b(normal|standard|medium|mid-range)\b", re.I),
               "good": re.compile(r"\b(good|high quality)\b", re.I), "luxury": re.compile(r"\b(luxury|luxurious|premium)\b|cao cấp", re.I)}
-WORK_RE = {"new_build": re.compile(r"\bnew build\b|xây mới", re.I), "fit_out": re.compile(r"\bfit-?out\b|hoàn thiện nội thất", re.I),
-           "renovation": re.compile(r"\brenovat|\bcải tạo", re.I)}
+# an explicit word for the work beats the one that is only implied, so renovation is tried first and "empty shell" (= fit-out) last
+WORK_RE = {"renovation": re.compile(r"\brenovat|\bcải tạo", re.I), "new_build": re.compile(r"\bnew build\b|xây mới", re.I),
+           "fit_out": re.compile(r"\bfit-?out\b|hoàn thiện nội thất|\b(empty|bare|raw|rough) shell\b", re.I)}
 TYPE_WORDS: dict[str, re.Pattern] = {
     "bathroom": re.compile(r"\b(toilets?|wc|wcs|bath(room)?s?|restrooms?|lavator(y|ies))\b|vệ sinh|nhà tắm", re.I),
     "bedroom": re.compile(r"\bbed ?rooms?\b|phòng ngủ", re.I),
@@ -52,11 +58,6 @@ NUM_RE = re.compile(r"(\d+(?:[.,]\d+)?)")
 
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
-
-class RoomStateIn(_Strict):
-    room_id: str
-    state: RoomState
 
 
 class Extracted(_Strict):
@@ -81,29 +82,11 @@ class Extracted(_Strict):
     fixtures_existing: list[str] = Field(default_factory=list, max_length=60)  # fixture ids the person says are already installed
     fixtures_all_exist: bool = False
     fixtures_none_exist: bool = False
+    exclude_items: list[str] = Field(default_factory=list, max_length=30)  # rate codes to take out of the estimate
+    include_items: list[str] = Field(default_factory=list, max_length=30)  # rate codes to put back
     use_typical_markups: bool = False
     decide_for_me: list[str] = Field(default_factory=list, max_length=12)
     explain: str | None = Field(default=None, max_length=80)
-
-
-EXTRACT_SYSTEM = (
-    "You read one message from a person who is getting a construction cost estimate for a floor plan, and fill in only what the "
-    "message states. Leave every other field null. Never guess or infer a value the person did not say.\n"
-    "- scope_default / scope_rooms: the condition of rooms: empty (bare shell, nothing finished), existing (already finished, no work), "
-    "to_replace (strip and redo), new (to be built). 'Everything is empty except the toilets' = scope_default empty and the bathroom rooms existing. "
-    "Use the room_id values from the room list only. That the rooms 'exist' as a layout says NOTHING about their condition: leave "
-    "scope_default and scope_rooms null unless the person says whether rooms are empty, finished, to be replaced or new.\n"
-    "- work_type: new_build, fit_out (finishing an empty shell), renovation.\n"
-    "- decide_for_me: slot names the person gives up on ('I don't know', 'you decide'). If a question was just asked and the person gives up, "
-    "list its slot.\n"
-    "- explain: set when the person asks why a cost line is what it is; put the item they name.\n"
-    "- fixtures_existing: ids from the fixture list the person says are ALREADY installed. A floor plan only shows where fixtures go, so they "
-    "are assumed NOT installed; set fixtures_all_exist / fixtures_none_exist only if the person says so.\n"
-    "- use_typical_markups: true ONLY when they say to use typical or usual percentages.\n"
-    "Examples. 'This is an apartment, the rooms already exist, normal quality' -> kind apartment, quality normal, everything else null "
-    "(nothing was said about empty or finished rooms). 'Except the toilets, everything is empty' -> scope_default empty and the bathroom "
-    "room_ids as existing in scope_rooms. 'I don't know' -> decide_for_me with the slot just asked."
-)
 
 
 def _slot_default(name: str, model: BuildingModel) -> list[tuple[str, object, str]]:
@@ -228,8 +211,16 @@ def apply_extraction(state: SessionState, model: BuildingModel, ex: Extracted, m
         v = getattr(ex, name)
         if v is not None:
             _set_fact(state, name, v, "user", changed)
+    valid = set(RATE_CATALOG)
+    drop = [c for c in ex.exclude_items if c in valid]
+    back = [c for c in ex.include_items if c in valid]
+    if drop or back:
+        before = set(state.excluded)
+        state.excluded = sorted((before | set(drop)) - set(back))
+        if set(state.excluded) != before:
+            changed.append(("excluded", ", ".join(state.excluded) or "nothing", "user"))
     # A small model sometimes sets these flags unprompted. The words must really be in the message, or nothing is assumed.
-    if TYPICAL_RE.search(message) and (ex.use_typical_markups or state.pending[:1] == ["markups"]):
+    if (not RULES or TYPICAL_RE.search(message)) and (ex.use_typical_markups or (RULES and state.pending[:1] == ["markups"])):
         for k, v in DEFAULT_MARKUPS.items():
             if k not in state.facts or state.facts[k].source != "user":
                 _set_fact(state, k, v, "assumed", changed)
@@ -242,9 +233,9 @@ def apply_extraction(state: SessionState, model: BuildingModel, ex: Extracted, m
     for rs in ex.scope_rooms:
         if rs.room_id in ids:
             _set_scope(state, rs.room_id, rs.state, "user", changed)
-    if state.pending[:1] == ["fixtures"] or "fixtures" in state.facts or re.search(r"fixture|toilet|wc|basin|shower|bathtub|sink|wardrobe|cabinet|kitchen", message, re.I):
+    if not RULES or state.pending[:1] == ["fixtures"] or "fixtures" in state.facts or re.search(r"fixture|toilet|wc|basin|shower|bathtub|sink|wardrobe|cabinet|kitchen", message, re.I):
         fx_ids = {f.id for f in model.fixtures if f.kind in PRICED_FIXTURES}
-        ok = _referred_fixtures(model, message)
+        ok = _referred_fixtures(model, message) if RULES else fx_ids
         listed = [i for i in ex.fixtures_existing if i in fx_ids and i in ok]
         if ex.fixtures_all_exist:
             listed = sorted(fx_ids)
@@ -252,7 +243,7 @@ def apply_extraction(state: SessionState, model: BuildingModel, ex: Extracted, m
             state.fixtures_existing = sorted(set(listed))
             _set_fact(state, "fixtures", "all exist" if ex.fixtures_all_exist else ("none exist" if not listed else "some exist"), "user", changed)
     gave_up: list[str] = []
-    if UNKNOWN_RE.search(message):
+    if UNKNOWN_RE.search(message) if RULES else ex.decide_for_me:
         gave_up = [x for x in ex.decide_for_me if x in SLOT_NAMES] or state.pending[:1]
     for slot in gave_up:
         if slot == "scope":
@@ -272,7 +263,7 @@ def apply_extraction(state: SessionState, model: BuildingModel, ex: Extracted, m
 def fingerprint(state: SessionState) -> str:
     blob = json.dumps({"f": {k: v.value for k, v in sorted(state.facts.items())},
                        "s": {k: v.state for k, v in sorted(state.scope.items())},
-                       "o": dict(sorted(state.rate_overrides.items()))}, sort_keys=True, default=str)
+                       "o": dict(sorted(state.rate_overrides.items())), "x": sorted(state.excluded)}, sort_keys=True, default=str)
     return hashlib.sha1(blob.encode()).hexdigest()[:16]
 
 
@@ -294,6 +285,49 @@ def _room_list(model: BuildingModel) -> str:
 
 def _facts_text(state: SessionState) -> str:
     return "\n".join(f"- {k} = {v.value} ({v.source})" for k, v in state.facts.items()) or "(none yet)"
+
+
+ITEM_WORDS: dict[str, tuple[str, ...]] = {
+    "doors?|cửa đi|cửa": ("door_interior", "door_entrance"), "entrance doors?|front doors?|main doors?|cửa chính|cửa ra vào": ("door_entrance",),
+    "interior doors?": ("door_interior",), "windows?|cửa sổ": ("window",), "paint(ing)?|sơn": ("paint",),
+    "floor(ing)? tiles?|floor(ing)?|lát nền": ("floor_tile",), "wall tiles?|ốp tường": ("wall_tile",),
+    "ceilings?|trần": ("ceiling",), "plaster(ing)?|trát": ("plaster",), "skirting": ("skirting",),
+    "waterproofing|chống thấm": ("waterproofing",), "demolition": ("demolition_finish",),
+    "electrical|wiring": ("electrical_point",), "plumbing": ("plumbing_point",),
+    "toilets?|wc": ("fixture_toilet",), "basins?": ("fixture_basin",), "showers?": ("fixture_shower",),
+    "bath ?tubs?": ("fixture_bathtub",), "sinks?": ("fixture_sink",), "kitchen (counter|cabinet)s?": ("fixture_kitchen_counter",),
+    "wardrobes?": ("fixture_wardrobe",),
+}
+DROP_RE = re.compile(r"\b(remove|exclude|drop|delete|skip|take out|leave out|no need for|don'?t (include|price|count)|without)\b|\bno cost\b|"
+                     r"\b(already|is|are) (exist|exists|existing|installed|there|done|built)\b|\balready (have|has)\b", re.I)
+# "except the entrance door", "only the entrance door exists", "the entrance door is in place": the work on that item is already done
+EXCEPT_RE = re.compile(r"\b(?:except(?: for)?|apart from|other than|but for|besides)\s+(?:the\s+)?([^.;\n]+)|\btrừ\s+([^.;\n]+)", re.I)
+ONLY_RE = re.compile(r"\bonly (?:the )?([^.;\n]+?)\s+(?:is|are|exists?|installed|there|in place|done)\b", re.I)
+IN_PLACE_RE = re.compile(r"\b(?:in place|installed|existing|exist|exists|done|built|there)\b", re.I)
+# the items an "except ..." may take out: openings only; for fixtures and rooms an exception is about their condition, handled elsewhere
+OPENING_CODES = {"door_interior", "door_entrance", "window"}
+ADD_RE = re.compile(r"\b(add|include|put back|restore|bring back)\b.*\b(again|back)\b|\b(add|include) (the )?[a-z ]+ (back|again)\b", re.I)
+
+
+def exception_items(message: str) -> list[str]:
+    """Opening items the person says already exist by naming them as the exception or the only ones ("fixtures are empty, except the
+    entrance door"). Fixtures and rooms are left to their own slots."""
+    clauses = [g for m in EXCEPT_RE.finditer(message) for g in m.groups() if g] + [m.group(1) for m in ONLY_RE.finditer(message)]
+    out: list[str] = []
+    for c in clauses:
+        out += [i for i in _items_in(c) if i in OPENING_CODES and i not in out]
+    return out
+
+
+def _items_in(message: str) -> list[str]:
+    """Rate codes a message names. Longer phrases claim their words first ("entrance door" before "door")."""
+    low, found = message.lower(), []
+    for pat in sorted(ITEM_WORDS, key=len, reverse=True):
+        if re.search(rf"\b({pat})\b", low):
+            if any(c in found for c in ITEM_WORDS[pat]) and pat in ("doors?|cửa đi|cửa",):
+                continue
+            found += [c for c in ITEM_WORDS[pat] if c not in found]
+    return found
 
 
 CITY_RE: dict[str, re.Pattern] = {
@@ -336,6 +370,13 @@ def fallback_extraction(state: SessionState, model: BuildingModel, message: str)
         out["structure_in_scope"] = False
     elif re.search(r"\b(include|including|with) (the )?structure\b", low):
         out["structure_in_scope"] = True
+    items = _items_in(m)
+    if items and ADD_RE.search(m) and (state.estimate is not None or state.excluded):
+        out["include_items"] = items
+    elif items and DROP_RE.search(m):
+        out["exclude_items"] = items
+    if not out.get("exclude_items") and (ex := exception_items(m)):
+        out["exclude_items"] = ex
     if mm := MEP_RE.search(m):
         out["mep_in_scope"] = not re.match(r"(exclude|without|no|skip)", mm.group(1), re.I)
     asked = state.pending[0] if state.pending else ""
@@ -345,10 +386,16 @@ def fallback_extraction(state: SessionState, model: BuildingModel, message: str)
                 out["work_type"] = k
                 break
     elif asked == "city" and 1 < len(m) <= 60 and not UNKNOWN_RE.search(m):
-        parts = [x.strip() for x in m.split(",")]
-        out["city"] = parts[0]
-        if len(parts) > 1 and parts[1]:
-            out["district"] = parts[1]
+        parts = [x.strip() for x in m.split(",") if x.strip()]
+        known = out.get("city")  # a city we recognise wins wherever it stands in "District 7, Ho Chi Minh City"
+        if known:
+            rest = [x for x in parts if not CITY_RE[known].search(x)]
+            if rest:
+                out["district"] = rest[0]
+        elif parts:
+            out["city"] = parts[0]
+            if len(parts) > 1:
+                out["district"] = parts[1]
     elif asked in ("floor_height", "storeys") and (n := NUM_RE.search(m)):
         v = float(n.group(1).replace(",", "."))
         if asked == "floor_height" and 2.2 <= v <= 6:
@@ -361,7 +408,7 @@ def fallback_extraction(state: SessionState, model: BuildingModel, message: str)
         elif re.match(r"\s*(no|exclude|finishes only)", low):
             out[asked] = False
     if asked == "fixtures" or "fixture" in low:
-        if low.startswith("none of them") or re.search(r"\bnone\b.*\b(exist|installed)|nothing (is )?installed", low):
+        if low.startswith("none of them") or re.search(r"\bfixtures?\b.{0,20}\b(empty|none|bare|absent)\b", low) or re.search(r"\bnone\b.*\b(exist|installed)|nothing (is )?installed", low):
             out["fixtures_none_exist"] = True
         elif low.startswith("all of them") or re.search(r"\ball\b.*\b(exist|installed)", low):
             out["fixtures_all_exist"] = True
@@ -402,8 +449,12 @@ def _merge(ex: Extracted, fb: dict, message: str, model: BuildingModel) -> Extra
     """The LLM's reading, with code's certain readings filling the gaps and the LLM's unprompted scope dropped."""
     data = ex.model_dump()
     for k, v in fb.items():
-        if data.get(k) in (None, [], False):
+        if data.get(k) in (None, [], False) or k in ("city", "district"):  # code's reading of a place is certain (the model splits it badly)
             data[k] = v
+    if not (DROP_RE.search(message) or exception_items(message)):  # a small model must not take work out unprompted
+        data["exclude_items"] = []
+    if not re.search(r"\b(add|include|put|restore|bring)\b", message, re.I):
+        data["include_items"] = []
     if "scope_rooms" not in fb:  # the model's per-room list may only name rooms the message refers to
         ok = _referred_rooms(model, message)
         data["scope_rooms"] = [r for r in data["scope_rooms"] if r["room_id"] in ok]
@@ -415,16 +466,23 @@ def _merge(ex: Extracted, fb: dict, message: str, model: BuildingModel) -> Extra
     return Extracted.model_validate(data)
 
 
+def _merged(facts: FactsReading, existing: ExistingReading) -> Extracted:
+    return Extracted.model_validate({**facts.model_dump(), **existing.model_dump()})
+
+
 def _extract(llm: LLMClient, model: BuildingModel, state: SessionState, message: str, history: list[Message]) -> Extracted:
     asked = ""
     if state.pending:
         asked = f"\nQuestion just asked (slot {state.pending[0]}): " + next(
             (m.content for m in reversed(history) if m.role == "assistant"), "")[:600]
-    prompt = (f"Rooms in the plan:\n{_room_list(model)}\n\nFacts so far:\n{_facts_text(state)}{asked}\n\n"
-              f"The person's message:\n<message>\n{message}\n</message>")
+    rooms, _, fixtures = _room_list(model).partition("\n\nFixtures in the plan:\n")
     with progress.quiet_thinking():
-        ex = llm.structured(EXTRACT_SYSTEM, prompt, Extracted)
-    return _merge(ex, fallback_extraction(state, model, message), message, model)
+        facts, existing = read_message(llm, {"facts": _facts_text(state), "asked": asked, "rooms": rooms, "fixtures": fixtures}, message)
+    ex = _merged(facts, existing)
+    if ex.decide_for_me:  # the model need not know slot names: giving up always means the question just asked
+        ex = ex.model_copy(update={"decide_for_me": [x if x in SLOT_NAMES else state.pending[0] for x in ex.decide_for_me][:1] if state.pending
+                                   else [x for x in ex.decide_for_me if x in SLOT_NAMES]})
+    return _merge(ex, fallback_extraction(state, model, message), message, model) if RULES else ex
 
 
 REPLY_SYSTEM = (
@@ -489,10 +547,12 @@ def run_turn(llm: LLMClient, source: PriceSource, model: BuildingModel, state_in
             if code in RATE_CATALOG and v > 0:
                 state.rate_overrides[code] = v
     explain = None
+    changes: list[tuple[str, object, str]] = []
     if message.strip():
         progress.emit("understand", "reading your message")
         ex = _extract(llm, model, state, message, history)
-        for name, value, src in apply_extraction(state, model, ex, message):
+        changes = apply_extraction(state, model, ex, message)
+        for name, value, src in changes:
             progress.emit_event("fact", {"name": name, "value": value, "source": src})
         explain = ex.explain
 
@@ -521,8 +581,12 @@ def run_turn(llm: LLMClient, source: PriceSource, model: BuildingModel, state_in
         progress.emit_event("estimate", est.model_dump(mode="json"))
         s = _summary(est)
         fallback = f"Estimated total {s['total_base']} (range {s['total_low']} to {s['total_high']}, VAT included)."
+        what = [f"{n} = {v}" for n, v, _ in changes]
+        if what:
+            s = {**s, "changes_applied_this_turn": what}
         reply = _reply(llm, "Present the estimate: the base total and range, the biggest packages, what is assumed or unpriced, "
-                            "and offer to change any answer or to explain a line. Use the figures exactly as given.", s, fallback)
+                            "and offer to change any answer or to explain a line. Use the figures exactly as given. If "
+                            "changes_applied_this_turn is given, say first what was changed, using only that list.", s, fallback)
         return TurnOut(state=state, reply=reply, estimate=est)
 
     state.status = "ready"
@@ -534,8 +598,11 @@ def run_turn(llm: LLMClient, source: PriceSource, model: BuildingModel, state_in
         reply = _reply(llm, "Explain this cost line: the quantity and how it was measured, the rate and where it comes from. Be concrete.", ctx,
                        f"{line.description}: {line.quantity:g} {line.unit}. Basis: {line.basis}")
     else:
-        reply = _reply(llm, "Answer the person's message about the estimate, or say what they can change.", {"message": message, **_summary(est)},
-                       "Tell me what you would like to change: any answer above, or ask about a line.")
+        reply = _reply(llm, "Nothing in the estimate was changed by this message. Never say or imply that anything was updated, removed, "
+                            "recalculated or changed. Answer the question if it is one; otherwise say plainly that you could not apply it and what can "
+                            "be changed: take an item out or put it back (for example 'the doors already exist'), set a unit rate, change an answer "
+                            "(quality, city, scope, markups).", {"message": message, **_summary(est)},
+                       "I did not change anything. I can take an item out (for example \"the doors already exist\"), set a unit rate, or change an answer such as quality, city or markups.")
     return TurnOut(state=state, reply=reply)
 
 

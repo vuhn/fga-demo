@@ -19,6 +19,7 @@ import { IconPencil, IconPlayerStop, IconPlus, IconSend } from "@tabler/icons-re
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   api,
+  ApiError,
   apiChatStream,
   type EstimateFact,
   type EstimateLine,
@@ -27,21 +28,20 @@ import {
   type EstimateRate,
   type EstimateResult,
   type EstimateSessionDetail,
-  type EstimateSessionSummary,
   type EstimateState,
   type FactSource,
   type Progress,
   type StoredEstimate,
   type StoredEstimateSummary,
 } from "../api";
-import { notifyError, run } from "../ui";
+import { confirmDanger, notifyError, run } from "../ui";
 
 const money = (v: number | null | undefined) => (v == null ? "-" : new Intl.NumberFormat("vi-VN").format(Math.round(v)));
 const SOURCE_COLOR: Record<FactSource, string> = { user: "blue", plan: "teal", assumed: "orange" };
 const SOURCE_LABEL: Record<FactSource, string> = { user: "you", plan: "plan", assumed: "assumed" };
 const FACT_LABEL: Record<string, string> = {
   kind: "Kind", work_type: "Work", city: "City", district: "District", quality: "Quality", floor_height: "Floor height (m)", storeys: "Storeys",
-  structure_in_scope: "Structure", mep_in_scope: "MEP", fixtures: "Existing fixtures", vat_percent: "VAT %", overhead_percent: "Overhead %", profit_percent: "Profit %",
+  structure_in_scope: "Structure", mep_in_scope: "MEP", fixtures: "Existing fixtures", excluded: "Left out", vat_percent: "VAT %", overhead_percent: "Overhead %", profit_percent: "Profit %",
   design_percent: "Design %", contingency_percent: "Contingency %",
 };
 const START = "Please estimate the cost of building this plan.";
@@ -58,7 +58,7 @@ type Room = { id: string; name: string };
  * reads finished estimates. Nothing of a turn is saved unless it completes (Stop discards it).
  */
 export default function EstimateChat({ blueprintId, currentVersion, canEstimate, rooms }: { blueprintId: string; currentVersion: number; canEstimate: boolean; rooms: Room[] }) {
-  const [sessions, setSessions] = useState<EstimateSessionSummary[] | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [session, setSession] = useState<EstimateSessionDetail | null>(null);
   const [messages, setMessages] = useState<EstimateMessage[]>([]);
   const [state, setState] = useState<EstimateState>({});
@@ -84,12 +84,11 @@ export default function EstimateChat({ blueprintId, currentVersion, canEstimate,
         setSaved(await api<StoredEstimateSummary[]>("GET", `/blueprints/${blueprintId}/estimates`));
         return;
       }
-      const list = await api<EstimateSessionSummary[]>("GET", `/blueprints/${blueprintId}/estimate-sessions`);
-      setSessions(list);
-      if (list[0]) open(await api<EstimateSessionDetail>("GET", `/estimate-sessions/${list[0].id}`));
+      open(await api<EstimateSessionDetail>("GET", `/blueprints/${blueprintId}/estimate-session`));
     } catch (e) {
-      notifyError(e);
-      setSessions([]);
+      if (!(e instanceof ApiError && e.status === 404)) notifyError(e); // 404: no estimate started yet
+    } finally {
+      setLoaded(true);
     }
   }, [blueprintId, canEstimate, open]);
 
@@ -105,12 +104,20 @@ export default function EstimateChat({ blueprintId, currentVersion, canEstimate,
   async function newSession() {
     let d: EstimateSessionDetail | null = null;
     await run(async () => {
-      d = await api<EstimateSessionDetail>("POST", `/blueprints/${blueprintId}/estimate-sessions`);
+      d = await api<EstimateSessionDetail>("POST", `/blueprints/${blueprintId}/estimate-session`);
     });
-    if (d) {
-      open(d);
-      setSessions((s) => [d as EstimateSessionDetail, ...(s ?? [])]);
-    }
+    if (d) open(d); // one session per blueprint: it replaced the old one
+  }
+
+  // Starting over deletes the chat and answers (finished estimates stay), so ask first when there is something to lose.
+  function restart() {
+    if (messages.length === 0 && !state.estimate) return void newSession();
+    confirmDanger(
+      "Start a new estimate?",
+      "This deletes the current conversation and your answers. The last priced estimate stays visible to people who can view the blueprint. This cannot be undone.",
+      "Start new",
+      () => void newSession(),
+    );
   }
 
   async function send(message: string, overrides?: Record<string, number>) {
@@ -125,7 +132,7 @@ export default function EstimateChat({ blueprintId, currentVersion, canEstimate,
     abort.current = ctl;
     try {
       const done = await apiChatStream<EstimateSessionDetail>(
-        `/estimate-sessions/${session.id}/messages`,
+        `/blueprints/${blueprintId}/estimate-session/messages`,
         { message: body, rate_overrides: overrides },
         (event, data) => {
           if (event === "token") setLive((l) => l && { ...l, text: l.text + (data as { text: string }).text });
@@ -147,7 +154,6 @@ export default function EstimateChat({ blueprintId, currentVersion, canEstimate,
       setSession(done);
       setMessages(done.messages);
       setState(done.state ?? {});
-      setSessions((s) => (s ? s.map((x) => (x.id === done.id ? { ...x, status: done.status, turns: done.turns } : x)) : s));
     } catch (e) {
       // nothing was saved: take the optimistic message back and give the text back to the person
       setMessages(before);
@@ -189,7 +195,7 @@ export default function EstimateChat({ blueprintId, currentVersion, canEstimate,
     );
   }
 
-  if (sessions === null) return <Loader size="sm" />;
+  if (!loaded) return <Loader size="sm" />;
   if (!session) {
     return (
       <Stack gap="xs">
@@ -212,7 +218,7 @@ export default function EstimateChat({ blueprintId, currentVersion, canEstimate,
     <Stack gap="sm">
       <Group justify="space-between">
         <Text size="xs" c="dimmed">Session on plan v{session.blueprint_version} · {state.status ?? "interviewing"}</Text>
-        <Button size="compact-xs" variant="subtle" leftSection={<IconPlus size={12} />} disabled={busy} onClick={() => void newSession()}>
+        <Button size="compact-xs" variant="subtle" leftSection={<IconPlus size={12} />} disabled={busy} onClick={restart}>
           New estimate
         </Button>
       </Group>

@@ -4,7 +4,7 @@ Postgres is the display record. Authorization never reads `tenant_members.role` 
 
 ## Entity relationship diagram
 
-Current schema after migration 00009. Columns are abbreviated to keys, foreign keys, and the fields that matter for authorization display. Composite foreign keys `(project_id, tenant_id)` and `(tenant_id, user_id)` are drawn as one relationship.
+Current schema after migration 00011. Columns are abbreviated to keys, foreign keys, and the fields that matter for authorization display. Composite foreign keys `(project_id, tenant_id)` and `(tenant_id, user_id)` are drawn as one relationship.
 
 ```mermaid
 erDiagram
@@ -132,24 +132,21 @@ erDiagram
         uuid created_by FK
     }
     estimate_sessions {
-        uuid id PK
-        uuid tenant_id FK
-        uuid blueprint_id FK
+        uuid blueprint_id PK "one session per blueprint"
         int blueprint_version FK
-        text status "interviewing | researching | ready | failed"
-        jsonb state
-        int seq
+        jsonb state "agent state, status inside"
+        int seq "finished turns"
+        int epoch "restarts"
         uuid created_by FK
     }
     estimate_messages {
-        uuid session_id PK
+        uuid blueprint_id PK
         int seq PK
         text role "user | assistant"
         text content
     }
     blueprint_estimates {
         uuid id PK
-        uuid session_id FK
         uuid blueprint_id FK
         int version FK
         bigint total_base
@@ -189,9 +186,9 @@ erDiagram
     projects ||--o{ photos : contains
     projects ||--o{ blueprints : contains
     blueprints ||--o{ blueprint_versions : versions
-    blueprint_versions ||--o{ estimate_sessions : estimated
+    blueprint_versions ||--o{ estimate_sessions : pinned
     estimate_sessions ||--o{ estimate_messages : chat
-    estimate_sessions ||--o{ blueprint_estimates : produces
+    blueprint_versions ||--o{ blueprint_estimates : priced
     folders ||--o{ folders : parent
     folders ||--o{ documents : holds
     albums ||--o{ albums : parent
@@ -385,10 +382,10 @@ There is no foreign key from `resource_grants.object_id` to a single table becau
 
 `api/migrations/00008_blueprint_import.sql` adds `import` to `blueprint_versions.kind` and `blueprints.source_kind`, and the table `blueprint_originals(blueprint_id, version, name, mime_type, byte_size > 0, sha256, data bytea, created_at)`, PK `(blueprint_id, version)`, FK to `blueprint_versions` with cascade (deleting the blueprint deletes its files). A blueprint made from a brief before DXF plans gets its original later: converting it appends a version (`kind = edit`, `brief = null`) and stores the drawn DXF as `blueprint_originals` of that version, so a blueprint's file is its newest `blueprint_originals` row, not always version 1. A created plan is stored the same way (version 1 `kind = create`, `brief = null`, the DXF the engine drew as its original; its `source_kind` stays `prompt` or `form`, with no `source_*`). An imported version stores `brief = null` (JSON null; the column stays `NOT NULL`) and the plan as `model`. The original is written in the same transaction as the blueprint and version 1; the API caps it at 20 MB. Spec: `prds/plans/text2blueprint-production.md`. Down drops the table and restores the checks; it fails while import rows exist.
 
-## Cost estimation (migration 00009)
+## Cost estimation (migrations 00009 to 00011)
 
-`api/migrations/00009_estimate_sessions.sql`. Spec: `prds/plans/cost-estimation.md`. There are no price tables: unit rates are researched by the engine per estimate (LLM web search) and stored with their sources inside the estimate.
+`api/migrations/00009_estimate_sessions.sql`, `00010_one_estimate_session.sql`, `00011_session_per_blueprint.sql` (the shape below). Spec: `prds/plans/cost-estimation.md`. There are no price tables: unit rates are researched by the engine per estimate (LLM web search) and stored with their sources inside the estimate.
 
-- `estimate_sessions(id, tenant_id, blueprint_id, blueprint_version, status, state jsonb, seq, created_by, created_at, updated_at)`. FK `(blueprint_id, blueprint_version) -> blueprint_versions` with cascade, so deleting a blueprint deletes its sessions. `state` is the agent's own JSON (facts with their source, the condition of each room, researched rates, the latest estimate); Go treats it as opaque and mirrors only `status`. `seq` counts finished turns and guards concurrent turns: `UPDATE ... SET seq = seq + 1 WHERE id = $1 AND seq = $2`, and zero rows updated is 409 with nothing written.
-- `estimate_messages(session_id, seq, role user|assistant, content, created_at)`, PK `(session_id, seq)`. A turn writes two rows (`seq*2+1` and `seq*2+2`) in the same transaction as the state update.
-- `blueprint_estimates(id, session_id, blueprint_id, version, total_low, total_base, total_high, result jsonb, created_at)`. Append-only. FK `(blueprint_id, version) -> blueprint_versions`. `result` holds the priced lines, the markup cascade and every rate with its sources; the three totals are copied out for lists.
+- `estimate_sessions(blueprint_id PK, blueprint_version, state jsonb, seq, epoch, created_by, created_at, updated_at)`. **One row per blueprint**: the blueprint id is the key, so there is no surrogate id, no `tenant_id` (the blueprint has it; every service scopes by the blueprint) and no `status` column (the agent's status lives in `state`, which Go reads for the API view). FK `(blueprint_id, blueprint_version) -> blueprint_versions` with cascade, so deleting a blueprint deletes its session. `state` is the agent's own JSON (facts with their source, the condition of each room, researched rates, the latest estimate, `status`); Go treats it as opaque. Starting a new estimate is `INSERT ... ON CONFLICT (blueprint_id) DO UPDATE` (state cleared, `seq = 0`, `epoch + 1`) plus deleting the messages, in one transaction. `seq` counts finished turns and `epoch` the restarts; together they guard concurrent writes: `UPDATE ... WHERE blueprint_id = $1 AND epoch = $2 AND seq = $3`, and zero rows updated is 409 with nothing written, so a turn that was running when the person started over can never land in the new session.
+- `estimate_messages(blueprint_id, seq, role user|assistant, content, created_at)`, PK `(blueprint_id, seq)`, FK `blueprint_id -> estimate_sessions` with cascade. A turn writes two rows (`seq*2+1` and `seq*2+2`) in the same transaction as the state update.
+- `blueprint_estimates(id, blueprint_id, version, total_low, total_base, total_high, result jsonb, created_at)`. Append-only history of the blueprint's priced estimates; it does not point at a session, so restarting the chat never touches it. FK `(blueprint_id, version) -> blueprint_versions`. `result` holds the priced lines, the markup cascade and every rate with its sources. The three totals are copied out of `result` on purpose: lists and the stale marker read them without loading the large jsonb, and viewers (`can_view`) read this table while the session (`can_edit`) stays private.

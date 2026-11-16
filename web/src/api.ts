@@ -388,24 +388,20 @@ export type EstimateState = {
 };
 export type EstimateQuestion = { id: string; text: string; options: string[]; allow_unknown: boolean };
 export type EstimateMessage = { seq: number; role: "user" | "assistant"; content: string; created_at: string };
-export type EstimateSessionSummary = {
-  id: string;
+/** A blueprint's one estimate session (starting over replaces it). */
+export type EstimateSessionDetail = {
   blueprint_id: string;
   blueprint_version: number;
   status: EstimateStatus;
   turns: number;
+  state: EstimateState;
+  messages: EstimateMessage[];
   created_by: string;
   created_at: string;
   updated_at: string;
 };
-export type EstimateSessionDetail = EstimateSessionSummary & {
-  state: EstimateState;
-  messages: EstimateMessage[];
-  estimate?: StoredEstimate;
-};
 export type StoredEstimateSummary = {
   id: string;
-  session_id: string;
   blueprint_id: string;
   version: number;
   total_low: number;

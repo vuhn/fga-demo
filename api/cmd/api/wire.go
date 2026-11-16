@@ -180,10 +180,9 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 			ShareRevoker:    service.NewPhotoShareRevoker(photos, photoGrant, photoRels, authz, policy, guard),
 		}),
 		httph.NewEstimateHandler(httph.EstimateUsecases{
-			SessionCreator: service.NewEstimateSessionCreator(blueprints, estSessions, authz, ids),
-			Messenger:      service.NewEstimateSessionMessenger(blueprints, estSessions, estimates, engine, authz, ids),
-			SessionGetter:  service.NewEstimateSessionGetter(blueprints, estSessions, estimates, authz),
-			SessionLister:  service.NewEstimateSessionLister(blueprints, estSessions, authz),
+			SessionCreator: service.NewEstimateSessionCreator(blueprints, estSessions, authz),
+			Messenger:      service.NewEstimateSessionMessenger(blueprints, estSessions, engine, authz, ids),
+			SessionGetter:  service.NewEstimateSessionGetter(blueprints, estSessions, authz),
 			EstimateGetter: service.NewEstimateGetter(blueprints, estimates, authz),
 			EstimateLister: service.NewEstimateLister(blueprints, estimates, authz),
 		}),
