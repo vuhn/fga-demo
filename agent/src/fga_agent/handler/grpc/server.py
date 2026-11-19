@@ -55,10 +55,11 @@ class AgentServer:
         self.server.stop(grace).wait()
 
 
-def build_server(ready_check: Callable[[CallContext], None], workers: int = 8, retry_s: float = 2.0) -> AgentServer:
+def build_server(servicer: AgentServicer, ready_check: Callable[[CallContext], None], workers: int = 8,
+                 retry_s: float = 2.0) -> AgentServer:
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=workers), options=[
         ("grpc.max_receive_message_length", MAX_MESSAGE), ("grpc.max_send_message_length", MAX_MESSAGE)])
-    rpc.add_AgentServiceServicer_to_server(AgentServicer(), server)
+    rpc.add_AgentServiceServicer_to_server(servicer, server)
     hs = health.HealthServicer()
     health_pb2_grpc.add_HealthServicer_to_server(hs, server)
     built = AgentServer(server, ready_check, hs, retry_s)

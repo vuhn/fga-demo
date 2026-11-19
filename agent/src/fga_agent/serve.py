@@ -14,7 +14,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     addr = os.environ.get("GRPC_ADDR", "0.0.0.0:8091")
     app = build_app()
-    built = build_server(app.ready_check, workers=int(os.environ.get("GRPC_WORKERS", "8")))
+    built = build_server(app.servicer, app.ready_check, workers=int(os.environ.get("GRPC_WORKERS", "8")))
     if built.server.add_insecure_port(addr) == 0:
         raise SystemExit(f"cannot listen on {addr}")
     built.server.start()
