@@ -129,3 +129,104 @@ def test_message_larger_than_default_is_accepted(stub):
     big = json.dumps({"title": "x" * (5 << 20)}).encode()  # > the 4 MB default; refused for content, not size
     status, _ = refusal(lambda: stub.Generate(e.GenerateRequest(brief_json=big)))
     assert status == grpc.StatusCode.INVALID_ARGUMENT
+
+
+# --- file RPCs (T7b) ---------------------------------------------------------------------------------------------
+import base64
+
+from fastapi.testclient import TestClient
+
+import sample_dxf
+from fga_engine.app import create_app
+from fga_engine.domain.schemas import BuildingModel
+
+
+@pytest.fixture(scope="module")
+def sheet_bytes() -> bytes:
+    return sample_dxf.sheet()[0]
+
+
+def _upload(data: bytes, name="p.dxf") -> c.Upload:
+    return c.Upload(name=name, mime="image/vnd.dxf", data=data)
+
+
+def test_import_dxf_matches_the_http_endpoint(stub, sheet_bytes):
+    got = stub.ImportDXF(e.ImportDXFRequest(file=_upload(sheet_bytes)))
+    http = TestClient(create_app(llm=object())).post("/v1/import/dxf", files={"file": ("s.dxf", sheet_bytes, "image/vnd.dxf")})
+    assert http.status_code == 200
+    assert json.loads(got.plans_json) == http.json()["plans"]  # identical plans, checks and svg
+    assert json.loads(got.report_json) == http.json()["report"]
+    assert len(json.loads(got.plans_json)) == 3
+
+
+def test_import_dxf_refuses_junk_and_oversize(stub):
+    code, detail = refusal(lambda: stub.ImportDXF(e.ImportDXFRequest(file=_upload(b"junk"))))
+    assert code == grpc.StatusCode.INVALID_ARGUMENT and detail.code == c.ERROR_CODE_EDIT_ERROR
+    code, _ = refusal(lambda: stub.ImportDXF(e.ImportDXFRequest(file=_upload(b"0" * ((20 << 20) + 1)))))
+    assert code == grpc.StatusCode.INVALID_ARGUMENT
+
+
+def test_a_20_mb_dxf_goes_through(stub, sheet_bytes):
+    """DXF group 999 is a comment, so padding keeps the file valid and exactly at the limit."""
+    pad = b"999\ncomment-padding-padding-padding-padding-padding\n"
+    head, sep, tail = sheet_bytes.partition(b"0\nSECTION\n")
+    n = ((20 << 20) - len(sheet_bytes)) // len(pad)
+    big = head + pad * n + sep + tail
+    assert (19 << 20) < len(big) <= (20 << 20)
+    got = stub.ImportDXF(e.ImportDXFRequest(file=_upload(big)))
+    assert len(json.loads(got.plans_json)) == 3
+
+
+def test_patch_dxf_matches_the_http_endpoint(stub):
+    from briefs import FEASIBLE
+    from fga_engine.infrastructure.draw import build_dxf, to_dxf_bytes
+    from fga_engine.infrastructure.dxf_plan import import_dxf
+    from fga_engine.pipeline import generate
+
+    gen = next(g for g in (generate(b).model for b in FEASIBLE.values())
+               if g is not None and len(g.fixtures) >= 4 and any(o.kind == "window" for o in g.openings))
+    data = to_dxf_bytes(build_dxf(gen)[0])
+    base = import_dxf(data).plans[0].model
+    cur = base.model_copy(deep=True)
+    cur.rooms[0].name = "Den"
+    got = stub.PatchDXF(e.PatchDXFRequest(original=_upload(data), base_model_json=base.model_dump_json().encode(),
+                                          current_model_json=cur.model_dump_json().encode()))
+    http = TestClient(create_app(llm=object())).post(
+        "/v1/export/dxf-patch", files={"file": ("p.dxf", data, "image/vnd.dxf")},
+        data={"base": base.model_dump_json(), "current": cur.model_dump_json()})
+    assert http.status_code == 200
+    # bytes differ per write (ezdxf stamps a GUID and times), so compare what the files mean
+    assert import_dxf(got.dxf).plans[0].model == import_dxf(base64.b64decode(http.json()["dxf"])).plans[0].model
+    assert import_dxf(got.dxf).plans[0].model.rooms[0].name == "Den"
+    assert json.loads(got.report_json) == http.json()["report"]
+    assert any("renamed to 'Den'" in s for s in json.loads(got.report_json)["applied"])
+    code, _ = refusal(lambda: stub.PatchDXF(e.PatchDXFRequest(original=_upload(data), base_model_json=b"{}", current_model_json=b"{}")))
+    assert code == grpc.StatusCode.INVALID_ARGUMENT
+
+
+@pytest.mark.parametrize("fmt,media", [(e.RENDER_FORMAT_SVG, "image/svg+xml"), (e.RENDER_FORMAT_DXF, "image/vnd.dxf"),
+                                       (e.RENDER_FORMAT_PDF, "application/pdf"), (e.RENDER_FORMAT_IFC, "application/x-step")])
+def test_render_each_format_matches_http(stub, fmt, media):
+    plan = stub.CreatePlan(e.CreatePlanRequest(brief_json=brief_json()))
+    model = BuildingModel.model_validate_json(plan.model_json)
+    names = {e.RENDER_FORMAT_SVG: "svg", e.RENDER_FORMAT_DXF: "dxf", e.RENDER_FORMAT_PDF: "pdf", e.RENDER_FORMAT_IFC: "ifc"}
+    got = stub.Render(e.RenderRequest(model_json=plan.model_json, format=fmt,
+                                      title_block=e.TitleBlock(title="Flat", version=2, issued="2026-01-01", author="ada")))
+    assert got.media_type == media and got.data
+    http = TestClient(create_app(llm=object())).post("/v1/render", json={
+        "model": model.model_dump(mode="json"), "format": names[fmt],
+        "title_block": {"project": "Flat", "version": 2, "issued": "2026-01-01", "author": "ada"}})
+    assert http.status_code == 200 and http.headers["content-type"].startswith(media)
+    if fmt == e.RENDER_FORMAT_SVG:
+        assert got.data == http.content
+
+
+def test_render_unspecified_format_is_refused(stub):
+    code, detail = refusal(lambda: stub.Render(e.RenderRequest(model_json=b"{}")))
+    assert code == grpc.StatusCode.INVALID_ARGUMENT and detail.code == c.ERROR_CODE_EDIT_ERROR
+
+
+def test_convert_rejects_a_non_plan_file(stub):
+    code, _ = refusal(lambda: stub.ConvertToDXF(e.ConvertToDXFRequest(
+        file=c.Upload(name="x.png", mime="image/png", data=b"not a picture"))))
+    assert code == grpc.StatusCode.INVALID_ARGUMENT

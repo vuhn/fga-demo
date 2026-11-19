@@ -13,6 +13,9 @@ web:
 engine:
 	cd blueprint-engine && uv run uvicorn fga_engine.app:app --port 8090 --reload
 
+engine-grpc:
+	cd blueprint-engine && uv run watchfiles --filter python fga_engine.serve.main src
+
 engine-test:
 	cd blueprint-engine && uv run pytest -q
 
@@ -54,4 +57,4 @@ verify-live: compose-up seed test-integration
 init:
 	bash scripts/init.sh
 
-.PHONY: proto proto-gen compose-up seed api web engine engine-test engine-eval engine-eval-estimate test test-integration check verify-live init
+.PHONY: proto proto-gen compose-up seed api web engine engine-grpc engine-test engine-eval engine-eval-estimate test test-integration check verify-live init

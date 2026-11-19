@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import base64
+import json
 
 from ...domain import plan_edits
 from ...domain.checks import failed
 from ...domain.draft import DraftBrief
+from ...domain.edits import EditError
+from ...domain.files import TitleBlock
 from ...domain.results import PlanCreated, PlanSummary
 from ...domain.schemas import Brief, BuildingModel, EditOps
 from ...gen.fga.demo.engine.v1 import engine_pb2 as e
@@ -14,6 +17,10 @@ from ...gen.fga.demo.engine.v1 import engine_pb2_grpc as rpc
 from ...wire import Engine
 from . import mapping as m
 from .errors import handled
+
+
+_FORMATS = {e.RENDER_FORMAT_SVG: "svg", e.RENDER_FORMAT_PDF: "pdf", e.RENDER_FORMAT_DXF: "dxf", e.RENDER_FORMAT_IFC: "ifc"}
+_MEDIA = {"svg": "image/svg+xml", "dxf": "image/vnd.dxf", "pdf": "application/pdf", "ifc": "application/x-step"}
 
 
 def _opt(model_cls, data: bytes, what: str):
@@ -34,8 +41,6 @@ class EngineServicer(rpc.EngineServiceServicer):
     # --- catalog ---------------------------------------------------------------------------------------------
     @handled
     def ListTools(self, request, context):
-        import json
-
         tl = self._e.tool_catalog.list_tools()
         return e.ListToolsResponse(
             tools=[e.Tool(name=t.name, kind=t.kind, description=t.description, json_schema=json.dumps(t.json_schema),
@@ -117,3 +122,34 @@ class EngineServicer(rpc.EngineServiceServicer):
         est = self._e.estimate_pricer.price_estimate(m.takeoff_from_pb(request.takeoff), rates,
                                                      m.facts_from_pb(request.facts))
         return m.estimate_to_pb(est)
+
+    # --- files -----------------------------------------------------------------------------------------------
+    @handled
+    def ConvertToDXF(self, request, context):
+        o = request.options
+        out = self._e.plan_converter.convert(request.file.data, request.file.mime, o.scale or None, o.dpi or None,
+                                             o.longest_m or None)
+        return e.ConvertToDXFResponse(dxf=base64.b64decode(out.dxf), report_json=out.report.model_dump_json().encode())
+
+    @handled
+    def ImportDXF(self, request, context):
+        out = self._e.dxf_importer.import_dxf(request.file.data, request.unit or None)
+        plans = [p.model_dump(mode="json") for p in out.plans]
+        return e.ImportDXFResponse(plans_json=json.dumps(plans).encode(), report_json=out.report.model_dump_json().encode())
+
+    @handled
+    def PatchDXF(self, request, context):
+        out = self._e.dxf_patcher.patch(request.original.data, request.base_model_json.decode("utf-8", "replace"),
+                                        request.current_model_json.decode("utf-8", "replace"))
+        return e.PatchDXFResponse(dxf=base64.b64decode(out.dxf), report_json=out.report.model_dump_json().encode())
+
+    @handled
+    def Render(self, request, context):
+        fmt = _FORMATS.get(request.format)
+        if fmt is None:
+            raise EditError("unknown render format")
+        model = m.load_json(BuildingModel, request.model_json, "model_json")
+        t = request.title_block
+        tb = TitleBlock(project=t.title or TitleBlock.project, version=t.version or 1, issued=t.issued, author=t.author)
+        data = self._e.plan_renderer.render(model, fmt, tb)
+        return e.RenderResponse(data=data.encode() if isinstance(data, str) else data, media_type=_MEDIA[fmt])

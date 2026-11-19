@@ -11,13 +11,13 @@ browser :5173
 Gin API :8088
     |                 \
     |                  \
-Postgres :5432         OpenFGA HTTP :8080        blueprint-engine :8090 (host)
+Postgres :5432         OpenFGA HTTP :8080        blueprint-engine :8090 (host); engine gRPC :8092 (host)
   db fgademo             gRPC :8081                  |
   db openfga             playground :3000            v
                                                    Ollama :11434 (host, Metal)
 ```
 
-The blueprint engine (`blueprint-engine/`, Python FastAPI, `make engine`) and Ollama run natively on the host, because Docker on macOS has no GPU. Only the API calls the engine; it is stateless and has no auth. Pull the models once: `ollama pull qwen3` (text, the 8B, installed as `qwen3:latest`; `qwen3:14b` with 32 GB) (text; only describe and chat need it, uploads of DXF, PDF and pictures use no model). Engine variables: `OLLAMA_URL` (default `http://localhost:11434`), `BLUEPRINT_TEXT_MODEL` (default `qwen3:latest`). Without the engine or a model, blueprint draft, create, revise, edit, and drawing routes return 502 `engine_unavailable`; everything else works. While a chat shows the model's reasoning (`BLUEPRINT_STREAM_THINKING`, default on), the reasoning has a budget: `BLUEPRINT_THINKING_MAX_CHARS` (default 6000) and `BLUEPRINT_THINKING_MAX_SECONDS` (default 90). A model that runs past either (qwen3 can loop in its reasoning at temperature 0) is cut and the same call is redone without thinking, with a `retry` progress line.
+The blueprint engine (`blueprint-engine/`, Python FastAPI, `make engine`) and Ollama run natively on the host, because Docker on macOS has no GPU. Only the API calls the engine; it is stateless and has no auth. The Engine also serves gRPC (`make engine-grpc`, `python -m fga_engine.serve`, address `GRPC_ADDR`, default `0.0.0.0:8092`, `GRPC_WORKERS` default 8; restarts on source changes). It runs next to the legacy HTTP engine and nothing calls it until the API sets `BLUEPRINT_ENGINE_ADDR` (T9). Health: `grpc.health.v1` on the same port. Pull the models once: `ollama pull qwen3` (text, the 8B, installed as `qwen3:latest`; `qwen3:14b` with 32 GB) (text; only describe and chat need it, uploads of DXF, PDF and pictures use no model). Engine variables: `OLLAMA_URL` (default `http://localhost:11434`), `BLUEPRINT_TEXT_MODEL` (default `qwen3:latest`). Without the engine or a model, blueprint draft, create, revise, edit, and drawing routes return 502 `engine_unavailable`; everything else works. While a chat shows the model's reasoning (`BLUEPRINT_STREAM_THINKING`, default on), the reasoning has a budget: `BLUEPRINT_THINKING_MAX_CHARS` (default 6000) and `BLUEPRINT_THINKING_MAX_SECONDS` (default 90). A model that runs past either (qwen3 can loop in its reasoning at temperature 0) is cut and the same call is redone without thinking, with a `retry` progress line.
 
 `deploy/docker-compose.yml` runs Postgres, the OpenFGA migrate one-shot, and OpenFGA. The API and Vite run on the host so rebuilds stay fast.
 
