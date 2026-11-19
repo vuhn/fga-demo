@@ -296,13 +296,14 @@ func (*GetCatalogRequest) Descriptor() ([]byte, []int) {
 }
 
 type RateSpec struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
-	Package       string                 `protobuf:"bytes,2,opt,name=package,proto3" json:"package,omitempty"`
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Unit          string                 `protobuf:"bytes,4,opt,name=unit,proto3" json:"unit,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Code             string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Package          string                 `protobuf:"bytes,2,opt,name=package,proto3" json:"package,omitempty"`
+	Description      string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Unit             string                 `protobuf:"bytes,4,opt,name=unit,proto3" json:"unit,omitempty"`
+	QualitySensitive bool                   `protobuf:"varint,5,opt,name=quality_sensitive,json=qualitySensitive,proto3" json:"quality_sensitive,omitempty"` // the rate depends on the quality level (finishes, doors, fixtures)
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *RateSpec) Reset() {
@@ -361,6 +362,13 @@ func (x *RateSpec) GetUnit() string {
 		return x.Unit
 	}
 	return ""
+}
+
+func (x *RateSpec) GetQualitySensitive() bool {
+	if x != nil {
+		return x.QualitySensitive
+	}
+	return false
 }
 
 type GetCatalogResponse struct {
@@ -2575,12 +2583,13 @@ const file_fga_demo_engine_v1_engine_proto_rawDesc = "" +
 	"\x0fops_json_schema\x18\x02 \x01(\tR\ropsJsonSchema\x12/\n" +
 	"\x14plan_ops_json_schema\x18\x03 \x01(\tR\x11planOpsJsonSchema\x12*\n" +
 	"\x11draft_json_schema\x18\x04 \x01(\tR\x0fdraftJsonSchema\"\x13\n" +
-	"\x11GetCatalogRequest\"n\n" +
+	"\x11GetCatalogRequest\"\x9b\x01\n" +
 	"\bRateSpec\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
 	"\apackage\x18\x02 \x01(\tR\apackage\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x12\n" +
-	"\x04unit\x18\x04 \x01(\tR\x04unit\"\xd9\x06\n" +
+	"\x04unit\x18\x04 \x01(\tR\x04unit\x12+\n" +
+	"\x11quality_sensitive\x18\x05 \x01(\bR\x10qualitySensitive\"\xd9\x06\n" +
 	"\x12GetCatalogResponse\x12N\n" +
 	"\bmin_area\x18\x01 \x03(\v23.fga.demo.engine.v1.GetCatalogResponse.MinAreaEntryR\aminArea\x12Q\n" +
 	"\tmin_width\x18\x02 \x03(\v24.fga.demo.engine.v1.GetCatalogResponse.MinWidthEntryR\bminWidth\x12%\n" +

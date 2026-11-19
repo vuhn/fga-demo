@@ -64,6 +64,7 @@ message RateSpec {
   string package = 2;
   string description = 3;
   string unit = 4;
+  bool quality_sensitive = 5;  // the rate depends on the quality level (finishes, doors, fixtures)
 }
 
 message GetCatalogResponse {

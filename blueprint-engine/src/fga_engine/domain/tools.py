@@ -58,6 +58,7 @@ class RateInfo:
     package: str
     description: str
     unit: str
+    quality_sensitive: bool = False
 
 
 @dataclass(frozen=True)
@@ -78,5 +79,5 @@ def get_catalog() -> Catalog:
         min_area=dict(MIN_AREA), min_width=dict(MIN_WIDTH), nestable_types=sorted(NESTABLE_TYPES),
         max_nested=MAX_NESTED, default_fixtures={t: ",".join(f) for t, f in DEFAULT_FIXTURES.items()},
         fixture_kinds=list(FIXTURE_KINDS), default_markups={k: float(v) for k, v in DEFAULT_MARKUPS.items()},
-        rate_catalog=[RateInfo(c, s.package, s.description, s.unit) for c, s in RATE_CATALOG.items()],
+        rate_catalog=[RateInfo(c, s.package, s.description, s.unit, s.quality_sensitive) for c, s in RATE_CATALOG.items()],
         priced_fixtures=sorted(PRICED_FIXTURES))

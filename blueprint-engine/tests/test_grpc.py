@@ -57,6 +57,8 @@ def test_list_tools_and_catalog(stub):
     cat = stub.GetCatalog(e.GetCatalogRequest())
     assert cat.min_area["bedroom"] > 0 and cat.max_nested == 2 and "toilet" in cat.priced_fixtures
     assert any(r.code == "fixture_toilet" for r in cat.rate_catalog)
+    by_code = {r.code: r for r in cat.rate_catalog}
+    assert by_code["floor_tile"].quality_sensitive and not by_code["plaster"].quality_sensitive
 
 
 def test_normalize_draft_and_error_detail(stub):

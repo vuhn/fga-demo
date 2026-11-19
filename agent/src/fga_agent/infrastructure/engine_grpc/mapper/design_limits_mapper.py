@@ -15,4 +15,4 @@ def to_domain(r: e.GetCatalogResponse) -> DesignLimits:
                         max_nested=r.max_nested, default_fixtures=dict(r.default_fixtures),
                         fixture_kinds=list(r.fixture_kinds), default_markups=dict(r.default_markups),
                         priced_fixtures=list(r.priced_fixtures),
-                        rate_catalog=[RateSpec(x.code, x.package, x.description, x.unit) for x in r.rate_catalog])
+                        rate_catalog=[RateSpec(x.code, x.package, x.description, x.unit, x.quality_sensitive) for x in r.rate_catalog])
