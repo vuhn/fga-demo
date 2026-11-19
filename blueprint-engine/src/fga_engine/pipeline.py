@@ -6,21 +6,11 @@ ever produce or edit a Brief. Fitting an oversized brief is done here, in code.
 
 from __future__ import annotations
 
-from pydantic import BaseModel
-
 from .domain.building import build_model
 from .domain.checks import area_budget, brief_issues, failed, run_checks
 from .domain.layout import LayoutError, compute_layout
-from .domain.schemas import MIN_AREA, Brief, BuildingModel, CheckResult
-
-
-class GenerateResult(BaseModel):
-    brief: Brief
-    model: BuildingModel | None
-    checks: list[CheckResult]
-    issues: list[str]  # brief-level problems (no model when non-empty)
-    ok: bool
-    notes: list[str] = []
+from .domain.results import GenerateResult
+from .domain.schemas import MIN_AREA, Brief, BuildingModel
 
 
 def generate(brief: Brief, previous: BuildingModel | None = None) -> GenerateResult:

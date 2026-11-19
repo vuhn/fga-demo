@@ -265,10 +265,10 @@ def test_a_plan_made_from_a_brief_can_be_drawn_into_an_editable_cad_plan():
 
 
 def test_an_open_plan_reads_back_as_fewer_spaces_and_says_so():
-    from fga_engine.llm_steps import draw_plan
+    from fga_engine.wire import build_engine
 
     brief = next(b for b in FEASIBLE.values() if len(b.rooms) >= 4).model_copy(update={"open_plan": True})
     gen = generate(brief).model
-    out = draw_plan(gen, "Open")
+    out = build_engine().plan_drawer.draw_plan(gen, "Open")
     assert len(out.result.model.rooms) < len(gen.rooms)
     assert any("open plan" in n for n in out.result.notes)

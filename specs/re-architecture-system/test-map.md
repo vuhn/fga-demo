@@ -187,7 +187,7 @@
 | `tests/test_patch.py::test_a_created_plan_is_an_editable_cad_plan` | | pending |
 | `tests/test_patch.py::test_a_brief_that_cannot_be_built_creates_nothing` | | pending |
 | `tests/test_patch.py::test_a_plan_made_from_a_brief_can_be_drawn_into_an_editable_cad_plan` | | pending |
-| `tests/test_patch.py::test_an_open_plan_reads_back_as_fewer_spaces_and_says_so` | | pending |
+| `tests/test_patch.py::test_an_open_plan_reads_back_as_fewer_spaces_and_says_so` | `tests/test_patch.py` (same ID; now calls the `PlanDrawer` usecase via `wire.build_engine`, T4a) | pending |
 | `tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[family_3br]` | | pending |
 | `tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[north_entry_2br]` | | pending |
 | `tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[studio]` | | pending |
