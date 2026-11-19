@@ -6,6 +6,7 @@ from fake_engine import Running
 from fga_agent.domain.model.call_context import CallContext
 from fga_agent.domain.model.estimate_facts import EstimateFacts
 from fga_agent.domain.model.estimate_session import EstimateFact, RoomScope
+from fga_agent.domain.model.rate import RateResult, RateSource
 from fga_agent.domain.errors import EngineUnavailable, InvalidEdit, UnsupportedEdit
 from fga.demo.common.v1 import common_pb2 as c
 from fga.demo.engine.v1 import engine_pb2
@@ -26,8 +27,8 @@ def eng():
 def test_every_engine_rpc_is_used_or_deliberately_left_out():
     methods = {m.name for m in engine_pb2.DESCRIPTOR.services_by_name["EngineService"].methods}
     used = be.used_rpcs()
-    assert methods == used | be.NOT_USED | be.LATER, f"decide where these go: {sorted(methods ^ (used | be.NOT_USED | be.LATER))}"
-    assert not used & (be.NOT_USED | be.LATER)
+    assert methods == used | be.NOT_USED, f"decide where these go: {sorted(methods ^ (used | be.NOT_USED))}"
+    assert not used & be.NOT_USED
 
 
 def test_each_method_is_exactly_one_engine_rpc(eng):
@@ -53,7 +54,25 @@ def test_each_method_is_exactly_one_engine_rpc(eng):
     assert sent["storeys"].number == 2.0 and sent["floor_height"].source == c.FACT_SOURCE_ASSUMED
     assert [(x.room_id, x.state) for x in eng.engine.facts_seen.scope] == [("r1", c.ROOM_STATE_EXISTING)]
     assert list(eng.engine.facts_seen.fixtures_existing) == ["f1"] and list(eng.engine.facts_seen.excluded) == ["window"]
-    assert eng.engine.calls == ["Generate", "ApplyPlanOps", "RunChecks", "ApplyBriefOps", "NormalizeDraft", "SummarizePlan"]
+    tk = g.takeoff(CTX, b"{}", facts)
+    assert tk.status == "ok" and tk.warnings == ["w"] and len(tk.lines) == 1
+    line = tk.lines[0]
+    assert (line.code, line.package, line.quantity, line.unit, line.confidence, line.deps, line.room_id) == (
+        "floor_tile", "Finishes", 40.5, "m2", "measured", ["floor_height"], "r1")
+    assert eng.engine.takeoff_seen.model_json == b"{}" and list(eng.engine.takeoff_seen.facts.excluded) == ["window"]
+    rates = [RateResult(code="floor_tile", unit="m2", low=1.0, base=2.0, high=3.0, confidence="ok", region="Hanoi", quality="good",
+                        sources=[RateSource("https://x.test", "quote", "2026-11-16")]),
+             RateResult(code="paint", unit="m2", confidence="none", note="no price")]
+    est = g.price_estimate(CTX, tk, rates, facts)
+    assert est.total == {"low": 8.0, "base": 10.0, "high": 12.0} and est.packages["Finishes"]["base"] == 10
+    assert est.assumptions == ["floor_height = 3.0 (assumed)"] and est.warnings == ["No price for paint"]
+    assert (est.lines[0].code, est.lines[0].priced, est.lines[0].rate_base, est.lines[0].base) == ("floor_tile", True, 250000.0, 10)
+    assert est.rates[0].sources[0].url == "https://x.test" and est.rates[0].region == "Hanoi" and est.document["currency"] == "VND"
+    sent = eng.engine.price_seen
+    assert [r.code for r in sent.rates] == ["floor_tile", "paint"] and sent.rates[0].base == 2.0 and not sent.rates[1].HasField("base")
+    assert sent.rates[0].sources[0].quote == "quote" and sent.takeoff.lines[0].room_id == "r1" and list(sent.facts.excluded) == ["window"]
+    assert eng.engine.calls == ["Generate", "ApplyPlanOps", "RunChecks", "ApplyBriefOps", "NormalizeDraft", "SummarizePlan", "Takeoff",
+                                "PriceEstimate"]
 
 
 def test_the_catalog_calls_map_to_domain_types(eng):

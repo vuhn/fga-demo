@@ -34,7 +34,7 @@ def test_health_is_not_serving_until_the_catalog_loads():
     eng = Running()
     eng.engine.down = True
     engine = GrpcBlueprintEngine(open_channel(eng.addr), timeout=5)
-    built = build_server(AgentServicer(None), DesignCatalogLoaderService(engine).load, retry_s=0.05)
+    built = build_server(AgentServicer(None, None), DesignCatalogLoaderService(engine).load, retry_s=0.05)
     port = built.server.add_insecure_port("127.0.0.1:0")
     built.server.start()
     built.watch_catalog()
@@ -123,7 +123,7 @@ def test_a_down_engine_is_warned_about_once_and_retried_with_growing_pauses(capl
     eng = Running()
     eng.engine.down = True
     engine = GrpcBlueprintEngine(open_channel(eng.addr), timeout=5)
-    built = build_server(AgentServicer(None), DesignCatalogLoaderService(engine).load, retry_s=0.02)
+    built = build_server(AgentServicer(None, None), DesignCatalogLoaderService(engine).load, retry_s=0.02)
     built.server.add_insecure_port("127.0.0.1:0")
     built.server.start()
     caplog.set_level("DEBUG", logger="fga_agent.server")

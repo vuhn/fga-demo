@@ -37,7 +37,7 @@ class Agent:
         handler = BlueprintHandler(BlueprintUsecases(BriefDrafterService(engine, llm, catalog, asker),
                                                     BriefReviserService(engine, catalog, asker, reviewer),
                                                     PlanReviserService(engine, catalog, asker), reviewer))
-        self.built = build_server(AgentServicer(handler), catalog.load)
+        self.built = build_server(AgentServicer(handler, None), catalog.load)
         port = self.built.server.add_insecure_port("127.0.0.1:0")
         self.built.server.start()
         self.channel = grpc.insecure_channel(f"127.0.0.1:{port}")

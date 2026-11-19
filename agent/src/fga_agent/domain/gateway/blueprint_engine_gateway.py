@@ -5,11 +5,14 @@ from typing import Protocol
 from ..model.brief import BriefBuild, BriefDraft
 from ..model.call_context import CallContext
 from ..model.design_limits import DesignLimits
+from ..model.estimate import Estimate
 from ..model.estimate_facts import EstimateFacts
 from ..model.operation_catalog import OperationCatalog
 from ..model.plan import PlanRevision
 from ..model.plan_summary import PlanSummary
 from ..model.plan_check import PlanCheckReport
+from ..model.rate import RateResult
+from ..model.takeoff import Takeoff
 
 
 class BlueprintEngine(Protocol):
@@ -32,3 +35,7 @@ class BlueprintEngine(Protocol):
     def run_checks(self, ctx: CallContext, model: bytes, brief: bytes = b"") -> PlanCheckReport: ...
 
     def summarize_plan(self, ctx: CallContext, model: bytes, facts: EstimateFacts) -> PlanSummary: ...
+
+    def takeoff(self, ctx: CallContext, model: bytes, facts: EstimateFacts) -> Takeoff: ...
+
+    def price_estimate(self, ctx: CallContext, takeoff: Takeoff, rates: list[RateResult], facts: EstimateFacts) -> Estimate: ...

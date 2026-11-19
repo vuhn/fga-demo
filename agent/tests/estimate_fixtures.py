@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import threading
 
-from fga_agent.domain.model.design_limits import DesignLimits, RateSpec
+from price_fixtures import CATALOG
+
+from fga_agent.domain.model.design_limits import DesignLimits
 from fga_agent.domain.model.estimate_session import EstimateFact, RoomScope, SessionState
 from fga_agent.domain.model.plan_summary import PlanSummary, SummaryFixture, SummaryRoom
 from fga_agent.service.estimate_reader import CORE, ITEMS, SCOPE, SETTINGS
@@ -17,7 +19,7 @@ RATE_CODES = ["demolition_finish", "brick_wall_100", "plaster", "paint", "floor_
 MARKUPS = {"overhead_percent": 6.5, "profit_percent": 7.5, "design_percent": 5.5, "contingency_percent": 7.5, "vat_percent": 8.0}
 ESTIMATE_LIMITS = DesignLimits(
     min_area={}, min_width={}, nestable_types=[], max_nested=2, default_fixtures={}, fixture_kinds=["toilet", "basin", "bed"],
-    default_markups=MARKUPS, rate_catalog=[RateSpec(c, "p", c, "m2") for c in RATE_CODES],
+    default_markups=MARKUPS, rate_catalog=CATALOG,
     priced_fixtures=["basin", "bathtub", "kitchen_counter", "shower", "sink", "toilet", "wardrobe"])
 
 ROOMS = [SummaryRoom("r1", "Living", "living", 22.0), SummaryRoom("r2", "Kitchen", "kitchen", 10.0),
@@ -72,3 +74,28 @@ class ClaimsLanguageModel:
         fields = schema["properties"]["claims"]["items"]["properties"]["field"]["enum"]
         table = next(t for t in (CORE, SETTINGS, SCOPE, ITEMS) if list(t) == fields)
         return {"claims": self._claims(data, message, table)}
+
+
+class TurnLanguageModel(ClaimsLanguageModel):
+    """The four readings from a script (see ClaimsLanguageModel) and the reply as scripted chunks. `broken` is "mid" (the
+    model fails after the first chunk) or "dead" (before any text). The instructions it was given are kept in `streams`."""
+
+    def __init__(self, *readings, chunks=("Hello ", "there."), broken=None, pause=0.0) -> None:
+        super().__init__(*readings)
+        self.chunks, self.broken, self.pause = chunks, broken, pause
+        self.streams: list[str] = []
+        self.sent = 0
+
+    def answer_text(self, system, user):
+        import time
+
+        from fga_agent.domain.errors import LlmUnavailable
+        self.streams.append(user)
+        if self.broken == "dead":
+            raise LlmUnavailable("ollama is down")
+        for i, piece in enumerate(self.chunks):
+            if self.broken == "mid" and i == 1:
+                raise LlmUnavailable("ollama went away")
+            time.sleep(self.pause)
+            self.sent += 1
+            yield piece

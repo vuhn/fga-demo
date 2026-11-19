@@ -495,8 +495,8 @@ func (x *BlueprintOutcome) GetMessage() string {
 
 type Error struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        int32                  `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"` // HTTP status the API relays: 422, 502, 500
-	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`    // invalid_edit | llm_unavailable | engine_unavailable | internal
+	Status        int32                  `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"` // HTTP status the API relays: 422, 502, 504, 500
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`    // invalid_edit | llm_unavailable | engine_unavailable | timeout | internal
 	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

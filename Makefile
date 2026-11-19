@@ -31,6 +31,12 @@ engine-eval:
 engine-eval-estimate:
 	cd blueprint-engine && uv run python eval/estimate_run.py
 
+agent-eval:
+	cd agent && uv run python eval/run.py
+
+agent-eval-estimate:
+	cd agent && uv run python eval/estimate_run.py
+
 test:
 	cd api && go test ./...
 
@@ -64,4 +70,4 @@ verify-live: compose-up seed test-integration
 init:
 	bash scripts/init.sh
 
-.PHONY: proto proto-gen compose-up seed api web engine engine-grpc agent agent-test engine-test engine-eval engine-eval-estimate test test-integration check verify-live init
+.PHONY: proto proto-gen compose-up seed api web engine engine-grpc agent agent-test engine-test engine-eval engine-eval-estimate agent-eval agent-eval-estimate test test-integration check verify-live init
