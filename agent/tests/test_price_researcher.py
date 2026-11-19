@@ -11,7 +11,6 @@ from fga_agent.domain.model.call_context import CallContext
 from fga_agent.domain.model.rate import RateRequest
 from fga_agent.infrastructure.demo import DemoWebPages, DemoWebSearch
 from fga_agent.infrastructure.demo.price_list import BASE, demo_rate
-from fga_agent.infrastructure.memory import InMemoryRateCache
 from fga_agent.service.helper.design_catalog_loader import DesignCatalogLoaderService
 from fga_agent.service.helper.price_checker import PriceCheckerService
 from fga_agent.service.helper.region_pinner import RegionPinnerService
@@ -20,9 +19,9 @@ from fga_agent.service.price_researcher import NO_PROVIDER, PriceResearcherServi
 CTX = CallContext(request_id="t")
 
 
-def researcher(llm, search="one", pages=None, cache=None, **kw):
+def researcher(llm, search="one", pages=None, **kw):
     search = OneSearch() if search == "one" else search
-    return PriceResearcherService(llm, search, pages or Pages(), cache or InMemoryRateCache(), PriceCheckerService(25000),
+    return PriceResearcherService(llm, search, pages or Pages(), PriceCheckerService(25000),
                                   RegionPinnerService(), DesignCatalogLoaderService(ScriptedEngine(limits=LIMITS)), parallel=1,
                                   today=lambda: "2026-11-16", **kw)
 
@@ -38,7 +37,7 @@ def test_research_requests_carry_only_material_region_and_quality():
     assert set(vars(r)) == {"code", "description", "unit", "region", "quality"}
     assert "good" in r.description and r.region == "Hanoi" and r.unit == "m2" and r.quality == "good"
     (c,) = researcher(ResearchLanguageModel([])).requests_for(CTX, ["plaster"], "Hanoi", "good")
-    assert c.quality == "" and "good" not in c.description  # quality-insensitive codes share one cached rate
+    assert c.quality == "" and "good" not in c.description  # quality-insensitive codes share one rate
 
 
 def test_an_unknown_rate_code_is_refused():
@@ -48,7 +47,7 @@ def test_an_unknown_rate_code_is_refused():
 
 # --- the pipeline ----------------------------------------------------------------------------------------------------
 
-def test_a_real_quote_is_accepted_a_fake_is_rejected_and_the_rate_is_cached():
+def test_a_real_quote_is_accepted_a_fake_is_rejected_and_nothing_is_cached():
     llm = ResearchLanguageModel([find(), find(quote="made up 999.000đ/m2", price=999000)])
     svc = researcher(llm)
     (res,) = research(svc, [REQUEST])
@@ -57,7 +56,7 @@ def test_a_real_quote_is_accepted_a_fake_is_rejected_and_the_rate_is_cached():
     assert res.note == "3 price(s) from 3 page(s)"
     n = len(llm.calls)
     research(svc, [REQUEST])
-    assert len(llm.calls) == n  # served from the cache
+    assert len(llm.calls) > n  # no cache: researched again
 
 
 def test_the_model_reads_in_the_background_with_no_live_thinking():
@@ -149,14 +148,11 @@ def test_a_model_that_cannot_be_reached_leaves_the_rates_unpriced_with_the_reaso
 
 
 def test_cancel_stops_the_research_and_nothing_is_cached():
-    cache = InMemoryRateCache()
-
     def leave(progress):
         raise Cancelled()
 
     with pytest.raises(Cancelled):
-        research(researcher(ResearchLanguageModel([find()]), cache=cache), [REQUEST], on_progress=leave)
-    assert cache.get("floor_tile", REQUEST.region, REQUEST.quality) is None
+        research(researcher(ResearchLanguageModel([find()])), [REQUEST], on_progress=leave)
 
 
 def test_progress_names_what_is_being_researched():
