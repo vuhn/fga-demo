@@ -16,6 +16,12 @@ engine:
 engine-grpc:
 	cd blueprint-engine && uv run watchfiles --filter python fga_engine.serve.main src
 
+agent:
+	cd agent && uv run watchfiles --filter python fga_agent.serve.main src
+
+agent-test:
+	cd agent && uv run pytest -q
+
 engine-test:
 	cd blueprint-engine && uv run pytest -q
 
@@ -50,6 +56,7 @@ check:
 	bash scripts/check-migrations.sh
 	bash scripts/check-specs.sh
 	cd blueprint-engine && uv run pytest -q
+	cd agent && uv run pytest -q
 	cd web && npm run build
 
 verify-live: compose-up seed test-integration
@@ -57,4 +64,4 @@ verify-live: compose-up seed test-integration
 init:
 	bash scripts/init.sh
 
-.PHONY: proto proto-gen compose-up seed api web engine engine-grpc engine-test engine-eval engine-eval-estimate test test-integration check verify-live init
+.PHONY: proto proto-gen compose-up seed api web engine engine-grpc agent agent-test engine-test engine-eval engine-eval-estimate test test-integration check verify-live init

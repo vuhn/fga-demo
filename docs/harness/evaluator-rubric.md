@@ -18,3 +18,14 @@ Tune against human judgment: when the reviewer and a person disagree, tighten th
 ## Tuning log
 
 - (none yet)
+
+## Python services layering checklist (agent, engine)
+
+Scripts check names, imports and sizes (`scripts/check-architecture-python.sh`, `scripts/check-python-shape.py`). A reviewer checks what they cannot:
+
+- Is each handler method really decode, ONE use case, encode? No rule, default or formula computed in it.
+- Does every gateway, use case, service and model carry the domain's word (`BriefDrafter`, `PlanCheck`), not the mechanism's (`Tool`, `Registry`, `Loader` of a protocol)?
+- Does each mapper convert both ways with no decisions in it? Is a DTO field leaking into a model (empty string for "absent", JSON text instead of a value)?
+- Is a prompt a pure function in `service/prompts/`, with model-specific tuning left in the adapter?
+- Does a use case read as business steps (validate, ask the Engine, ask the model, retry with feedback), with its dependencies passed in?
+- Would a new Engine operation need only a proto method, a gateway method, one `@rpc` adapter method and a mapper pair?
