@@ -3,17 +3,17 @@ package usecase
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type PhotoLister interface {
 	// List returns every visible photo in the tenant, or only those in
 	// albumID when it is not empty.
-	List(ctx context.Context, actor, tenantID, albumID, projectID string) ([]entity.Visible[entity.Photo], error)
+	List(ctx context.Context, actor, tenantID, albumID, projectID string) ([]model.Visible[model.Photo], error)
 }
 
 type PhotoGetter interface {
-	Get(ctx context.Context, actor, tenantID, id string) (entity.Visible[entity.Photo], error)
+	Get(ctx context.Context, actor, tenantID, id string) (model.Visible[model.Photo], error)
 }
 
 type CreatePhotoInput struct {
@@ -24,11 +24,11 @@ type CreatePhotoInput struct {
 }
 
 type PhotoCreator interface {
-	Create(ctx context.Context, actor, tenantID string, in CreatePhotoInput) (entity.Photo, error)
+	Create(ctx context.Context, actor, tenantID string, in CreatePhotoInput) (model.Photo, error)
 }
 
 type PhotoRenamer interface {
-	Rename(ctx context.Context, actor, tenantID, id, name string) (entity.Photo, error)
+	Rename(ctx context.Context, actor, tenantID, id, name string) (model.Photo, error)
 }
 
 type PhotoDeleter interface {
@@ -36,18 +36,18 @@ type PhotoDeleter interface {
 }
 
 type PhotoGrantLister interface {
-	ListGrants(ctx context.Context, actor, tenantID, id string) ([]entity.Grant, error)
+	ListGrants(ctx context.Context, actor, tenantID, id string) ([]model.Grant, error)
 }
 
 // PhotoShareCandidateLister lists the external members a sharer can pick.
 type PhotoShareCandidateLister interface {
-	ListShareCandidates(ctx context.Context, actor, tenantID, id string) ([]entity.Membership, error)
+	ListShareCandidates(ctx context.Context, actor, tenantID, id string) ([]model.Membership, error)
 }
 
 type PhotoSharer interface {
-	Share(ctx context.Context, actor, tenantID, id string, in entity.ShareInput) (entity.Grant, error)
+	Share(ctx context.Context, actor, tenantID, id string, in model.ShareInput) (model.Grant, error)
 }
 
 type PhotoShareRevoker interface {
-	Revoke(ctx context.Context, actor, tenantID, id string, in entity.ShareInput) error
+	Revoke(ctx context.Context, actor, tenantID, id string, in model.ShareInput) error
 }

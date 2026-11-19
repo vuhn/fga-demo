@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -19,24 +19,24 @@ func NewDocumentLister(documents gateway.DocumentGateway, authz usecase.Authoriz
 
 // List returns every visible document in the tenant, including documents
 // whose folder the actor cannot see ("Shared with me").
-func (s *documentLister) List(ctx context.Context, actor, tenantID, folderID, projectID string) ([]entity.Visible[entity.Document], error) {
+func (s *documentLister) List(ctx context.Context, actor, tenantID, folderID, projectID string) ([]model.Visible[model.Document], error) {
 	if folderID != "" {
-		if err := entity.RequireUUID("folder_id", folderID); err != nil {
+		if err := model.RequireUUID("folder_id", folderID); err != nil {
 			return nil, err
 		}
 	}
 	if projectID != "" {
-		if err := entity.RequireUUID("project_id", projectID); err != nil {
+		if err := model.RequireUUID("project_id", projectID); err != nil {
 			return nil, err
 		}
 	}
-	ids, err := s.authz.ListObjectIDs(ctx, actor, "can_view", entity.ObjectTypeDocument)
+	ids, err := s.authz.ListObjectIDs(ctx, actor, "can_view", model.ObjectTypeDocument)
 	if err != nil || len(ids) == 0 {
-		return []entity.Visible[entity.Document]{}, err
+		return []model.Visible[model.Document]{}, err
 	}
 	documents, err := s.documents.ListByIDs(ctx, tenantID, ids, folderID, projectID)
 	if err != nil {
 		return nil, err
 	}
-	return withPerms(ctx, s.authz, actor, entity.ObjectTypeDocument, documents, documentID)
+	return withPerms(ctx, s.authz, actor, model.ObjectTypeDocument, documents, documentID)
 }

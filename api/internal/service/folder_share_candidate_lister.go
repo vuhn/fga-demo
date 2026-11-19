@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -21,9 +21,9 @@ func NewFolderShareCandidateLister(folders gateway.FolderGateway, members gatewa
 // ListShareCandidates lists the external members of the folder's tenant. It
 // needs can_share on the folder, not member management, so owners can share
 // without seeing the full roster.
-func (s *folderShareCandidateLister) ListShareCandidates(ctx context.Context, actor, tenantID, id string) ([]entity.Membership, error) {
+func (s *folderShareCandidateLister) ListShareCandidates(ctx context.Context, actor, tenantID, id string) ([]model.Membership, error) {
 	if err := requireFolderShare(ctx, s.folders, s.authz, actor, tenantID, id); err != nil {
 		return nil, err
 	}
-	return s.members.List(ctx, tenantID, entity.AffiliationExternal)
+	return s.members.List(ctx, tenantID, model.AffiliationExternal)
 }

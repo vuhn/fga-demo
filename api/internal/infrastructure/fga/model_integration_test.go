@@ -8,7 +8,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/fga"
 
 	. "github.com/vuhn/fga-demo/api/internal/seed"
@@ -51,11 +51,11 @@ func name(id string) string {
 	return id
 }
 
-func tup(user, rel, obj string) entity.Tuple {
-	return entity.Tuple{User: user, Relation: rel, Object: obj}
+func tup(user, rel, obj string) model.Tuple {
+	return model.Tuple{User: user, Relation: rel, Object: obj}
 }
 
-func write(t *testing.T, ctx context.Context, c *fga.Client, writes, deletes []entity.Tuple) {
+func write(t *testing.T, ctx context.Context, c *fga.Client, writes, deletes []model.Tuple) {
 	t.Helper()
 	if err := c.Write(ctx, writes, deletes); err != nil {
 		t.Fatal(err)
@@ -226,7 +226,7 @@ func TestModelAgainstSeed(t *testing.T) {
 
 	// Requirement 4, group form: share private Board with all external admins.
 	boardToAdmins := tup("tenant:"+Acme+"#external_admin", "viewer", "folder:"+AcmeBoard)
-	write(t, ctx, c, []entity.Tuple{boardToAdmins}, nil)
+	write(t, ctx, c, []model.Tuple{boardToAdmins}, nil)
 	assertRows(t, ctx, c, "board shared with external admins", []row{
 		{Fay, "can_view", fo, AcmeBoard, true},
 		{Fay, "can_view", do, AcmeQ3Plan, true},
@@ -234,11 +234,11 @@ func TestModelAgainstSeed(t *testing.T) {
 		{Fay, "can_edit", do, AcmeQ3Plan, false},
 		{Dan, "can_view", fo, AcmeBoard, false},
 	})
-	write(t, ctx, c, nil, []entity.Tuple{boardToAdmins})
+	write(t, ctx, c, nil, []model.Tuple{boardToAdmins})
 
 	// Visibility changes. Making Client private hides it and everything inside from externals.
 	clientPublic := tup("tenant:"+Acme, "public", "folder:"+AcmeClient)
-	write(t, ctx, c, nil, []entity.Tuple{clientPublic})
+	write(t, ctx, c, nil, []model.Tuple{clientPublic})
 	assertRows(t, ctx, c, "client made private", []row{
 		{Dan, "can_view", fo, AcmeClient, false},
 		{Dan, "can_view", do, AcmeClientBrief, false},
@@ -248,12 +248,12 @@ func TestModelAgainstSeed(t *testing.T) {
 		{Fay, "can_view", fo, AcmeClient, false}, // ...but not the folder around it
 		{Cara, "can_view", fo, AcmeClient, true},
 	})
-	write(t, ctx, c, []entity.Tuple{clientPublic}, nil)
+	write(t, ctx, c, []model.Tuple{clientPublic}, nil)
 
 	// Making Board public reveals Board and the already-public Legal; Specs stays hidden until it too is public.
 	boardPublic := tup("tenant:"+Acme, "public", "folder:"+AcmeBoard)
 	specsPublic := tup("tenant:"+Acme, "public", "folder:"+AcmeSpecs)
-	write(t, ctx, c, []entity.Tuple{boardPublic, specsPublic}, nil)
+	write(t, ctx, c, []model.Tuple{boardPublic, specsPublic}, nil)
 	assertRows(t, ctx, c, "board and specs made public", []row{
 		{Dan, "can_view", fo, AcmeBoard, true},
 		{Dan, "can_view", fo, AcmeLegal, true},
@@ -261,11 +261,11 @@ func TestModelAgainstSeed(t *testing.T) {
 		{Dan, "can_view", do, AcmePricing, true},
 		{Fay, "can_create_document", fo, AcmeLegal, true},
 	})
-	write(t, ctx, c, nil, []entity.Tuple{boardPublic, specsPublic})
+	write(t, ctx, c, nil, []model.Tuple{boardPublic, specsPublic})
 
 	// Disabling a product removes access but keeps tuples.
 	photos := tup("user:*", "photos_enabled", "tenant:"+Acme)
-	write(t, ctx, c, nil, []entity.Tuple{photos})
+	write(t, ctx, c, nil, []model.Tuple{photos})
 	assertRows(t, ctx, c, "photos off", []row{
 		{Bob, "can_view", ph, AcmeKickoff, false},
 		{Dan, "can_view", ph, AcmeLobby, false},
@@ -283,11 +283,11 @@ func TestModelAgainstSeed(t *testing.T) {
 	if !found {
 		t.Errorf("Kickoff owner tuple missing after disable: %v", kick)
 	}
-	write(t, ctx, c, []entity.Tuple{photos}, nil)
+	write(t, ctx, c, []model.Tuple{photos}, nil)
 	assertRows(t, ctx, c, "photos on", []row{{Dan, "can_view", ph, AcmeLobby, true}})
 
 	// Removing a member drops everything; a stale share fails closed.
-	write(t, ctx, c, nil, []entity.Tuple{tup("user:"+Dan, "external_user", "tenant:"+Acme)})
+	write(t, ctx, c, nil, []model.Tuple{tup("user:"+Dan, "external_user", "tenant:"+Acme)})
 	assertRows(t, ctx, c, "dan removed", []row{
 		{Dan, "can_read_tenant", tn, Acme, false},
 		{Dan, "can_view", fo, AcmeClient, false},

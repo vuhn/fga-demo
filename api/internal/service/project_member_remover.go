@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -47,11 +47,11 @@ func (s *projectMemberRemover) Remove(ctx context.Context, actor, tenantID, proj
 
 // projectMemberTuples returns every tuple one project membership owns and the
 // exact set that existed (for restoring).
-func projectMemberTuples(relations gateway.ProjectMemberRelationGateway, roleRels gateway.ProjectRoleRelationGateway, m entity.ProjectMember) (deletes, restore []entity.Tuple, err error) {
+func projectMemberTuples(relations gateway.ProjectMemberRelationGateway, roleRels gateway.ProjectRoleRelationGateway, m model.ProjectMember) (deletes, restore []model.Tuple, err error) {
 	deletes = relations.ClearRoles(m.ProjectID, m.UserID)
 	if m.ProjectRoleID != "" {
 		a := roleRels.Assignee(m.ProjectRoleID, m.UserID)
-		return append(deletes, a), []entity.Tuple{a}, nil
+		return append(deletes, a), []model.Tuple{a}, nil
 	}
 	restore, _, err = relations.AssignRole(m.ProjectID, m.UserID, m.Affiliation, m.Role)
 	return deletes, restore, err

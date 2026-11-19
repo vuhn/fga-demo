@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	commonv1 "github.com/vuhn/fga-demo/api/internal/infrastructure/grpcgen/fga/demo/common/v1"
 )
 
@@ -103,20 +103,20 @@ func FromStatus(service string, err error, detail *commonv1.ErrorDetail) error {
 	}
 	st, ok := status.FromError(err)
 	if !ok {
-		return fmt.Errorf("%w: %s: %v", entity.ErrEngineUnavailable, service, err)
+		return fmt.Errorf("%w: %s: %v", model.ErrEngineUnavailable, service, err)
 	}
 	if st.Code() == codes.InvalidArgument {
 		msg := st.Message()
 		if detail != nil && detail.Message != "" {
 			msg = detail.Message
 		}
-		return entity.Invalid("%s", msg)
+		return model.Invalid("%s", msg)
 	}
 	msg := st.Message()
 	if detail != nil && detail.Message != "" {
 		msg = detail.Message
 	}
-	return fmt.Errorf("%w: %s %s: %s", entity.ErrEngineUnavailable, service, st.Code(), msg)
+	return fmt.Errorf("%w: %s %s: %s", model.ErrEngineUnavailable, service, st.Code(), msg)
 }
 
 // InBand maps an ErrorDetail that arrived as a stream event (after the first message, when a status can no
@@ -127,9 +127,9 @@ func InBand(service string, d *commonv1.ErrorDetail) error {
 	}
 	switch d.Code {
 	case commonv1.ErrorCode_ERROR_CODE_DEPENDENCY_UNAVAILABLE:
-		return fmt.Errorf("%w: %s: %s", entity.ErrEngineUnavailable, service, d.Message)
+		return fmt.Errorf("%w: %s: %s", model.ErrEngineUnavailable, service, d.Message)
 	default:
-		return entity.Invalid("%s", d.Message)
+		return model.Invalid("%s", d.Message)
 	}
 }
 

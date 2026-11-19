@@ -3,22 +3,22 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
 // loadDocument returns the document when it exists in the header tenant.
-func loadDocument(ctx context.Context, documents gateway.DocumentGateway, tenantID, id string) (entity.Document, error) {
-	if err := entity.RequireUUID("id", id); err != nil {
-		return entity.Document{}, err
+func loadDocument(ctx context.Context, documents gateway.DocumentGateway, tenantID, id string) (model.Document, error) {
+	if err := model.RequireUUID("id", id); err != nil {
+		return model.Document{}, err
 	}
 	d, err := documents.Get(ctx, id)
 	if err != nil {
-		return entity.Document{}, err
+		return model.Document{}, err
 	}
 	if d.TenantID != tenantID {
-		return entity.Document{}, entity.ErrNotFound
+		return model.Document{}, model.ErrNotFound
 	}
 	return d, nil
 }
@@ -28,7 +28,7 @@ func requireDocumentShare(ctx context.Context, documents gateway.DocumentGateway
 	if _, err := loadDocument(ctx, documents, tenantID, id); err != nil {
 		return err
 	}
-	return authz.Require(ctx, actor, "can_share", entity.ObjectTypeDocument, id)
+	return authz.Require(ctx, actor, "can_share", model.ObjectTypeDocument, id)
 }
 
-func documentID(d entity.Document) string { return d.ID }
+func documentID(d model.Document) string { return d.ID }

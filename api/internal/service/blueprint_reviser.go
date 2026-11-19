@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -34,7 +34,7 @@ func (s *blueprintReviser) Revise(ctx context.Context, actor, tenantID, id, mess
 		if err := requireBuilt(out); err != nil {
 			return usecase.BlueprintDetail{}, err
 		}
-		return appendBlueprintVersion(ctx, s.blueprints, b, planOutcomeVersion(id, entity.BlueprintVersionRevise, message, actor, out), baseVersion)
+		return appendBlueprintVersion(ctx, s.blueprints, b, planOutcomeVersion(id, model.BlueprintVersionRevise, message, actor, out), baseVersion)
 	}
 	out, err := s.agent.Revise(ctx, cur.Brief, cur.Model, message, history)
 	if err != nil {
@@ -43,5 +43,5 @@ func (s *blueprintReviser) Revise(ctx context.Context, actor, tenantID, id, mess
 	if err := requireBuilt(out); err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
-	return appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(id, entity.BlueprintVersionRevise, message, actor, out), baseVersion)
+	return appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(id, model.BlueprintVersionRevise, message, actor, out), baseVersion)
 }

@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -19,7 +19,7 @@ func NewProjectMemberLister(projects gateway.ProjectGateway, members gateway.Pro
 }
 
 // List is project administration: project member managers or the platform.
-func (s *projectMemberLister) List(ctx context.Context, actor, tenantID, projectID string) ([]entity.ProjectMember, error) {
+func (s *projectMemberLister) List(ctx context.Context, actor, tenantID, projectID string) ([]model.ProjectMember, error) {
 	if _, err := loadProject(ctx, s.projects, tenantID, projectID); err != nil {
 		return nil, err
 	}

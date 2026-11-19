@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 // roleAssignment is one membership role: a built-in role, or one custom role
@@ -14,13 +14,13 @@ import (
 type roleAssignment struct {
 	StoredRole   string
 	CustomRoleID string
-	Writes       []entity.Tuple
-	Deletes      []entity.Tuple
+	Writes       []model.Tuple
+	Deletes      []model.Tuple
 }
 
 func assignMemberRole(ctx context.Context, roles gateway.RoleGateway, memberRels gateway.MembershipRelationGateway, roleRels gateway.RoleRelationGateway, tenantID, userID, affiliation, role, previousCustomID string) (roleAssignment, error) {
-	err := entity.CheckAffiliationRole(affiliation, role)
-	if errors.Is(err, entity.ErrAffiliationRoleMismatch) {
+	err := model.CheckAffiliationRole(affiliation, role)
+	if errors.Is(err, model.ErrAffiliationRoleMismatch) {
 		return roleAssignment{}, err
 	}
 	if err == nil {
@@ -33,15 +33,15 @@ func assignMemberRole(ctx context.Context, roles gateway.RoleGateway, memberRels
 		}
 		return roleAssignment{StoredRole: role, Writes: writes, Deletes: deletes}, nil
 	}
-	if !entity.ValidUUID(role) {
-		return roleAssignment{}, entity.Invalid("unknown role %q", role)
+	if !model.ValidUUID(role) {
+		return roleAssignment{}, model.Invalid("unknown role %q", role)
 	}
 	custom, err := roles.Get(ctx, tenantID, role)
 	if err != nil {
 		return roleAssignment{}, err
 	}
 	if custom.Affiliation != affiliation {
-		return roleAssignment{}, entity.ErrAffiliationRoleMismatch
+		return roleAssignment{}, model.ErrAffiliationRoleMismatch
 	}
 	deletes := memberRels.ClearRoles(tenantID, userID)
 	if previousCustomID != "" && previousCustomID != custom.ID {
@@ -50,7 +50,7 @@ func assignMemberRole(ctx context.Context, roles gateway.RoleGateway, memberRels
 	return roleAssignment{
 		StoredRole:   custom.ID,
 		CustomRoleID: custom.ID,
-		Writes:       []entity.Tuple{roleRels.Assignee(custom.ID, userID)},
+		Writes:       []model.Tuple{roleRels.Assignee(custom.ID, userID)},
 		Deletes:      deletes,
 	}, nil
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -39,19 +39,6 @@ func (h *PhotoHandler) Register(r Routes) {
 	g.DELETE("/photos/:id/grants", h.revoke)
 }
 
-func photoView(p entity.Photo) map[string]any {
-	return map[string]any{
-		"id": p.ID, "tenant_id": p.TenantID, "project_id": p.ProjectID, "album_id": p.AlbumID, "name": p.Name,
-		"mime_type": p.MimeType, "byte_size": p.ByteSize, "created_by": p.CreatedBy, "created_at": p.CreatedAt,
-	}
-}
-
-func visiblePhotoView(v entity.Visible[entity.Photo]) map[string]any {
-	m := photoView(v.Value)
-	m["permissions"] = v.Perms
-	return m
-}
-
 func (h *PhotoHandler) list(c *gin.Context) {
 	ps, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("album_id"), c.Query("project_id"))
 	respond(c, http.StatusOK, mapSlice(ps, visiblePhotoView), err)
@@ -68,7 +55,7 @@ func (h *PhotoHandler) create(c *gin.Context) {
 	in.MimeType, _ = body["mime_type"].(string)
 	size, ok := body["byte_size"].(float64)
 	if !ok || size != float64(int64(size)) {
-		writeErr(c, entity.Invalid("byte_size must be an integer"))
+		writeErr(c, model.Invalid("byte_size must be an integer"))
 		return
 	}
 	in.ByteSize = int64(size)

@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -39,19 +39,6 @@ func (h *DocumentHandler) Register(r Routes) {
 	g.DELETE("/documents/:id/grants", h.revoke)
 }
 
-func documentView(d entity.Document) map[string]any {
-	return map[string]any{
-		"id": d.ID, "tenant_id": d.TenantID, "project_id": d.ProjectID, "folder_id": d.FolderID, "name": d.Name,
-		"mime_type": d.MimeType, "byte_size": d.ByteSize, "created_by": d.CreatedBy, "created_at": d.CreatedAt,
-	}
-}
-
-func visibleDocumentView(v entity.Visible[entity.Document]) map[string]any {
-	m := documentView(v.Value)
-	m["permissions"] = v.Perms
-	return m
-}
-
 func (h *DocumentHandler) list(c *gin.Context) {
 	ds, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("folder_id"), c.Query("project_id"))
 	respond(c, http.StatusOK, mapSlice(ds, visibleDocumentView), err)
@@ -68,7 +55,7 @@ func (h *DocumentHandler) create(c *gin.Context) {
 	in.MimeType, _ = body["mime_type"].(string)
 	size, ok := body["byte_size"].(float64)
 	if !ok || size != float64(int64(size)) {
-		writeErr(c, entity.Invalid("byte_size must be an integer"))
+		writeErr(c, model.Invalid("byte_size must be an integer"))
 		return
 	}
 	in.ByteSize = int64(size)

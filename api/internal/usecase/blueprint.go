@@ -4,21 +4,21 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 // BlueprintDetail is a blueprint with one of its versions. Perms is set only
 // by the getter.
 type BlueprintDetail struct {
-	Blueprint entity.Blueprint
-	Perms     entity.Perms
-	Version   entity.BlueprintVersion
+	Blueprint model.Blueprint
+	Perms     model.Perms
+	Version   model.BlueprintVersion
 }
 
 type BlueprintLister interface {
 	// List returns every visible blueprint in the tenant, or only those in
 	// projectID when it is not empty.
-	List(ctx context.Context, actor, tenantID, projectID string) ([]entity.Visible[entity.Blueprint], error)
+	List(ctx context.Context, actor, tenantID, projectID string) ([]model.Visible[model.Blueprint], error)
 }
 
 type BlueprintGetter interface {
@@ -27,7 +27,7 @@ type BlueprintGetter interface {
 
 // BlueprintDrafter extracts a brief from a prompt. It writes nothing.
 type BlueprintDrafter interface {
-	Draft(ctx context.Context, actor, tenantID, projectID, prompt string) (entity.BlueprintDraft, error)
+	Draft(ctx context.Context, actor, tenantID, projectID, prompt string) (model.BlueprintDraft, error)
 }
 
 type CreateBlueprintInput struct {
@@ -54,7 +54,7 @@ type BlueprintReviser interface {
 // returned before the first onProgress call, so the caller can still answer
 // with a plain status; afterwards errors arrive as the returned error.
 type BlueprintReviseStreamer interface {
-	ReviseStream(ctx context.Context, actor, tenantID, id, message string, baseVersion int, onProgress func(entity.BlueprintProgress)) (BlueprintDetail, error)
+	ReviseStream(ctx context.Context, actor, tenantID, id, message string, baseVersion int, onProgress func(model.BlueprintProgress)) (BlueprintDetail, error)
 }
 
 // BlueprintReviewer lets the engine's reviewer fix the current version's
@@ -69,7 +69,7 @@ type BlueprintBriefUpdater interface {
 }
 
 type BlueprintVersionLister interface {
-	ListVersions(ctx context.Context, actor, tenantID, id string) ([]entity.BlueprintVersion, error)
+	ListVersions(ctx context.Context, actor, tenantID, id string) ([]model.BlueprintVersion, error)
 }
 
 // BlueprintVersionRestorer copies an older version into a new one.
@@ -79,11 +79,11 @@ type BlueprintVersionRestorer interface {
 
 // BlueprintDrawingRenderer renders the current version, or version when > 0.
 type BlueprintDrawingRenderer interface {
-	Render(ctx context.Context, actor, tenantID, id, format string, version int) (entity.Drawing, error)
+	Render(ctx context.Context, actor, tenantID, id, format string, version int) (model.Drawing, error)
 }
 
 type BlueprintRenamer interface {
-	Rename(ctx context.Context, actor, tenantID, id, name string) (entity.Blueprint, error)
+	Rename(ctx context.Context, actor, tenantID, id, name string) (model.Blueprint, error)
 }
 
 type BlueprintDeleter interface {
@@ -91,34 +91,34 @@ type BlueprintDeleter interface {
 }
 
 type BlueprintGrantLister interface {
-	ListGrants(ctx context.Context, actor, tenantID, id string) ([]entity.Grant, error)
+	ListGrants(ctx context.Context, actor, tenantID, id string) ([]model.Grant, error)
 }
 
 // BlueprintShareCandidateLister lists the external members a sharer can pick.
 type BlueprintShareCandidateLister interface {
-	ListShareCandidates(ctx context.Context, actor, tenantID, id string) ([]entity.Membership, error)
+	ListShareCandidates(ctx context.Context, actor, tenantID, id string) ([]model.Membership, error)
 }
 
 type BlueprintSharer interface {
-	Share(ctx context.Context, actor, tenantID, id string, in entity.ShareInput) (entity.Grant, error)
+	Share(ctx context.Context, actor, tenantID, id string, in model.ShareInput) (model.Grant, error)
 }
 
 type BlueprintShareRevoker interface {
-	Revoke(ctx context.Context, actor, tenantID, id string, in entity.ShareInput) error
+	Revoke(ctx context.Context, actor, tenantID, id string, in model.ShareInput) error
 }
 
 // BlueprintDXFImportPreviewer reads a DXF (or a PDF/image, converted to one first) and returns the plans found, for the review step. Nothing is stored.
 type BlueprintDXFImportPreviewer interface {
-	Preview(ctx context.Context, actor, tenantID, projectID string, file entity.Upload, unit string, opts entity.ConvertOptions) (entity.BlueprintImport, error)
+	Preview(ctx context.Context, actor, tenantID, projectID string, file model.Upload, unit string, opts model.ConvertOptions) (model.BlueprintImport, error)
 }
 
 type ImportBlueprintInput struct {
 	ProjectID string
 	Name      string
-	File      entity.Upload
+	File      model.Upload
 	Unit      string
-	Convert   entity.ConvertOptions // for a PDF or image
-	PlanIndex int                   // 1-based, as the preview numbered them
+	Convert   model.ConvertOptions // for a PDF or image
+	PlanIndex int                  // 1-based, as the preview numbered them
 }
 
 // BlueprintImporter creates a blueprint from one plan of a DXF and keeps the original file.
@@ -140,10 +140,10 @@ type BlueprintPlanConverter interface {
 // BlueprintOriginalExporter returns the original file of an imported plan with the edits of a version
 // (0 = current) written back into it.
 type BlueprintOriginalExporter interface {
-	Export(ctx context.Context, actor, tenantID, id string, version int) (entity.PatchedFile, error)
+	Export(ctx context.Context, actor, tenantID, id string, version int) (model.PatchedFile, error)
 }
 
 // BlueprintOriginalGetter returns the stored original of the current (or a given) version.
 type BlueprintOriginalGetter interface {
-	GetOriginal(ctx context.Context, actor, tenantID, id string, version int) (entity.BlueprintOriginal, error)
+	GetOriginal(ctx context.Context, actor, tenantID, id string, version int) (model.BlueprintOriginal, error)
 }

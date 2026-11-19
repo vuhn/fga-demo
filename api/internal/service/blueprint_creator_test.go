@@ -6,14 +6,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
 const projID = "11111111-1111-4111-8111-111111111111"
 
-func (e *fakeEngine) CreatePlan(_ context.Context, brief []byte) (entity.BlueprintOutcome, error) {
+func (e *fakeEngine) CreatePlan(_ context.Context, brief []byte) (model.BlueprintOutcome, error) {
 	e.calls = append(e.calls, "CreatePlan "+string(brief))
 	o, err := e.out()
 	o.Brief = nil // the engine returns no brief for a created plan
@@ -28,22 +28,22 @@ func (e *fakeEngine) CreatePlan(_ context.Context, brief []byte) (entity.Bluepri
 
 type fakeProjects struct{ gateway.ProjectGateway }
 
-func (fakeProjects) Get(context.Context, string) (entity.Project, error) {
-	return entity.Project{ID: projID, TenantID: "t"}, nil
+func (fakeProjects) Get(context.Context, string) (model.Project, error) {
+	return model.Project{ID: projID, TenantID: "t"}, nil
 }
 
 type fakeRelations struct {
 	gateway.BlueprintRelationGateway
 }
 
-func (fakeRelations) Created(entity.Blueprint) []entity.Tuple { return nil }
+func (fakeRelations) Created(model.Blueprint) []model.Tuple { return nil }
 
 type fakeGuard struct{ undone *bool }
 
-func (g fakeGuard) Grant(_ context.Context, _, _ []entity.Tuple, _ func(context.Context) error) error {
+func (g fakeGuard) Grant(_ context.Context, _, _ []model.Tuple, _ func(context.Context) error) error {
 	return nil
 }
-func (g fakeGuard) Revoke(context.Context, []entity.Tuple, []entity.Tuple, func(context.Context) error) error {
+func (g fakeGuard) Revoke(context.Context, []model.Tuple, []model.Tuple, func(context.Context) error) error {
 	return nil
 }
 func (g fakeGuard) RevokeObject(context.Context, string, string, func(context.Context) error) error {
@@ -57,17 +57,17 @@ func (fakeIDs) NewID() string { return "22222222-2222-4222-8222-222222222222" }
 // creating blueprints records what was stored
 type creatingBlueprints struct {
 	*fakeBlueprints
-	created   []entity.Blueprint
-	versions  []entity.BlueprintVersion
-	originals []entity.BlueprintOriginal
+	created   []model.Blueprint
+	versions  []model.BlueprintVersion
+	originals []model.BlueprintOriginal
 	plain     int
 }
 
-func (c *creatingBlueprints) Create(context.Context, entity.Blueprint, entity.BlueprintVersion, entity.Grant) error {
+func (c *creatingBlueprints) Create(context.Context, model.Blueprint, model.BlueprintVersion, model.Grant) error {
 	c.plain++
 	return nil
 }
-func (c *creatingBlueprints) CreateImported(_ context.Context, b entity.Blueprint, v entity.BlueprintVersion, _ entity.Grant, o entity.BlueprintOriginal) error {
+func (c *creatingBlueprints) CreateImported(_ context.Context, b model.Blueprint, v model.BlueprintVersion, _ model.Grant, o model.BlueprintOriginal) error {
 	c.created, c.versions, c.originals = append(c.created, b), append(c.versions, v), append(c.originals, o)
 	return nil
 }
@@ -79,7 +79,7 @@ func create(bp *creatingBlueprints, eng *fakeEngine, authz *fakeAuthz, kind stri
 
 func TestCreateStoresAPlanLikeAnImport(t *testing.T) {
 	bp, eng := &creatingBlueprints{fakeBlueprints: &fakeBlueprints{brief: "null"}}, &fakeEngine{}
-	if _, err := create(bp, eng, &fakeAuthz{}, entity.BlueprintSourcePrompt); err != nil {
+	if _, err := create(bp, eng, &fakeAuthz{}, model.BlueprintSourcePrompt); err != nil {
 		t.Fatal(err)
 	}
 	if len(eng.calls) != 1 || eng.calls[0] != `CreatePlan {"title":"x"}` || bp.plain != 0 {
@@ -87,29 +87,29 @@ func TestCreateStoresAPlanLikeAnImport(t *testing.T) {
 	}
 	v, o := bp.versions[0], bp.originals[0]
 	// version 1 has no brief (whatever the engine said), keeps the prompt as its message, and the drawn DXF is the original
-	if v.Kind != entity.BlueprintVersionCreate || string(v.Brief) != "null" || v.Message != "a house" || v.Version != 1 {
+	if v.Kind != model.BlueprintVersionCreate || string(v.Brief) != "null" || v.Message != "a house" || v.Version != 1 {
 		t.Fatalf("version %+v", v)
 	}
-	if string(o.Data) != "DRAWN" || o.Name != "House.dxf" || o.MimeType != entity.DXFMimeType || o.ByteSize != 5 || len(o.SHA256) != 64 || o.Version != 1 {
+	if string(o.Data) != "DRAWN" || o.Name != "House.dxf" || o.MimeType != model.DXFMimeType || o.ByteSize != 5 || len(o.SHA256) != 64 || o.Version != 1 {
 		t.Fatalf("original %+v", o)
 	}
-	if bp.created[0].SourceKind != entity.BlueprintSourcePrompt || bp.created[0].Source != nil {
+	if bp.created[0].SourceKind != model.BlueprintSourcePrompt || bp.created[0].Source != nil {
 		t.Fatalf("blueprint %+v", bp.created[0])
 	}
-	if !isImported(entity.BlueprintVersion{Brief: v.Brief}) {
+	if !isImported(model.BlueprintVersion{Brief: v.Brief}) {
 		t.Fatal("a created plan is edited like an imported one")
 	}
 }
 
 func TestCreateStoresNothingWhenDeniedOrNotBuilt(t *testing.T) {
 	bp, eng := &creatingBlueprints{fakeBlueprints: &fakeBlueprints{brief: "null"}}, &fakeEngine{}
-	if _, err := create(bp, eng, &fakeAuthz{deny: true}, entity.BlueprintSourcePrompt); !errors.Is(err, entity.ErrForbidden) {
+	if _, err := create(bp, eng, &fakeAuthz{deny: true}, model.BlueprintSourcePrompt); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("want forbidden, got %v", err)
 	}
 	if len(eng.calls) != 0 {
 		t.Fatalf("a denied request reached the engine: %v", eng.calls)
 	}
-	if _, err := create(bp, &fakeEngine{noModel: true}, &fakeAuthz{}, entity.BlueprintSourceForm); !errors.Is(err, entity.ErrValidation) {
+	if _, err := create(bp, &fakeEngine{noModel: true}, &fakeAuthz{}, model.BlueprintSourceForm); !errors.Is(err, model.ErrValidation) {
 		t.Fatalf("want validation, got %v", err)
 	}
 	if len(bp.created) != 0 {
@@ -119,7 +119,7 @@ func TestCreateStoresNothingWhenDeniedOrNotBuilt(t *testing.T) {
 
 // ---------------------------------------------------------------- converting a plan made from a brief
 
-func (e *fakeEngine) DrawPlan(_ context.Context, model []byte, title string) (entity.BlueprintOutcome, error) {
+func (e *fakeEngine) DrawPlan(_ context.Context, model []byte, title string) (model.BlueprintOutcome, error) {
 	e.calls = append(e.calls, "DrawPlan "+string(model)+" "+title)
 	o, err := e.out()
 	o.Brief = nil
@@ -134,17 +134,17 @@ func (e *fakeEngine) DrawPlan(_ context.Context, model []byte, title string) (en
 
 type convertingBlueprints struct {
 	*fakeBlueprints
-	appended    entity.BlueprintVersion
-	original    entity.BlueprintOriginal
+	appended    model.BlueprintVersion
+	original    model.BlueprintOriginal
 	base, n     int
 	plainAppend int
 }
 
-func (c *convertingBlueprints) AppendVersionWithOriginal(_ context.Context, v entity.BlueprintVersion, base int, o entity.BlueprintOriginal) error {
+func (c *convertingBlueprints) AppendVersionWithOriginal(_ context.Context, v model.BlueprintVersion, base int, o model.BlueprintOriginal) error {
 	c.appended, c.original, c.base, c.n = v, o, base, c.n+1
 	return nil
 }
-func (c *convertingBlueprints) AppendVersion(context.Context, entity.BlueprintVersion, int) error {
+func (c *convertingBlueprints) AppendVersion(context.Context, model.BlueprintVersion, int) error {
 	c.plainAppend++
 	return nil
 }
@@ -162,10 +162,10 @@ func TestConvertStoresANewVersionWithoutABriefAndTheDrawingAsItsOriginal(t *test
 		t.Fatalf("writes %+v", bp)
 	}
 	v, o := bp.appended, bp.original
-	if v.Kind != entity.BlueprintVersionEdit || string(v.Brief) != "null" || v.Message != "converted to a DXF plan" || v.CreatedBy != "u" {
+	if v.Kind != model.BlueprintVersionEdit || string(v.Brief) != "null" || v.Message != "converted to a DXF plan" || v.CreatedBy != "u" {
 		t.Fatalf("version %+v", v)
 	}
-	if string(o.Data) != "DRAWN" || o.Version != 2 || o.MimeType != entity.DXFMimeType || o.ByteSize != 5 || len(o.SHA256) != 64 || o.BlueprintID != bpID {
+	if string(o.Data) != "DRAWN" || o.Version != 2 || o.MimeType != model.DXFMimeType || o.ByteSize != 5 || len(o.SHA256) != 64 || o.BlueprintID != bpID {
 		t.Fatalf("original %+v", o)
 	}
 }
@@ -180,17 +180,17 @@ func TestConvertRefusals(t *testing.T) {
 		return err
 	}
 	// denied, stale and another tenant's blueprint never reach the engine
-	if err := call(mk(`{"t":1}`), eng, &fakeAuthz{deny: true}, 1, "t"); !errors.Is(err, entity.ErrForbidden) {
+	if err := call(mk(`{"t":1}`), eng, &fakeAuthz{deny: true}, 1, "t"); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("want forbidden, got %v", err)
 	}
-	if err := call(mk(`{"t":1}`), eng, &fakeAuthz{}, 9, "t"); !errors.Is(err, entity.ErrConflict) {
+	if err := call(mk(`{"t":1}`), eng, &fakeAuthz{}, 9, "t"); !errors.Is(err, model.ErrConflict) {
 		t.Fatalf("want conflict, got %v", err)
 	}
-	if err := call(mk(`{"t":1}`), eng, &fakeAuthz{}, 1, "other"); !errors.Is(err, entity.ErrNotFound) {
+	if err := call(mk(`{"t":1}`), eng, &fakeAuthz{}, 1, "other"); !errors.Is(err, model.ErrNotFound) {
 		t.Fatalf("want not found, got %v", err)
 	}
 	// a DXF plan is already one
-	if err := call(mk("null"), eng, &fakeAuthz{}, 1, "t"); !errors.Is(err, entity.ErrValidation) {
+	if err := call(mk("null"), eng, &fakeAuthz{}, 1, "t"); !errors.Is(err, model.ErrValidation) {
 		t.Fatalf("want validation, got %v", err)
 	}
 	if len(eng.calls) != 0 {
@@ -198,7 +198,7 @@ func TestConvertRefusals(t *testing.T) {
 	}
 	// an engine refusal stores nothing
 	bp := mk(`{"t":1}`)
-	if err := call(bp, &fakeEngine{noModel: true}, &fakeAuthz{}, 1, "t"); !errors.Is(err, entity.ErrValidation) || bp.n != 0 {
+	if err := call(bp, &fakeEngine{noModel: true}, &fakeAuthz{}, 1, "t"); !errors.Is(err, model.ErrValidation) || bp.n != 0 {
 		t.Fatalf("err %v writes %d", err, bp.n)
 	}
 }

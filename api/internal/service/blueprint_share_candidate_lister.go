@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -21,9 +21,9 @@ func NewBlueprintShareCandidateLister(blueprints gateway.BlueprintGateway, membe
 // ListShareCandidates lists the external members of the blueprint's tenant. It
 // needs can_share on the blueprint, not member management, so owners can share
 // without seeing the full roster.
-func (s *blueprintShareCandidateLister) ListShareCandidates(ctx context.Context, actor, tenantID, id string) ([]entity.Membership, error) {
+func (s *blueprintShareCandidateLister) ListShareCandidates(ctx context.Context, actor, tenantID, id string) ([]model.Membership, error) {
 	if err := requireBlueprintShare(ctx, s.blueprints, s.authz, actor, tenantID, id); err != nil {
 		return nil, err
 	}
-	return s.members.List(ctx, tenantID, entity.AffiliationExternal)
+	return s.members.List(ctx, tenantID, model.AffiliationExternal)
 }

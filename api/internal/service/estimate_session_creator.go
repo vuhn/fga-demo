@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -27,10 +27,10 @@ func (s *estimateSessionCreator) Create(ctx context.Context, actor, tenantID, bl
 	if err != nil {
 		return usecase.EstimateSessionDetail{}, err
 	}
-	if err := s.authz.Require(ctx, actor, "can_edit", entity.ObjectTypeBlueprint, blueprintID); err != nil {
+	if err := s.authz.Require(ctx, actor, "can_edit", model.ObjectTypeBlueprint, blueprintID); err != nil {
 		return usecase.EstimateSessionDetail{}, err
 	}
-	sess := entity.EstimateSession{BlueprintID: b.ID, BlueprintVersion: b.CurrentVersion, State: json.RawMessage(`{}`), CreatedBy: actor}
+	sess := model.EstimateSession{BlueprintID: b.ID, BlueprintVersion: b.CurrentVersion, State: json.RawMessage(`{}`), CreatedBy: actor}
 	if err := s.sessions.Replace(ctx, sess); err != nil {
 		return usecase.EstimateSessionDetail{}, err
 	}

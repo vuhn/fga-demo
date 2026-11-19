@@ -5,7 +5,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -28,20 +27,6 @@ func (h *ProjectMemberHandler) Register(r Routes) {
 	g.POST("/projects/:id/members", h.add)
 	g.PATCH("/projects/:id/members/:userId", h.changeRole)
 	g.DELETE("/projects/:id/members/:userId", h.remove)
-}
-
-type projectMemberJSON struct {
-	UserID      string         `json:"user_id"`
-	Email       string         `json:"email"`
-	Name        string         `json:"name"`
-	Affiliation string         `json:"affiliation"`
-	Role        string         `json:"role"`
-	RoleName    string         `json:"role_name,omitempty"`
-	Company     companyRefJSON `json:"company"`
-}
-
-func projectMemberView(m entity.ProjectMember) projectMemberJSON {
-	return projectMemberJSON{m.UserID, m.Email, m.Name, m.Affiliation, m.Role, m.RoleName, companyRefJSON{m.CompanyID, m.CompanyName}}
 }
 
 func (h *ProjectMemberHandler) list(c *gin.Context) {

@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -18,7 +18,7 @@ func NewBlueprintGrantLister(blueprints gateway.BlueprintGateway, grants gateway
 	return &blueprintGrantLister{blueprints: blueprints, grants: grants, authz: authz}
 }
 
-func (s *blueprintGrantLister) ListGrants(ctx context.Context, actor, tenantID, id string) ([]entity.Grant, error) {
+func (s *blueprintGrantLister) ListGrants(ctx context.Context, actor, tenantID, id string) ([]model.Grant, error) {
 	if err := requireBlueprintShare(ctx, s.blueprints, s.authz, actor, tenantID, id); err != nil {
 		return nil, err
 	}

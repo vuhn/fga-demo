@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 var _ gateway.EstimateAgent = (*Client)(nil)
@@ -20,7 +20,7 @@ const estimateTurnCeiling = 30 * time.Minute
 // onEvent (progress as {kind, stage, message}; token, fact, question, rate and estimate with their data). The
 // done line is the outcome; an error line is mapped like a plain engine error. A refusal before the stream
 // opens comes back from send, before any event.
-func (c *Client) EstimateTurn(ctx context.Context, model, state []byte, message string, messages []entity.EstimateMessage, overrides map[string]float64, onEvent func(entity.EstimateEvent)) (entity.EstimateTurn, error) {
+func (c *Client) EstimateTurn(ctx context.Context, plan, state []byte, message string, messages []model.EstimateMessage, overrides map[string]float64, onEvent func(model.EstimateEvent)) (model.EstimateTurn, error) {
 	history := make([]map[string]string, 0, len(messages))
 	for _, m := range messages {
 		history = append(history, map[string]string{"role": m.Role, "content": m.Content})
@@ -28,10 +28,10 @@ func (c *Client) EstimateTurn(ctx context.Context, model, state []byte, message 
 	if overrides == nil {
 		overrides = map[string]float64{}
 	}
-	payload, err := json.Marshal(map[string]any{"model": json.RawMessage(model), "state": rawOr(state, "{}"), "message": message,
+	payload, err := json.Marshal(map[string]any{"model": json.RawMessage(plan), "state": rawOr(state, "{}"), "message": message,
 		"messages": history, "rate_overrides": overrides})
 	if err != nil {
-		return entity.EstimateTurn{}, err
+		return model.EstimateTurn{}, err
 	}
 	// A turn that researches many prices on a local model runs for many minutes: no fixed client timeout (the
 	// request context ends it when the browser disconnects), only this ceiling.
@@ -41,7 +41,7 @@ func (c *Client) EstimateTurn(ctx context.Context, model, state []byte, message 
 	long.Timeout = 0
 	resp, err := c.sendWith(ctx, &long, "/v1/estimate/agent/turn", "application/json", bytes.NewReader(payload))
 	if err != nil {
-		return entity.EstimateTurn{}, err
+		return model.EstimateTurn{}, err
 	}
 	defer resp.Body.Close()
 	r := bufio.NewReaderSize(resp.Body, 1<<20)
@@ -57,7 +57,7 @@ func (c *Client) EstimateTurn(ctx context.Context, model, state []byte, message 
 				Data    json.RawMessage `json:"data"`
 			}
 			if jerr := json.Unmarshal(line, &ev); jerr != nil {
-				return entity.EstimateTurn{}, fmt.Errorf("%w: bad engine stream: %v", entity.ErrEngineUnavailable, jerr)
+				return model.EstimateTurn{}, fmt.Errorf("%w: bad engine stream: %v", model.ErrEngineUnavailable, jerr)
 			}
 			switch ev.Event {
 			case "done":
@@ -67,30 +67,30 @@ func (c *Client) EstimateTurn(ctx context.Context, model, state []byte, message 
 					Estimate json.RawMessage `json:"estimate"`
 				}
 				if jerr := json.Unmarshal(ev.Data, &out); jerr != nil {
-					return entity.EstimateTurn{}, fmt.Errorf("%w: bad engine response: %v", entity.ErrEngineUnavailable, jerr)
+					return model.EstimateTurn{}, fmt.Errorf("%w: bad engine response: %v", model.ErrEngineUnavailable, jerr)
 				}
-				return entity.EstimateTurn{State: out.State, Reply: out.Reply, Estimate: out.Estimate}, nil
+				return model.EstimateTurn{State: out.State, Reply: out.Reply, Estimate: out.Estimate}, nil
 			case "error":
 				if ev.Status/100 == 4 {
-					return entity.EstimateTurn{}, entity.Invalid("%s", ev.Message)
+					return model.EstimateTurn{}, model.Invalid("%s", ev.Message)
 				}
-				return entity.EstimateTurn{}, fmt.Errorf("%w: engine %d: %s", entity.ErrEngineUnavailable, ev.Status, ev.Message)
+				return model.EstimateTurn{}, fmt.Errorf("%w: engine %d: %s", model.ErrEngineUnavailable, ev.Status, ev.Message)
 			case "progress":
 				if onEvent != nil {
 					data, _ := json.Marshal(map[string]string{"kind": ev.Kind, "stage": ev.Stage, "message": ev.Message})
-					onEvent(entity.EstimateEvent{Name: "progress", Data: data})
+					onEvent(model.EstimateEvent{Name: "progress", Data: data})
 				}
 			default:
 				if onEvent != nil && ev.Event != "" {
-					onEvent(entity.EstimateEvent{Name: ev.Event, Data: ev.Data})
+					onEvent(model.EstimateEvent{Name: ev.Event, Data: ev.Data})
 				}
 			}
 		}
 		if rerr != nil {
 			if ctx.Err() != nil {
-				return entity.EstimateTurn{}, ctx.Err()
+				return model.EstimateTurn{}, ctx.Err()
 			}
-			return entity.EstimateTurn{}, fmt.Errorf("%w: engine stream ended without a result", entity.ErrEngineUnavailable)
+			return model.EstimateTurn{}, fmt.Errorf("%w: engine stream ended without a result", model.ErrEngineUnavailable)
 		}
 	}
 }

@@ -3,16 +3,16 @@ package usecase
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type FolderLister interface {
 	// List returns visible folders; projectID narrows to one project when not empty.
-	List(ctx context.Context, actor, tenantID, projectID string) ([]entity.Visible[entity.Folder], error)
+	List(ctx context.Context, actor, tenantID, projectID string) ([]model.Visible[model.Folder], error)
 }
 
 type FolderGetter interface {
-	Get(ctx context.Context, actor, tenantID, id string) (entity.Visible[entity.Folder], error)
+	Get(ctx context.Context, actor, tenantID, id string) (model.Visible[model.Folder], error)
 }
 
 type CreateFolderInput struct {
@@ -24,15 +24,15 @@ type CreateFolderInput struct {
 }
 
 type FolderCreator interface {
-	Create(ctx context.Context, actor, tenantID string, in CreateFolderInput) (entity.Folder, error)
+	Create(ctx context.Context, actor, tenantID string, in CreateFolderInput) (model.Folder, error)
 }
 
 type FolderRenamer interface {
-	Rename(ctx context.Context, actor, tenantID, id, name string) (entity.Folder, error)
+	Rename(ctx context.Context, actor, tenantID, id, name string) (model.Folder, error)
 }
 
 type FolderVisibilitySetter interface {
-	SetVisibility(ctx context.Context, actor, tenantID, id string, isPrivate bool) (entity.Folder, error)
+	SetVisibility(ctx context.Context, actor, tenantID, id string, isPrivate bool) (model.Folder, error)
 }
 
 type FolderDeleter interface {
@@ -40,18 +40,18 @@ type FolderDeleter interface {
 }
 
 type FolderGrantLister interface {
-	ListGrants(ctx context.Context, actor, tenantID, id string) ([]entity.Grant, error)
+	ListGrants(ctx context.Context, actor, tenantID, id string) ([]model.Grant, error)
 }
 
 // FolderShareCandidateLister lists the external members a sharer can pick.
 type FolderShareCandidateLister interface {
-	ListShareCandidates(ctx context.Context, actor, tenantID, id string) ([]entity.Membership, error)
+	ListShareCandidates(ctx context.Context, actor, tenantID, id string) ([]model.Membership, error)
 }
 
 type FolderSharer interface {
-	Share(ctx context.Context, actor, tenantID, id string, in entity.ShareInput) (entity.Grant, error)
+	Share(ctx context.Context, actor, tenantID, id string, in model.ShareInput) (model.Grant, error)
 }
 
 type FolderShareRevoker interface {
-	Revoke(ctx context.Context, actor, tenantID, id string, in entity.ShareInput) error
+	Revoke(ctx context.Context, actor, tenantID, id string, in model.ShareInput) error
 }

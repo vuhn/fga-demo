@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -20,7 +20,7 @@ func NewTokenVerifier(tokens gateway.TokenGateway) usecase.TokenVerifier {
 func (s *tokenVerifier) Verify(_ context.Context, token string) (string, error) {
 	sub, err := s.tokens.Verify(token)
 	if err != nil {
-		return "", entity.ErrUnauthenticated
+		return "", model.ErrUnauthenticated
 	}
 	return sub, nil
 }

@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -35,7 +35,7 @@ func NewBlueprintCreator(projects gateway.ProjectGateway, blueprints gateway.Blu
 // without a brief, the drawn DXF as its original) in one transaction. Then
 // OpenFGA; a failure there deletes the Postgres rows.
 func (s *blueprintCreator) Create(ctx context.Context, actor, tenantID string, in usecase.CreateBlueprintInput) (usecase.BlueprintDetail, error) {
-	name, err := entity.CleanName("name", in.Name)
+	name, err := model.CleanName("name", in.Name)
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
@@ -48,7 +48,7 @@ func (s *blueprintCreator) Create(ctx context.Context, actor, tenantID string, i
 	}
 	prompt := strings.TrimSpace(in.Prompt)
 	if len([]rune(prompt)) > 2000 {
-		return usecase.BlueprintDetail{}, entity.Invalid("prompt must be at most 2000 characters")
+		return usecase.BlueprintDetail{}, model.Invalid("prompt must be at most 2000 characters")
 	}
 	if err := requireBlueprintCreate(ctx, s.projects, s.authz, actor, tenantID, in.ProjectID); err != nil {
 		return usecase.BlueprintDetail{}, err
@@ -61,17 +61,17 @@ func (s *blueprintCreator) Create(ctx context.Context, actor, tenantID string, i
 		return usecase.BlueprintDetail{}, err
 	}
 	if len(out.DXF) == 0 {
-		return usecase.BlueprintDetail{}, entity.Invalid("the engine returned a plan without its drawing")
+		return usecase.BlueprintDetail{}, model.Invalid("the engine returned a plan without its drawing")
 	}
 
-	b := entity.Blueprint{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: in.ProjectID, Name: name, CurrentVersion: 1,
+	b := model.Blueprint{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: in.ProjectID, Name: name, CurrentVersion: 1,
 		SourceKind: in.SourceKind, CreatedBy: actor}
-	v := planOutcomeVersion(b.ID, entity.BlueprintVersionCreate, prompt, actor, out)
+	v := planOutcomeVersion(b.ID, model.BlueprintVersionCreate, prompt, actor, out)
 	v.Version = 1
 	sum := sha256.Sum256(out.DXF)
-	orig := entity.BlueprintOriginal{BlueprintID: b.ID, Version: 1, Name: drawnFileName(name), MimeType: entity.DXFMimeType,
+	orig := model.BlueprintOriginal{BlueprintID: b.ID, Version: 1, Name: drawnFileName(name), MimeType: model.DXFMimeType,
 		ByteSize: int64(len(out.DXF)), SHA256: hex.EncodeToString(sum[:]), Data: out.DXF}
-	owner := entity.OwnerGrant(s.ids.NewID(), tenantID, entity.ObjectTypeBlueprint, b.ID, actor)
+	owner := model.OwnerGrant(s.ids.NewID(), tenantID, model.ObjectTypeBlueprint, b.ID, actor)
 	if err := s.blueprints.CreateImported(ctx, b, v, owner, orig); err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
@@ -101,18 +101,18 @@ func drawnFileName(name string) string {
 func validBrief(brief json.RawMessage) error {
 	var m map[string]json.RawMessage
 	if len(brief) == 0 || json.Unmarshal(brief, &m) != nil || m == nil {
-		return entity.Invalid("brief must be a JSON object")
+		return model.Invalid("brief must be a JSON object")
 	}
 	if len(brief) > 64<<10 {
-		return entity.Invalid("brief must be at most 64 KB")
+		return model.Invalid("brief must be at most 64 KB")
 	}
 	return nil
 }
 
 // checkSourceKind: a created blueprint comes from a prompt or the form. A file goes through the import.
 func checkSourceKind(kind string) error {
-	if kind != entity.BlueprintSourcePrompt && kind != entity.BlueprintSourceForm {
-		return entity.Invalid("source_kind must be prompt or form (an uploaded file goes through the import)")
+	if kind != model.BlueprintSourcePrompt && kind != model.BlueprintSourceForm {
+		return model.Invalid("source_kind must be prompt or form (an uploaded file goes through the import)")
 	}
 	return nil
 }

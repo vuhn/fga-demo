@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -21,7 +21,7 @@ func NewProjectMemberCandidateLister(projects gateway.ProjectGateway, tenant gat
 
 // ListCandidates needs the project member manager check; the filter that drops
 // current project members is display only.
-func (s *projectMemberCandidateLister) ListCandidates(ctx context.Context, actor, tenantID, projectID string) ([]entity.Membership, error) {
+func (s *projectMemberCandidateLister) ListCandidates(ctx context.Context, actor, tenantID, projectID string) ([]model.Membership, error) {
 	if _, err := loadProject(ctx, s.projects, tenantID, projectID); err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func (s *projectMemberCandidateLister) ListCandidates(ctx context.Context, actor
 	if err != nil {
 		return nil, err
 	}
-	out := make([]entity.Membership, 0, len(all))
+	out := make([]model.Membership, 0, len(all))
 	for _, m := range all {
 		if !in[m.UserID] {
 			out = append(out, m)

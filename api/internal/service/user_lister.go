@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -18,7 +18,7 @@ func NewUserLister(users gateway.UserGateway, authz usecase.Authorizer) usecase.
 }
 
 // List is platform only.
-func (s *userLister) List(ctx context.Context, actor string) ([]entity.User, error) {
+func (s *userLister) List(ctx context.Context, actor string) ([]model.User, error) {
 	if err := s.authz.RequirePlatform(ctx, actor); err != nil {
 		return nil, err
 	}

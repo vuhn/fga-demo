@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -18,7 +18,7 @@ func NewTenantLister(tenants gateway.TenantGateway, authz usecase.Authorizer) us
 }
 
 // List is the platform's tenant directory.
-func (s *tenantLister) List(ctx context.Context, actor string) ([]entity.Tenant, error) {
+func (s *tenantLister) List(ctx context.Context, actor string) ([]model.Tenant, error) {
 	if err := s.authz.RequirePlatform(ctx, actor); err != nil {
 		return nil, err
 	}

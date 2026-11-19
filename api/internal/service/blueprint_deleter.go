@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -25,10 +25,10 @@ func (s *blueprintDeleter) Delete(ctx context.Context, actor, tenantID, id strin
 	if _, err := loadBlueprint(ctx, s.blueprints, tenantID, id); err != nil {
 		return err
 	}
-	if err := s.authz.Require(ctx, actor, "can_delete", entity.ObjectTypeBlueprint, id); err != nil {
+	if err := s.authz.Require(ctx, actor, "can_delete", model.ObjectTypeBlueprint, id); err != nil {
 		return err
 	}
-	return s.guard.RevokeObject(ctx, entity.ObjectTypeBlueprint, id, func(ctx context.Context) error {
+	return s.guard.RevokeObject(ctx, model.ObjectTypeBlueprint, id, func(ctx context.Context) error {
 		return s.blueprints.Delete(ctx, id)
 	})
 }

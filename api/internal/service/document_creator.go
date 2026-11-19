@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -26,36 +26,36 @@ func NewDocumentCreator(documents gateway.DocumentGateway, folders gateway.Folde
 
 // Create is the upload command: can_create_document on the folder. It stores
 // metadata only.
-func (s *documentCreator) Create(ctx context.Context, actor, tenantID string, in usecase.CreateDocumentInput) (entity.Document, error) {
-	name, err := entity.CleanName("name", in.Name)
+func (s *documentCreator) Create(ctx context.Context, actor, tenantID string, in usecase.CreateDocumentInput) (model.Document, error) {
+	name, err := model.CleanName("name", in.Name)
 	if err != nil {
-		return entity.Document{}, err
+		return model.Document{}, err
 	}
 	mime := strings.TrimSpace(in.MimeType)
 	if n := len(mime); n < 1 || n > 200 {
-		return entity.Document{}, entity.Invalid("mime_type length must be 1 to 200")
+		return model.Document{}, model.Invalid("mime_type length must be 1 to 200")
 	}
 	if in.ByteSize < 0 {
-		return entity.Document{}, entity.Invalid("byte_size must be >= 0")
+		return model.Document{}, model.Invalid("byte_size must be >= 0")
 	}
 	folder, err := loadFolder(ctx, s.folders, tenantID, in.FolderID)
 	if err != nil {
-		return entity.Document{}, err
+		return model.Document{}, err
 	}
-	if err := s.authz.Require(ctx, actor, "can_create_document", entity.ObjectTypeFolder, in.FolderID); err != nil {
-		return entity.Document{}, err
+	if err := s.authz.Require(ctx, actor, "can_create_document", model.ObjectTypeFolder, in.FolderID); err != nil {
+		return model.Document{}, err
 	}
 
-	d := entity.Document{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: folder.ProjectID, FolderID: in.FolderID, Name: name, MimeType: mime, ByteSize: in.ByteSize, CreatedBy: actor}
-	owner := entity.OwnerGrant(s.ids.NewID(), tenantID, entity.ObjectTypeDocument, d.ID, actor)
+	d := model.Document{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: folder.ProjectID, FolderID: in.FolderID, Name: name, MimeType: mime, ByteSize: in.ByteSize, CreatedBy: actor}
+	owner := model.OwnerGrant(s.ids.NewID(), tenantID, model.ObjectTypeDocument, d.ID, actor)
 	if err := s.documents.Create(ctx, d, owner); err != nil {
-		return entity.Document{}, err
+		return model.Document{}, err
 	}
 	err = s.guard.Grant(ctx, s.relations.Created(d), nil, func(ctx context.Context) error {
 		return s.documents.Delete(ctx, d.ID)
 	})
 	if err != nil {
-		return entity.Document{}, err
+		return model.Document{}, err
 	}
 	return s.documents.Get(ctx, d.ID)
 }

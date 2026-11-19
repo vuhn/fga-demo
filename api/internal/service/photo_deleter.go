@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -25,10 +25,10 @@ func (s *photoDeleter) Delete(ctx context.Context, actor, tenantID, id string) e
 	if _, err := loadPhoto(ctx, s.photos, tenantID, id); err != nil {
 		return err
 	}
-	if err := s.authz.Require(ctx, actor, "can_delete", entity.ObjectTypePhoto, id); err != nil {
+	if err := s.authz.Require(ctx, actor, "can_delete", model.ObjectTypePhoto, id); err != nil {
 		return err
 	}
-	return s.guard.RevokeObject(ctx, entity.ObjectTypePhoto, id, func(ctx context.Context) error {
+	return s.guard.RevokeObject(ctx, model.ObjectTypePhoto, id, func(ctx context.Context) error {
 		return s.photos.Delete(ctx, id)
 	})
 }

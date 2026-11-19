@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -18,16 +18,16 @@ func NewDocumentRenamer(documents gateway.DocumentGateway, authz usecase.Authori
 }
 
 // Rename requires can_edit.
-func (s *documentRenamer) Rename(ctx context.Context, actor, tenantID, id, name string) (entity.Document, error) {
+func (s *documentRenamer) Rename(ctx context.Context, actor, tenantID, id, name string) (model.Document, error) {
 	if _, err := loadDocument(ctx, s.documents, tenantID, id); err != nil {
-		return entity.Document{}, err
+		return model.Document{}, err
 	}
-	name, err := entity.CleanName("name", name)
+	name, err := model.CleanName("name", name)
 	if err != nil {
-		return entity.Document{}, err
+		return model.Document{}, err
 	}
-	if err := s.authz.Require(ctx, actor, "can_edit", entity.ObjectTypeDocument, id); err != nil {
-		return entity.Document{}, err
+	if err := s.authz.Require(ctx, actor, "can_edit", model.ObjectTypeDocument, id); err != nil {
+		return model.Document{}, err
 	}
 	return s.documents.Rename(ctx, id, name)
 }

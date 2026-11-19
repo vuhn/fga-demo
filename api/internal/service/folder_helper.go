@@ -4,22 +4,22 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
 // loadFolder returns the folder when it exists in the header tenant.
-func loadFolder(ctx context.Context, folders gateway.FolderGateway, tenantID, id string) (entity.Folder, error) {
-	if err := entity.RequireUUID("id", id); err != nil {
-		return entity.Folder{}, err
+func loadFolder(ctx context.Context, folders gateway.FolderGateway, tenantID, id string) (model.Folder, error) {
+	if err := model.RequireUUID("id", id); err != nil {
+		return model.Folder{}, err
 	}
 	f, err := folders.Get(ctx, id)
 	if err != nil {
-		return entity.Folder{}, err
+		return model.Folder{}, err
 	}
 	if f.TenantID != tenantID {
-		return entity.Folder{}, entity.ErrNotFound
+		return model.Folder{}, model.ErrNotFound
 	}
 	return f, nil
 }
@@ -31,10 +31,10 @@ func checkFolderDepth(ctx context.Context, folders gateway.FolderGateway, tenant
 	id := &parentID
 	for depth := 1; id != nil; depth++ {
 		if depth > maxDepth {
-			return fmt.Errorf("%w: folder depth exceeds %d", entity.ErrConflict, maxDepth)
+			return fmt.Errorf("%w: folder depth exceeds %d", model.ErrConflict, maxDepth)
 		}
 		if seen[*id] {
-			return fmt.Errorf("%w: folder cycle", entity.ErrConflict)
+			return fmt.Errorf("%w: folder cycle", model.ErrConflict)
 		}
 		seen[*id] = true
 		f, err := folders.Get(ctx, *id)
@@ -42,7 +42,7 @@ func checkFolderDepth(ctx context.Context, folders gateway.FolderGateway, tenant
 			return err
 		}
 		if f.TenantID != tenantID {
-			return entity.ErrNotFound
+			return model.ErrNotFound
 		}
 		id = f.ParentID
 	}
@@ -54,7 +54,7 @@ func requireFolderShare(ctx context.Context, folders gateway.FolderGateway, auth
 	if _, err := loadFolder(ctx, folders, tenantID, id); err != nil {
 		return err
 	}
-	return authz.Require(ctx, actor, "can_share", entity.ObjectTypeFolder, id)
+	return authz.Require(ctx, actor, "can_share", model.ObjectTypeFolder, id)
 }
 
-func folderID(f entity.Folder) string { return f.ID }
+func folderID(f model.Folder) string { return f.ID }

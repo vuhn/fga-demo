@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -41,19 +41,6 @@ func (h *AlbumHandler) Register(r Routes) {
 	g.DELETE("/albums/:id/grants", h.revoke)
 }
 
-func albumView(a entity.Album) map[string]any {
-	return map[string]any{
-		"id": a.ID, "tenant_id": a.TenantID, "project_id": a.ProjectID, "parent_id": a.ParentID, "name": a.Name, "is_private": a.IsPrivate,
-		"created_by": a.CreatedBy, "created_at": a.CreatedAt,
-	}
-}
-
-func visibleAlbumView(v entity.Visible[entity.Album]) map[string]any {
-	m := albumView(v.Value)
-	m["permissions"] = v.Perms
-	return m
-}
-
 func (h *AlbumHandler) list(c *gin.Context) {
 	as, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("project_id"))
 	respond(c, http.StatusOK, mapSlice(as, visibleAlbumView), err)
@@ -70,7 +57,7 @@ func (h *AlbumHandler) create(c *gin.Context) {
 		return
 	}
 	if body.IsPrivate == nil {
-		writeErr(c, entity.Invalid("is_private is required"))
+		writeErr(c, model.Invalid("is_private is required"))
 		return
 	}
 	a, err := h.uc.Creator.Create(c, actor(c), tenant(c), usecase.CreateAlbumInput{ProjectID: body.ProjectID, Name: body.Name, ParentID: body.ParentID, IsPrivate: *body.IsPrivate})
@@ -97,7 +84,7 @@ func (h *AlbumHandler) setVisibility(c *gin.Context) {
 		return
 	}
 	if body.IsPrivate == nil {
-		writeErr(c, entity.Invalid("is_private is required"))
+		writeErr(c, model.Invalid("is_private is required"))
 		return
 	}
 	a, err := h.uc.VisibilitySetter.SetVisibility(c, actor(c), tenant(c), c.Param("id"), *body.IsPrivate)

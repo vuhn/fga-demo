@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -24,8 +24,8 @@ func NewBlueprintShareRevoker(blueprints gateway.BlueprintGateway, grants gatewa
 }
 
 // Revoke deletes the matching grant's tuple, then its row.
-func (s *blueprintShareRevoker) Revoke(ctx context.Context, actor, tenantID, id string, in entity.ShareInput) error {
-	g, err := s.policy.NewGrant(tenantID, entity.ObjectTypeBlueprint, id, in)
+func (s *blueprintShareRevoker) Revoke(ctx context.Context, actor, tenantID, id string, in model.ShareInput) error {
+	g, err := s.policy.NewGrant(tenantID, model.ObjectTypeBlueprint, id, in)
 	if err != nil {
 		return err
 	}
@@ -44,9 +44,9 @@ func (s *blueprintShareRevoker) Revoke(ctx context.Context, actor, tenantID, id 
 		if err != nil {
 			return err
 		}
-		return s.guard.Revoke(ctx, []entity.Tuple{t}, []entity.Tuple{t}, func(ctx context.Context) error {
+		return s.guard.Revoke(ctx, []model.Tuple{t}, []model.Tuple{t}, func(ctx context.Context) error {
 			return s.grants.Delete(ctx, e.ID)
 		})
 	}
-	return entity.ErrNotFound
+	return model.ErrNotFound
 }

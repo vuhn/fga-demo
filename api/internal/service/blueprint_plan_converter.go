@@ -5,8 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -30,7 +30,7 @@ func (s *blueprintPlanConverter) Convert(ctx context.Context, actor, tenantID, i
 		return usecase.BlueprintDetail{}, err
 	}
 	if isImported(cur) {
-		return usecase.BlueprintDetail{}, entity.Invalid("this blueprint is already a DXF plan")
+		return usecase.BlueprintDetail{}, model.Invalid("this blueprint is already a DXF plan")
 	}
 	out, err := s.engine.DrawPlan(ctx, cur.Model, b.Name)
 	if err != nil {
@@ -40,11 +40,11 @@ func (s *blueprintPlanConverter) Convert(ctx context.Context, actor, tenantID, i
 		return usecase.BlueprintDetail{}, err
 	}
 	if len(out.DXF) == 0 {
-		return usecase.BlueprintDetail{}, entity.Invalid("the engine returned a plan without its drawing")
+		return usecase.BlueprintDetail{}, model.Invalid("the engine returned a plan without its drawing")
 	}
-	v := planOutcomeVersion(id, entity.BlueprintVersionEdit, "converted to a DXF plan", actor, out)
+	v := planOutcomeVersion(id, model.BlueprintVersionEdit, "converted to a DXF plan", actor, out)
 	sum := sha256.Sum256(out.DXF)
-	orig := entity.BlueprintOriginal{BlueprintID: id, Version: baseVersion + 1, Name: drawnFileName(b.Name), MimeType: entity.DXFMimeType,
+	orig := model.BlueprintOriginal{BlueprintID: id, Version: baseVersion + 1, Name: drawnFileName(b.Name), MimeType: model.DXFMimeType,
 		ByteSize: int64(len(out.DXF)), SHA256: hex.EncodeToString(sum[:]), Data: out.DXF}
 	if err := s.blueprints.AppendVersionWithOriginal(ctx, v, baseVersion, orig); err != nil {
 		return usecase.BlueprintDetail{}, err

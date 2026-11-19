@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -25,9 +25,9 @@ func NewProductSetter(tenants gateway.TenantGateway, products gateway.ProductGat
 // Set writes or deletes the single wildcard tuple. Content tuples are never
 // touched. Products are an entitlement the platform grants: only a system
 // admin may toggle them; tenant admins can only view them.
-func (s *productSetter) Set(ctx context.Context, actor, tenantID, product string, enabled bool) ([]entity.Product, error) {
-	if !entity.ValidProduct(product) {
-		return nil, entity.Invalid("product must be documents or photos")
+func (s *productSetter) Set(ctx context.Context, actor, tenantID, product string, enabled bool) ([]model.Product, error) {
+	if !model.ValidProduct(product) {
+		return nil, model.Invalid("product must be documents or photos")
 	}
 	if err := s.authz.RequirePlatform(ctx, actor); err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func (s *productSetter) Set(ctx context.Context, actor, tenantID, product string
 	if _, err := s.tenants.Get(ctx, tenantID); err != nil {
 		return nil, err
 	}
-	wildcard := []entity.Tuple{s.relations.Enabled(tenantID, product)}
+	wildcard := []model.Tuple{s.relations.Enabled(tenantID, product)}
 	var err error
 	if enabled {
 		err = s.enable(ctx, tenantID, product, wildcard)
@@ -48,7 +48,7 @@ func (s *productSetter) Set(ctx context.Context, actor, tenantID, product string
 	return s.products.List(ctx, tenantID)
 }
 
-func (s *productSetter) enable(ctx context.Context, tenantID, product string, wildcard []entity.Tuple) error {
+func (s *productSetter) enable(ctx context.Context, tenantID, product string, wildcard []model.Tuple) error {
 	prev, err := s.products.Set(ctx, tenantID, product, true)
 	if err != nil {
 		return err
@@ -59,13 +59,13 @@ func (s *productSetter) enable(ctx context.Context, tenantID, product string, wi
 	})
 }
 
-func (s *productSetter) disable(ctx context.Context, tenantID, product string, wildcard []entity.Tuple) error {
+func (s *productSetter) disable(ctx context.Context, tenantID, product string, wildcard []model.Tuple) error {
 	// Restore only when it was on before; the display flag tells us.
 	products, err := s.products.List(ctx, tenantID)
 	if err != nil {
 		return err
 	}
-	var restore []entity.Tuple
+	var restore []model.Tuple
 	for _, p := range products {
 		if p.Name == product && p.Enabled {
 			restore = wildcard

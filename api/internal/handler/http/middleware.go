@@ -11,7 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -47,13 +47,13 @@ func authenticate(v usecase.TokenVerifier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		raw, ok := strings.CutPrefix(c.GetHeader("Authorization"), "Bearer ")
 		if !ok || raw == "" {
-			writeErr(c, entity.ErrUnauthenticated)
+			writeErr(c, model.ErrUnauthenticated)
 			c.Abort()
 			return
 		}
 		sub, err := v.Verify(c, raw)
 		if err != nil {
-			writeErr(c, entity.ErrUnauthenticated)
+			writeErr(c, model.ErrUnauthenticated)
 			c.Abort()
 			return
 		}
@@ -67,8 +67,8 @@ func authenticate(v usecase.TokenVerifier) gin.HandlerFunc {
 func requireTenant() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		t := c.GetHeader("X-Tenant-ID")
-		if !entity.ValidUUID(t) {
-			writeErr(c, entity.Invalid("X-Tenant-ID header must be a tenant UUID"))
+		if !model.ValidUUID(t) {
+			writeErr(c, model.Invalid("X-Tenant-ID header must be a tenant UUID"))
 			c.Abort()
 			return
 		}
@@ -84,16 +84,16 @@ var errorCatalog = []struct {
 	err    error
 	status int
 }{
-	{entity.ErrAffiliationRoleMismatch, http.StatusBadRequest},
-	{entity.ErrNotAMember, http.StatusBadRequest},
-	{entity.ErrCannotUpload, http.StatusBadRequest},
-	{entity.ErrValidation, http.StatusBadRequest},
-	{entity.ErrUnauthenticated, http.StatusUnauthorized},
-	{entity.ErrForbidden, http.StatusForbidden},
-	{entity.ErrNotFound, http.StatusNotFound},
-	{entity.ErrConflict, http.StatusConflict},
-	{entity.ErrTupleWriteFailed, http.StatusInternalServerError},
-	{entity.ErrEngineUnavailable, http.StatusBadGateway},
+	{model.ErrAffiliationRoleMismatch, http.StatusBadRequest},
+	{model.ErrNotAMember, http.StatusBadRequest},
+	{model.ErrCannotUpload, http.StatusBadRequest},
+	{model.ErrValidation, http.StatusBadRequest},
+	{model.ErrUnauthenticated, http.StatusUnauthorized},
+	{model.ErrForbidden, http.StatusForbidden},
+	{model.ErrNotFound, http.StatusNotFound},
+	{model.ErrConflict, http.StatusConflict},
+	{model.ErrTupleWriteFailed, http.StatusInternalServerError},
+	{model.ErrEngineUnavailable, http.StatusBadGateway},
 }
 
 func writeErr(c *gin.Context, err error) {
@@ -112,7 +112,7 @@ func errBody(c *gin.Context, err error) (int, gin.H) {
 		}
 	}
 	body := gin.H{"error": code}
-	var ce *entity.CheckError
+	var ce *model.CheckError
 	if errors.As(err, &ce) {
 		body["check"] = gin.H{"relation": ce.Relation, "object": ce.Object}
 	}
@@ -127,7 +127,7 @@ func errBody(c *gin.Context, err error) (int, gin.H) {
 // bind decodes JSON and reports malformed bodies as validation errors.
 func bind(c *gin.Context, dst any) bool {
 	if err := c.ShouldBindJSON(dst); err != nil {
-		writeErr(c, entity.Invalid("malformed JSON: %v", err))
+		writeErr(c, model.Invalid("malformed JSON: %v", err))
 		return false
 	}
 	return true
@@ -142,8 +142,8 @@ func respond(c *gin.Context, status int, v any, err error) {
 }
 
 func pathUUID(c *gin.Context, name string) bool {
-	if !entity.ValidUUID(c.Param(name)) {
-		writeErr(c, entity.Invalid("%s must be a UUID", name))
+	if !model.ValidUUID(c.Param(name)) {
+		writeErr(c, model.Invalid("%s must be a UUID", name))
 		return false
 	}
 	return true

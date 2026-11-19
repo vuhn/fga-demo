@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -32,7 +32,7 @@ func (s *roleDeleter) Delete(ctx context.Context, actor, tenantID, roleID string
 		return err
 	}
 	if len(role.Assignees) > 0 {
-		return fmt.Errorf("%w: role is assigned to members", entity.ErrConflict)
+		return fmt.Errorf("%w: role is assigned to members", model.ErrConflict)
 	}
 	tuples, err := s.relations.Removal(tenantID, roleID, role.Affiliation, role.Permissions, nil)
 	if err != nil {

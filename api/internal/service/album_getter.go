@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -18,17 +18,17 @@ func NewAlbumGetter(albums gateway.AlbumGateway, authz usecase.Authorizer) useca
 }
 
 // Get is 404 when the caller cannot view the album.
-func (s *albumGetter) Get(ctx context.Context, actor, tenantID, id string) (entity.Visible[entity.Album], error) {
+func (s *albumGetter) Get(ctx context.Context, actor, tenantID, id string) (model.Visible[model.Album], error) {
 	a, err := loadAlbum(ctx, s.albums, tenantID, id)
 	if err != nil {
-		return entity.Visible[entity.Album]{}, err
+		return model.Visible[model.Album]{}, err
 	}
-	if err := s.authz.RequireVisible(ctx, actor, "can_view", entity.ObjectTypeAlbum, id); err != nil {
-		return entity.Visible[entity.Album]{}, err
+	if err := s.authz.RequireVisible(ctx, actor, "can_view", model.ObjectTypeAlbum, id); err != nil {
+		return model.Visible[model.Album]{}, err
 	}
-	vs, err := withPerms(ctx, s.authz, actor, entity.ObjectTypeAlbum, []entity.Album{a}, albumID)
+	vs, err := withPerms(ctx, s.authz, actor, model.ObjectTypeAlbum, []model.Album{a}, albumID)
 	if err != nil {
-		return entity.Visible[entity.Album]{}, err
+		return model.Visible[model.Album]{}, err
 	}
 	return vs[0], nil
 }

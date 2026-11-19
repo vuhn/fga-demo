@@ -1,6 +1,6 @@
-// Package entity holds the domain entities, value types, and sentinel errors.
+// Package model holds the domain models, value types, and sentinel errors.
 // It imports only the standard library.
-package entity
+package model
 
 import (
 	"errors"

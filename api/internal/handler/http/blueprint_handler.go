@@ -13,7 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -75,53 +75,6 @@ func (h *BlueprintHandler) Register(r Routes) {
 	g.DELETE("/blueprints/:id/grants", h.revoke)
 }
 
-func blueprintView(b entity.Blueprint) map[string]any {
-	var source any
-	if b.Source != nil {
-		source = map[string]any{"name": b.Source.Name, "mime_type": b.Source.MimeType, "byte_size": b.Source.ByteSize}
-	}
-	return map[string]any{
-		"id": b.ID, "tenant_id": b.TenantID, "project_id": b.ProjectID, "name": b.Name, "current_version": b.CurrentVersion,
-		"source_kind": b.SourceKind, "source": source, "created_by": b.CreatedBy, "created_at": b.CreatedAt, "updated_at": b.UpdatedAt,
-	}
-}
-
-func visibleBlueprintView(v entity.Visible[entity.Blueprint]) map[string]any {
-	m := blueprintView(v.Value)
-	m["permissions"] = v.Perms
-	return m
-}
-
-// blueprintVersionSummary is a version without its JSON payloads.
-func blueprintVersionSummary(v entity.BlueprintVersion) map[string]any {
-	return map[string]any{
-		"version": v.Version, "kind": v.Kind, "message": v.Message, "ok": v.OK, "created_by": v.CreatedBy, "created_at": v.CreatedAt,
-	}
-}
-
-func blueprintVersionView(v entity.BlueprintVersion) map[string]any {
-	m := blueprintVersionSummary(v)
-	m["brief"], m["model"], m["checks"], m["notes"] = v.Brief, v.Model, v.Checks, v.Notes
-	return m
-}
-
-func blueprintDetailView(d usecase.BlueprintDetail) map[string]any {
-	m := blueprintView(d.Blueprint)
-	if d.Perms != nil {
-		m["permissions"] = d.Perms
-	}
-	m["version"] = blueprintVersionView(d.Version)
-	return m
-}
-
-func draftView(d entity.BlueprintDraft) map[string]any {
-	notes := d.Notes
-	if notes == nil {
-		notes = []string{}
-	}
-	return map[string]any{"brief": d.Brief, "notes": notes}
-}
-
 func (h *BlueprintHandler) draft(c *gin.Context) {
 	var body struct {
 		ProjectID string `json:"project_id"`
@@ -135,52 +88,52 @@ func (h *BlueprintHandler) draft(c *gin.Context) {
 }
 
 // importTypes maps an upload's extension to its type: browsers send "", octet-stream or odd types for these.
-var importTypes = map[string]string{".dxf": entity.DXFMimeType, ".pdf": entity.PDFMimeType, ".png": entity.PNGMimeType,
-	".jpg": entity.JPEGMimeType, ".jpeg": entity.JPEGMimeType}
+var importTypes = map[string]string{".dxf": model.DXFMimeType, ".pdf": model.PDFMimeType, ".png": model.PNGMimeType,
+	".jpg": model.JPEGMimeType, ".jpeg": model.JPEGMimeType}
 
-// readImport reads the multipart "file" of an import (DXF, PDF, PNG or JPG), at most entity.MaxImportBytes,
+// readImport reads the multipart "file" of an import (DXF, PDF, PNG or JPG), at most model.MaxImportBytes,
 // and the optional picture scale fields.
-func readImport(c *gin.Context) (entity.Upload, entity.ConvertOptions, bool) {
-	var opts entity.ConvertOptions
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, entity.MaxImportBytes+1<<20)
+func readImport(c *gin.Context) (model.Upload, model.ConvertOptions, bool) {
+	var opts model.ConvertOptions
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, model.MaxImportBytes+1<<20)
 	fh, err := c.FormFile("file")
 	if err != nil {
-		writeErr(c, entity.Invalid("file is required (a DXF, PDF, PNG or JPG, at most 20 MB)"))
-		return entity.Upload{}, opts, false
+		writeErr(c, model.Invalid("file is required (a DXF, PDF, PNG or JPG, at most 20 MB)"))
+		return model.Upload{}, opts, false
 	}
-	if fh.Size > entity.MaxImportBytes {
-		writeErr(c, entity.Invalid("file must be at most 20 MB"))
-		return entity.Upload{}, opts, false
+	if fh.Size > model.MaxImportBytes {
+		writeErr(c, model.Invalid("file must be at most 20 MB"))
+		return model.Upload{}, opts, false
 	}
 	mimeType, ok := importTypes[strings.ToLower(filepath.Ext(fh.Filename))]
 	if !ok {
-		writeErr(c, entity.Invalid("file must be a DXF, PDF, PNG, or JPG"))
-		return entity.Upload{}, opts, false
+		writeErr(c, model.Invalid("file must be a DXF, PDF, PNG, or JPG"))
+		return model.Upload{}, opts, false
 	}
 	if v := c.PostForm("scale"); v != "" {
 		if opts.Scale, err = strconv.Atoi(v); err != nil {
-			writeErr(c, entity.Invalid("scale must be an integer (the N of 1:N)"))
-			return entity.Upload{}, opts, false
+			writeErr(c, model.Invalid("scale must be an integer (the N of 1:N)"))
+			return model.Upload{}, opts, false
 		}
 	}
 	if v := c.PostForm("longest_m"); v != "" {
 		if opts.LongestM, err = strconv.ParseFloat(v, 64); err != nil {
-			writeErr(c, entity.Invalid("longest_m must be a number of metres"))
-			return entity.Upload{}, opts, false
+			writeErr(c, model.Invalid("longest_m must be a number of metres"))
+			return model.Upload{}, opts, false
 		}
 	}
 	f, err := fh.Open()
 	if err != nil {
 		writeErr(c, err)
-		return entity.Upload{}, opts, false
+		return model.Upload{}, opts, false
 	}
 	defer f.Close()
-	data, err := io.ReadAll(io.LimitReader(f, entity.MaxImportBytes+1))
+	data, err := io.ReadAll(io.LimitReader(f, model.MaxImportBytes+1))
 	if err != nil {
 		writeErr(c, err)
-		return entity.Upload{}, opts, false
+		return model.Upload{}, opts, false
 	}
-	return entity.Upload{Name: filepath.Base(fh.Filename), MimeType: mimeType, Data: data}, opts, true
+	return model.Upload{Name: filepath.Base(fh.Filename), MimeType: mimeType, Data: data}, opts, true
 }
 
 // previewImport reads a DXF (or a PDF/image converted to one) and returns its plans (each with the engine's drawing and checks) for the review
@@ -214,7 +167,7 @@ func (h *BlueprintHandler) importDXF(c *gin.Context) {
 	if v := c.PostForm("plan"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil {
-			writeErr(c, entity.Invalid("plan must be an integer"))
+			writeErr(c, model.Invalid("plan must be an integer"))
 			return
 		}
 		plan = n
@@ -230,7 +183,7 @@ func (h *BlueprintHandler) source(c *gin.Context) {
 	if v := c.Query("version"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {
-			writeErr(c, entity.Invalid("version must be a positive integer"))
+			writeErr(c, model.Invalid("version must be a positive integer"))
 			return
 		}
 		version = n
@@ -253,7 +206,7 @@ func (h *BlueprintHandler) editedSource(c *gin.Context) {
 	if v := c.Query("version"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {
-			writeErr(c, entity.Invalid("version must be a positive integer"))
+			writeErr(c, model.Invalid("version must be a positive integer"))
 			return
 		}
 		version = n
@@ -394,7 +347,7 @@ func (h *BlueprintHandler) reviseStream(c *gin.Context) {
 		c.Writer.Flush()
 	}
 	d, err := h.uc.ReviseStreamer.ReviseStream(c.Request.Context(), actor(c), tenant(c), c.Param("id"), body.Message, body.BaseVersion,
-		func(p entity.BlueprintProgress) { send("progress", p) })
+		func(p model.BlueprintProgress) { send("progress", p) })
 	if err != nil {
 		if !started {
 			writeErr(c, err)
@@ -439,7 +392,7 @@ func (h *BlueprintHandler) listVersions(c *gin.Context) {
 func (h *BlueprintHandler) restore(c *gin.Context) {
 	version, err := strconv.Atoi(c.Param("version"))
 	if err != nil {
-		writeErr(c, entity.Invalid("version must be an integer"))
+		writeErr(c, model.Invalid("version must be an integer"))
 		return
 	}
 	var body struct {
@@ -457,18 +410,18 @@ func (h *BlueprintHandler) drawing(c *gin.Context) {
 	if v := c.Query("version"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {
-			writeErr(c, entity.Invalid("version must be a positive integer"))
+			writeErr(c, model.Invalid("version must be a positive integer"))
 			return
 		}
 		version = n
 	}
-	format := c.DefaultQuery("format", entity.DrawingSVG)
+	format := c.DefaultQuery("format", model.DrawingSVG)
 	d, err := h.uc.Renderer.Render(c, actor(c), tenant(c), c.Param("id"), format, version)
 	if err != nil {
 		writeErr(c, err)
 		return
 	}
-	if d.Format != entity.DrawingSVG {
+	if d.Format != model.DrawingSVG {
 		c.Header("Content-Disposition", `attachment; filename="`+d.Filename+`"`)
 	}
 	c.Header("Cache-Control", "private, no-store")

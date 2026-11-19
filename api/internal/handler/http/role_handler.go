@@ -2,11 +2,10 @@ package http
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -30,42 +29,6 @@ func (h *RoleHandler) Register(r Routes) {
 	r.Authed.PATCH("/tenants/:id/roles/:roleId", h.update)
 	r.Authed.PUT("/tenants/:id/roles/:roleId/permissions", h.setPermissions)
 	r.Authed.DELETE("/tenants/:id/roles/:roleId", h.delete)
-}
-
-type roleJSON struct {
-	ID          string         `json:"id"`
-	TenantID    string         `json:"tenant_id"`
-	Name        string         `json:"name"`
-	Affiliation string         `json:"affiliation"`
-	Permissions []string       `json:"permissions"`
-	Assignees   []assigneeJSON `json:"assignees"`
-	CreatedAt   time.Time      `json:"created_at"`
-}
-
-type assigneeJSON struct {
-	UserID string `json:"user_id"`
-	Email  string `json:"email"`
-	Name   string `json:"name"`
-}
-
-func roleView(role entity.Role) roleJSON {
-	perms := role.Permissions
-	if perms == nil {
-		perms = []string{}
-	}
-	assignees := make([]assigneeJSON, 0, len(role.Assignees))
-	for _, a := range role.Assignees {
-		assignees = append(assignees, assigneeJSON{a.UserID, a.Email, a.Name})
-	}
-	return roleJSON{role.ID, role.TenantID, role.Name, role.Affiliation, perms, assignees, role.CreatedAt}
-}
-
-func roleViews(roles []entity.Role) []roleJSON {
-	out := make([]roleJSON, 0, len(roles))
-	for _, role := range roles {
-		out = append(out, roleView(role))
-	}
-	return out
 }
 
 func (h *RoleHandler) list(c *gin.Context) {
@@ -115,7 +78,7 @@ func (h *RoleHandler) setPermissions(c *gin.Context) {
 		return
 	}
 	if body.Permissions == nil {
-		writeErr(c, entity.Invalid("permissions is required"))
+		writeErr(c, model.Invalid("permissions is required"))
 		return
 	}
 	role, err := h.permissionSetter.SetPermissions(c, actor(c), c.Param("id"), c.Param("roleId"), body.Permissions)

@@ -6,8 +6,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type RoleRepo struct{ pool *pgxpool.Pool }
@@ -16,13 +16,13 @@ var _ gateway.RoleGateway = (*RoleRepo)(nil)
 
 func NewRoleRepo(pool *pgxpool.Pool) *RoleRepo { return &RoleRepo{pool: pool} }
 
-func (r *RoleRepo) List(ctx context.Context, tenantID string) ([]entity.Role, error) {
+func (r *RoleRepo) List(ctx context.Context, tenantID string) ([]model.Role, error) {
 	rows, err := r.pool.Query(ctx, `SELECT id, tenant_id, name, affiliation, created_at FROM tenant_roles WHERE tenant_id = $1 ORDER BY affiliation, name`, tenantID)
 	if err != nil {
 		return nil, mapErr(err)
 	}
 	defer rows.Close()
-	var out []entity.Role
+	var out []model.Role
 	for rows.Next() {
 		role, err := scanRole(rows)
 		if err != nil {
@@ -34,45 +34,45 @@ func (r *RoleRepo) List(ctx context.Context, tenantID string) ([]entity.Role, er
 		return nil, mapErr(err)
 	}
 	if out == nil {
-		out = []entity.Role{}
+		out = []model.Role{}
 	}
 	return r.hydrate(ctx, tenantID, out)
 }
 
-func (r *RoleRepo) Get(ctx context.Context, tenantID, roleID string) (entity.Role, error) {
+func (r *RoleRepo) Get(ctx context.Context, tenantID, roleID string) (model.Role, error) {
 	rows, err := r.pool.Query(ctx, `SELECT id, tenant_id, name, affiliation, created_at FROM tenant_roles WHERE tenant_id = $1 AND id = $2`, tenantID, roleID)
 	if err != nil {
-		return entity.Role{}, mapErr(err)
+		return model.Role{}, mapErr(err)
 	}
 	defer rows.Close()
 	if !rows.Next() {
 		if err := rows.Err(); err != nil {
-			return entity.Role{}, mapErr(err)
+			return model.Role{}, mapErr(err)
 		}
-		return entity.Role{}, entity.ErrNotFound
+		return model.Role{}, model.ErrNotFound
 	}
 	role, err := scanRole(rows)
 	if err != nil {
-		return entity.Role{}, err
+		return model.Role{}, err
 	}
-	roles, err := r.hydrate(ctx, tenantID, []entity.Role{role})
+	roles, err := r.hydrate(ctx, tenantID, []model.Role{role})
 	if err != nil {
-		return entity.Role{}, err
+		return model.Role{}, err
 	}
 	return roles[0], nil
 }
 
-func scanRole(rows pgx.Rows) (entity.Role, error) {
-	var role entity.Role
+func scanRole(rows pgx.Rows) (model.Role, error) {
+	var role model.Role
 	err := rows.Scan(&role.ID, &role.TenantID, &role.Name, &role.Affiliation, &role.CreatedAt)
 	return role, mapErr(err)
 }
 
-func (r *RoleRepo) hydrate(ctx context.Context, tenantID string, roles []entity.Role) ([]entity.Role, error) {
-	byID := make(map[string]*entity.Role, len(roles))
+func (r *RoleRepo) hydrate(ctx context.Context, tenantID string, roles []model.Role) ([]model.Role, error) {
+	byID := make(map[string]*model.Role, len(roles))
 	for i := range roles {
 		roles[i].Permissions = []string{}
-		roles[i].Assignees = []entity.RoleAssignee{}
+		roles[i].Assignees = []model.RoleAssignee{}
 		byID[roles[i].ID] = &roles[i]
 	}
 	perms, err := r.pool.Query(ctx, `SELECT rp.role_id, rp.permission
@@ -97,7 +97,7 @@ func (r *RoleRepo) hydrate(ctx context.Context, tenantID string, roles []entity.
 		return nil, err
 	}
 	for id, role := range byID {
-		for _, p := range entity.CustomPermissions {
+		for _, p := range model.CustomPermissions {
 			if held[id][p] {
 				role.Permissions = append(role.Permissions, p)
 			}
@@ -115,7 +115,7 @@ func (r *RoleRepo) hydrate(ctx context.Context, tenantID string, roles []entity.
 	defer assignees.Close()
 	for assignees.Next() {
 		var roleID string
-		var a entity.RoleAssignee
+		var a model.RoleAssignee
 		if err := assignees.Scan(&roleID, &a.UserID, &a.Email, &a.Name); err != nil {
 			return nil, err
 		}
@@ -126,7 +126,7 @@ func (r *RoleRepo) hydrate(ctx context.Context, tenantID string, roles []entity.
 	return roles, assignees.Err()
 }
 
-func (r *RoleRepo) Insert(ctx context.Context, role entity.Role) error {
+func (r *RoleRepo) Insert(ctx context.Context, role model.Role) error {
 	_, err := r.pool.Exec(ctx, `INSERT INTO tenant_roles (id, tenant_id, name, affiliation) VALUES ($1, $2, $3, $4)`, role.ID, role.TenantID, role.Name, role.Affiliation)
 	return mapErr(err)
 }
@@ -137,7 +137,7 @@ func (r *RoleRepo) UpdateName(ctx context.Context, tenantID, roleID, name string
 		return mapErr(err)
 	}
 	if tag.RowsAffected() == 0 {
-		return entity.ErrNotFound
+		return model.ErrNotFound
 	}
 	return nil
 }
@@ -148,7 +148,7 @@ func (r *RoleRepo) Delete(ctx context.Context, tenantID, roleID string) error {
 		return mapErr(err)
 	}
 	if tag.RowsAffected() == 0 {
-		return entity.ErrNotFound
+		return model.ErrNotFound
 	}
 	return nil
 }

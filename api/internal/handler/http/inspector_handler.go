@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -29,8 +29,8 @@ type checkBody struct {
 	ObjectID   string `json:"object_id"`
 }
 
-func (b checkBody) req() entity.CheckRequest {
-	return entity.CheckRequest{UserID: b.UserID, Relation: b.Relation, ObjectType: b.ObjectType, ObjectID: b.ObjectID}
+func (b checkBody) req() model.CheckRequest {
+	return model.CheckRequest{UserID: b.UserID, Relation: b.Relation, ObjectType: b.ObjectType, ObjectID: b.ObjectID}
 }
 
 func (h *InspectorHandler) check(c *gin.Context) {

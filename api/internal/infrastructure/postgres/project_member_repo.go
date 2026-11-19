@@ -5,8 +5,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type ProjectMemberRepo struct{ pool *pgxpool.Pool }
@@ -24,15 +24,15 @@ const projectMemberCols = `pm.project_id, pm.tenant_id, pm.user_id,
 const projectMemberFrom = `project_members pm JOIN users u ON u.id = pm.user_id JOIN companies c ON c.id = u.company_id
 	LEFT JOIN project_roles pr ON pr.id = pm.project_role_id`
 
-func (r *ProjectMemberRepo) query(ctx context.Context, where string, args ...any) ([]entity.ProjectMember, error) {
+func (r *ProjectMemberRepo) query(ctx context.Context, where string, args ...any) ([]model.ProjectMember, error) {
 	rows, err := r.pool.Query(ctx, `SELECT `+projectMemberCols+` FROM `+projectMemberFrom+` WHERE `+where+` ORDER BY u.name`, args...)
 	if err != nil {
 		return nil, mapErr(err)
 	}
 	defer rows.Close()
-	out := []entity.ProjectMember{}
+	out := []model.ProjectMember{}
 	for rows.Next() {
-		var m entity.ProjectMember
+		var m model.ProjectMember
 		if err := rows.Scan(&m.ProjectID, &m.TenantID, &m.UserID, &m.Affiliation, &m.Role, &m.RoleName, &m.ProjectRoleID, &m.Email, &m.Name, &m.CompanyID, &m.CompanyName); err != nil {
 			return nil, err
 		}
@@ -41,26 +41,26 @@ func (r *ProjectMemberRepo) query(ctx context.Context, where string, args ...any
 	return out, rows.Err()
 }
 
-func (r *ProjectMemberRepo) Get(ctx context.Context, projectID, userID string) (entity.ProjectMember, error) {
+func (r *ProjectMemberRepo) Get(ctx context.Context, projectID, userID string) (model.ProjectMember, error) {
 	ms, err := r.query(ctx, `pm.project_id = $1 AND pm.user_id = $2`, projectID, userID)
 	if err != nil {
-		return entity.ProjectMember{}, err
+		return model.ProjectMember{}, err
 	}
 	if len(ms) == 0 {
-		return entity.ProjectMember{}, entity.ErrNotFound
+		return model.ProjectMember{}, model.ErrNotFound
 	}
 	return ms[0], nil
 }
 
-func (r *ProjectMemberRepo) List(ctx context.Context, projectID string) ([]entity.ProjectMember, error) {
+func (r *ProjectMemberRepo) List(ctx context.Context, projectID string) ([]model.ProjectMember, error) {
 	return r.query(ctx, `pm.project_id = $1`, projectID)
 }
 
-func (r *ProjectMemberRepo) ListForUser(ctx context.Context, tenantID, userID string) ([]entity.ProjectMember, error) {
+func (r *ProjectMemberRepo) ListForUser(ctx context.Context, tenantID, userID string) ([]model.ProjectMember, error) {
 	return r.query(ctx, `pm.tenant_id = $1 AND pm.user_id = $2`, tenantID, userID)
 }
 
-func (r *ProjectMemberRepo) Insert(ctx context.Context, m entity.ProjectMember) error {
+func (r *ProjectMemberRepo) Insert(ctx context.Context, m model.ProjectMember) error {
 	_, err := r.pool.Exec(ctx, `INSERT INTO project_members (project_id, tenant_id, user_id, role, project_role_id)
 		VALUES ($1, $2, $3, $4, NULLIF($5, '')::uuid)`, m.ProjectID, m.TenantID, m.UserID, m.Role, m.ProjectRoleID)
 	return mapErr(err)
@@ -73,7 +73,7 @@ func (r *ProjectMemberRepo) UpdateRole(ctx context.Context, projectID, userID, r
 		return mapErr(err)
 	}
 	if tag.RowsAffected() == 0 {
-		return entity.ErrNotFound
+		return model.ErrNotFound
 	}
 	return nil
 }
@@ -84,7 +84,7 @@ func (r *ProjectMemberRepo) Delete(ctx context.Context, projectID, userID string
 		return mapErr(err)
 	}
 	if tag.RowsAffected() == 0 {
-		return entity.ErrNotFound
+		return model.ErrNotFound
 	}
 	return nil
 }

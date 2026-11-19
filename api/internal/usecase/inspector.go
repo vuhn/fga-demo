@@ -3,13 +3,13 @@ package usecase
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 // Inspector evaluates Checks about any user after authorizing each one.
 type Inspector interface {
-	Inspect(ctx context.Context, actor string, c entity.CheckRequest) (bool, error)
-	BatchInspect(ctx context.Context, actor string, checks []entity.CheckRequest) ([]bool, error)
+	Inspect(ctx context.Context, actor string, c model.CheckRequest) (bool, error)
+	BatchInspect(ctx context.Context, actor string, checks []model.CheckRequest) ([]bool, error)
 }
 
 type MemberAccess struct {
@@ -22,7 +22,7 @@ type MemberAccess struct {
 
 type AccessReport struct {
 	Object       string
-	DirectTuples []entity.Tuple
+	DirectTuples []model.Tuple
 	Members      []MemberAccess
 }
 

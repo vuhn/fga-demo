@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -25,10 +25,10 @@ func (s *documentDeleter) Delete(ctx context.Context, actor, tenantID, id string
 	if _, err := loadDocument(ctx, s.documents, tenantID, id); err != nil {
 		return err
 	}
-	if err := s.authz.Require(ctx, actor, "can_delete", entity.ObjectTypeDocument, id); err != nil {
+	if err := s.authz.Require(ctx, actor, "can_delete", model.ObjectTypeDocument, id); err != nil {
 		return err
 	}
-	return s.guard.RevokeObject(ctx, entity.ObjectTypeDocument, id, func(ctx context.Context) error {
+	return s.guard.RevokeObject(ctx, model.ObjectTypeDocument, id, func(ctx context.Context) error {
 		return s.documents.Delete(ctx, id)
 	})
 }

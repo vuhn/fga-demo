@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -39,7 +39,7 @@ func (h *ProductHandler) set(c *gin.Context) {
 		return
 	}
 	if body.Enabled == nil {
-		writeErr(c, entity.Invalid("enabled is required"))
+		writeErr(c, model.Invalid("enabled is required"))
 		return
 	}
 	ps, err := h.setter.Set(c, actor(c), c.Param("id"), c.Param("product"), *body.Enabled)

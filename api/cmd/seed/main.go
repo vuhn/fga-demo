@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/auth"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/config"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/fga"
@@ -69,7 +69,7 @@ func run() error {
 	}
 	// Tenants first: each creates its own company, which internal users belong to.
 	for _, t := range seed.Tenants {
-		if err := tenants.Create(ctx, entity.Tenant{ID: t.ID, Slug: t.Slug, Name: t.Name, CompanyID: t.CompanyID}); err != nil {
+		if err := tenants.Create(ctx, model.Tenant{ID: t.ID, Slug: t.Slug, Name: t.Name, CompanyID: t.CompanyID}); err != nil {
 			return fmt.Errorf("tenant %s: %w", t.Name, err)
 		}
 		for _, prod := range t.Products {
@@ -79,13 +79,13 @@ func run() error {
 		}
 	}
 	for _, c := range seed.Subcontractors {
-		c.NameKey = entity.CompanyNameKey(c.Name)
+		c.NameKey = model.CompanyNameKey(c.Name)
 		if err := companies.Create(ctx, c); err != nil {
 			return fmt.Errorf("company %s: %w", c.Name, err)
 		}
 	}
 	for _, p := range seed.People {
-		if err := users.Create(ctx, entity.User{ID: p.ID, Email: p.Email, Name: p.Name, PasswordHash: hash, IsSystemAdmin: p.SystemAdmin, CompanyID: p.CompanyID}); err != nil {
+		if err := users.Create(ctx, model.User{ID: p.ID, Email: p.Email, Name: p.Name, PasswordHash: hash, IsSystemAdmin: p.SystemAdmin, CompanyID: p.CompanyID}); err != nil {
 			return fmt.Errorf("user %s: %w", p.Name, err)
 		}
 	}
@@ -114,11 +114,11 @@ func run() error {
 	}
 
 	// Insert each object with its owner grant, then the remaining grants.
-	owners := map[string]entity.Grant{}
-	var shares []entity.Grant
+	owners := map[string]model.Grant{}
+	var shares []model.Grant
 	for _, g := range seed.Grants() {
 		g.ID = uuid.NewString()
-		if g.Relation == entity.RelOwner {
+		if g.Relation == model.RelOwner {
 			owners[g.ObjectID] = g
 		} else {
 			shares = append(shares, g)
@@ -148,9 +148,9 @@ func run() error {
 	for _, g := range shares {
 		var err error
 		switch g.ObjectType {
-		case entity.ObjectTypeFolder:
+		case model.ObjectTypeFolder:
 			_, err = folderGrants.Upsert(ctx, g)
-		case entity.ObjectTypeAlbum:
+		case model.ObjectTypeAlbum:
 			_, err = albumGrants.Upsert(ctx, g)
 		default:
 			err = fmt.Errorf("no seeded shares on %s", g.ObjectType)

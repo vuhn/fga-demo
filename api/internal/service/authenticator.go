@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -23,14 +23,14 @@ func NewAuthenticator(users gateway.UserGateway, hasher gateway.PasswordHasher, 
 // Login checks the password and issues a token whose only claim is the user id.
 func (s *authenticator) Login(ctx context.Context, email, password string) (usecase.LoginResult, error) {
 	u, err := s.users.GetByEmail(ctx, email)
-	if errors.Is(err, entity.ErrNotFound) {
-		return usecase.LoginResult{}, entity.ErrUnauthenticated
+	if errors.Is(err, model.ErrNotFound) {
+		return usecase.LoginResult{}, model.ErrUnauthenticated
 	}
 	if err != nil {
 		return usecase.LoginResult{}, err
 	}
 	if !s.hasher.Compare(u.PasswordHash, password) {
-		return usecase.LoginResult{}, entity.ErrUnauthenticated
+		return usecase.LoginResult{}, model.ErrUnauthenticated
 	}
 	if u, err = withSystemAdmin(ctx, s.authz, u); err != nil {
 		return usecase.LoginResult{}, err
@@ -43,7 +43,7 @@ func (s *authenticator) Login(ctx context.Context, email, password string) (usec
 }
 
 // withSystemAdmin sets IsSystemAdmin from the OpenFGA Check, not the table.
-func withSystemAdmin(ctx context.Context, authz usecase.Authorizer, u entity.User) (entity.User, error) {
+func withSystemAdmin(ctx context.Context, authz usecase.Authorizer, u model.User) (model.User, error) {
 	ok, err := authz.IsPlatformAdmin(ctx, u.ID)
 	u.IsSystemAdmin = ok
 	return u, err

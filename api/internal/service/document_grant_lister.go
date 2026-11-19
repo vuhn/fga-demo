@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -18,7 +18,7 @@ func NewDocumentGrantLister(documents gateway.DocumentGateway, grants gateway.Do
 	return &documentGrantLister{documents: documents, grants: grants, authz: authz}
 }
 
-func (s *documentGrantLister) ListGrants(ctx context.Context, actor, tenantID, id string) ([]entity.Grant, error) {
+func (s *documentGrantLister) ListGrants(ctx context.Context, actor, tenantID, id string) ([]model.Grant, error) {
 	if err := requireDocumentShare(ctx, s.documents, s.authz, actor, tenantID, id); err != nil {
 		return nil, err
 	}
