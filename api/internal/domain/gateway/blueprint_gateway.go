@@ -57,17 +57,12 @@ type BlueprintRelationGateway interface {
 	Grant(g entity.Grant) (entity.Tuple, error)
 }
 
-// BlueprintEngine is the stateless blueprint-engine. It has no auth: callers
-// run their Checks first. A request it rejects is ErrValidation; an engine or
-// LLM that is down is ErrEngineUnavailable.
-type BlueprintEngine interface {
+// BlueprintAgent is the blueprint-engine's LLM operations: everything that
+// asks a model to read or change a blueprint. It has no auth: callers run
+// their Checks first. A request it rejects is ErrValidation; an agent or LLM
+// that is down is ErrEngineUnavailable.
+type BlueprintAgent interface {
 	BriefFromText(ctx context.Context, prompt string) (entity.BlueprintDraft, error)
-	// Generate builds the brief. previous keeps unchanged rooms in place;
-	// repair shrinks rooms toward their minimums when the brief is too big.
-	Generate(ctx context.Context, brief, previous []byte, repair bool) (entity.BlueprintOutcome, error)
-	// CreatePlan builds the brief into a plan the way an import does: the outcome has no brief, the model as read
-	// back from a DXF the engine drew (outcome.DXF), so the plan is edited and exported like an imported one.
-	CreatePlan(ctx context.Context, brief []byte) (entity.BlueprintOutcome, error)
 	// Revise turns a chat message into edits on the brief and rebuilds it.
 	// history is the earlier chat messages, oldest first.
 	Revise(ctx context.Context, brief, previous []byte, message string, history []string) (entity.BlueprintOutcome, error)
@@ -79,6 +74,22 @@ type BlueprintEngine interface {
 	// becomes edits on the stored model (rename, fixtures, door and window widths).
 	RevisePlan(ctx context.Context, model []byte, message string, history []string) (entity.BlueprintOutcome, error)
 	RevisePlanStream(ctx context.Context, model []byte, message string, history []string, onProgress func(entity.BlueprintProgress)) (entity.BlueprintOutcome, error)
+	// Review lets the reviewer fix the brief's failed checks in up
+	// to three rounds, keeping a round only when the issue score drops.
+	Review(ctx context.Context, brief, previous []byte, history []string) (entity.BlueprintOutcome, error)
+}
+
+// BlueprintEngine is the blueprint-engine's deterministic operations: layout,
+// DXF import, conversion, editing and drawing. No LLM. It has no auth: callers
+// run their Checks first. A request it rejects is ErrValidation; an engine
+// that is down is ErrEngineUnavailable.
+type BlueprintEngine interface {
+	// Generate builds the brief. previous keeps unchanged rooms in place;
+	// repair shrinks rooms toward their minimums when the brief is too big.
+	Generate(ctx context.Context, brief, previous []byte, repair bool) (entity.BlueprintOutcome, error)
+	// CreatePlan builds the brief into a plan the way an import does: the outcome has no brief, the model as read
+	// back from a DXF the engine drew (outcome.DXF), so the plan is edited and exported like an imported one.
+	CreatePlan(ctx context.Context, brief []byte) (entity.BlueprintOutcome, error)
 	// EditPlan applies explicit operations (JSON, no LLM) to an imported plan's model.
 	EditPlan(ctx context.Context, model, ops []byte) (entity.BlueprintOutcome, error)
 	// PatchDXF writes the differences between base (the plan as imported) and current into the original file.
@@ -86,9 +97,6 @@ type BlueprintEngine interface {
 	// DrawPlan draws a plan made from a brief (its stored model) into a DXF and reads it back, so it becomes a
 	// plan with an original and no brief. title is the blueprint's name. No LLM.
 	DrawPlan(ctx context.Context, model []byte, title string) (entity.BlueprintOutcome, error)
-	// Review lets the engine's reviewer fix the brief's failed checks in up
-	// to three rounds, keeping a round only when the issue score drops.
-	Review(ctx context.Context, brief, previous []byte, history []string) (entity.BlueprintOutcome, error)
 	// ConvertToDXF turns a PDF or image floor plan into a DXF (no LLM). Deterministic for the same file and options.
 	ConvertToDXF(ctx context.Context, file entity.Upload, opts entity.ConvertOptions) (entity.BlueprintConversion, error)
 	// ImportDXF reads the plans out of a CAD file. No LLM; the same file always gives the same plans.

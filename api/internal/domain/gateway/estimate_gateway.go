@@ -29,8 +29,8 @@ type BlueprintEstimateGateway interface {
 	ListByBlueprint(ctx context.Context, blueprintID string) ([]entity.BlueprintEstimate, error)
 }
 
-// EstimateEngine is the engine's estimate agent. Same rules as BlueprintEngine: callers Check first.
-type EstimateEngine interface {
+// EstimateAgent is the estimate agent (an LLM chat that builds a cost estimate). Same rules as BlueprintAgent: callers Check first.
+type EstimateAgent interface {
 	// EstimateTurn runs one turn. messages are the recent chat (oldest first), overrides are user-entered unit
 	// rates by rate code. Events are passed to onEvent as they arrive; an error returned before the first
 	// event is the same as any engine refusal (the caller can still answer with a plain status).

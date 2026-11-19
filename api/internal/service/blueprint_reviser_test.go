@@ -34,6 +34,7 @@ func (f *fakeBlueprints) AppendVersion(_ context.Context, v entity.BlueprintVers
 	return nil
 }
 
+// fakeEngine implements gateway.BlueprintEngine (the deterministic operations).
 type fakeEngine struct {
 	gateway.BlueprintEngine
 	calls   []string
@@ -44,11 +45,22 @@ type fakeEngine struct {
 func (e *fakeEngine) out() (entity.BlueprintOutcome, error) {
 	return entity.BlueprintOutcome{Brief: json.RawMessage(`{"must":"be ignored"}`), Model: json.RawMessage(`{"b":2}`), OK: true}, e.err
 }
-func (e *fakeEngine) Revise(context.Context, []byte, []byte, string, []string) (entity.BlueprintOutcome, error) {
+
+// fakeAgent implements gateway.BlueprintAgent (the LLM operations).
+type fakeAgent struct {
+	gateway.BlueprintAgent
+	calls []string
+	err   error
+}
+
+func (e *fakeAgent) out() (entity.BlueprintOutcome, error) {
+	return entity.BlueprintOutcome{Brief: json.RawMessage(`{"must":"be ignored"}`), Model: json.RawMessage(`{"b":2}`), OK: true}, e.err
+}
+func (e *fakeAgent) Revise(context.Context, []byte, []byte, string, []string) (entity.BlueprintOutcome, error) {
 	e.calls = append(e.calls, "Revise")
 	return e.out()
 }
-func (e *fakeEngine) RevisePlan(context.Context, []byte, string, []string) (entity.BlueprintOutcome, error) {
+func (e *fakeAgent) RevisePlan(context.Context, []byte, string, []string) (entity.BlueprintOutcome, error) {
 	e.calls = append(e.calls, "RevisePlan")
 	return e.out()
 }
@@ -66,7 +78,7 @@ func (a *fakeAuthz) Require(context.Context, string, string, string, string) err
 }
 
 func TestReviseOnImportedPlanUsesPlanEditsAndKeepsBriefNull(t *testing.T) {
-	bp, eng := &fakeBlueprints{brief: "null"}, &fakeEngine{}
+	bp, eng := &fakeBlueprints{brief: "null"}, &fakeAgent{}
 	s := NewBlueprintReviser(bp, eng, &fakeAuthz{})
 	if _, err := s.Revise(context.Background(), "u", "t", bpID, "rename it", 1); err != nil && len(bp.appended) == 0 {
 		t.Fatal(err)
@@ -80,7 +92,7 @@ func TestReviseOnImportedPlanUsesPlanEditsAndKeepsBriefNull(t *testing.T) {
 }
 
 func TestReviseOnBriefPlanStillUsesBrief(t *testing.T) {
-	bp, eng := &fakeBlueprints{brief: `{"title":"x"}`}, &fakeEngine{}
+	bp, eng := &fakeBlueprints{brief: `{"title":"x"}`}, &fakeAgent{}
 	_, _ = NewBlueprintReviser(bp, eng, &fakeAuthz{}).Revise(context.Background(), "u", "t", bpID, "add a study", 1)
 	if len(eng.calls) != 1 || eng.calls[0] != "Revise" {
 		t.Fatalf("engine calls %v", eng.calls)
@@ -88,7 +100,7 @@ func TestReviseOnBriefPlanStillUsesBrief(t *testing.T) {
 }
 
 func TestReviseImportedWritesNothingOnEngineError(t *testing.T) {
-	bp, eng := &fakeBlueprints{brief: "null"}, &fakeEngine{err: entity.Invalid("not supported")}
+	bp, eng := &fakeBlueprints{brief: "null"}, &fakeAgent{err: entity.Invalid("not supported")}
 	if _, err := NewBlueprintReviser(bp, eng, &fakeAuthz{}).Revise(context.Background(), "u", "t", bpID, "move wall", 1); err == nil {
 		t.Fatal("want error")
 	}
@@ -98,7 +110,7 @@ func TestReviseImportedWritesNothingOnEngineError(t *testing.T) {
 }
 
 func TestReviseDeniedOrStaleNeverReachesTheEngine(t *testing.T) {
-	bp, eng := &fakeBlueprints{brief: "null"}, &fakeEngine{}
+	bp, eng := &fakeBlueprints{brief: "null"}, &fakeAgent{}
 	s := NewBlueprintReviser(bp, eng, &fakeAuthz{deny: true})
 	if _, err := s.Revise(context.Background(), "u", "t", bpID, "x", 1); !errors.Is(err, entity.ErrForbidden) {
 		t.Fatalf("want forbidden, got %v", err)

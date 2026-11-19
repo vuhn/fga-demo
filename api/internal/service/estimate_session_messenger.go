@@ -17,14 +17,14 @@ const recentEstimateMessages = 12
 type estimateSessionMessenger struct {
 	blueprints gateway.BlueprintGateway
 	sessions   gateway.EstimateSessionGateway
-	engine     gateway.EstimateEngine
+	agent      gateway.EstimateAgent
 	authz      usecase.Authorizer
 	ids        gateway.IDGenerator
 }
 
 func NewEstimateSessionMessenger(blueprints gateway.BlueprintGateway, sessions gateway.EstimateSessionGateway,
-	engine gateway.EstimateEngine, authz usecase.Authorizer, ids gateway.IDGenerator) usecase.EstimateSessionMessenger {
-	return &estimateSessionMessenger{blueprints: blueprints, sessions: sessions, engine: engine, authz: authz, ids: ids}
+	agent gateway.EstimateAgent, authz usecase.Authorizer, ids gateway.IDGenerator) usecase.EstimateSessionMessenger {
+	return &estimateSessionMessenger{blueprints: blueprints, sessions: sessions, agent: agent, authz: authz, ids: ids}
 }
 
 // Send runs one turn. Order (fail closed, like every engine-backed write): validate, load the blueprint in the
@@ -70,7 +70,7 @@ func (s *estimateSessionMessenger) Send(ctx context.Context, actor, tenantID, bl
 	if len(recent) > recentEstimateMessages {
 		recent = recent[len(recent)-recentEstimateMessages:]
 	}
-	turn, err := s.engine.EstimateTurn(ctx, v.Model, sess.State, message, recent, overrides, onEvent)
+	turn, err := s.agent.EstimateTurn(ctx, v.Model, sess.State, message, recent, overrides, onEvent)
 	if err != nil {
 		return usecase.EstimateSessionDetail{}, err
 	}

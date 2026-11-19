@@ -11,12 +11,12 @@ import (
 
 type blueprintReviewer struct {
 	blueprints gateway.BlueprintGateway
-	engine     gateway.BlueprintEngine
+	agent      gateway.BlueprintAgent
 	authz      usecase.Authorizer
 }
 
-func NewBlueprintReviewer(blueprints gateway.BlueprintGateway, engine gateway.BlueprintEngine, authz usecase.Authorizer) usecase.BlueprintReviewer {
-	return &blueprintReviewer{blueprints: blueprints, engine: engine, authz: authz}
+func NewBlueprintReviewer(blueprints gateway.BlueprintGateway, agent gateway.BlueprintAgent, authz usecase.Authorizer) usecase.BlueprintReviewer {
+	return &blueprintReviewer{blueprints: blueprints, agent: agent, authz: authz}
 }
 
 // Review requires can_edit and a current base_version, like a chat revision.
@@ -36,7 +36,7 @@ func (s *blueprintReviewer) Review(ctx context.Context, actor, tenantID, id stri
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
-	out, err := s.engine.Review(ctx, cur.Brief, cur.Model, history)
+	out, err := s.agent.Review(ctx, cur.Brief, cur.Model, history)
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}

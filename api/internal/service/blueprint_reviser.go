@@ -10,12 +10,12 @@ import (
 
 type blueprintReviser struct {
 	blueprints gateway.BlueprintGateway
-	engine     gateway.BlueprintEngine
+	agent      gateway.BlueprintAgent
 	authz      usecase.Authorizer
 }
 
-func NewBlueprintReviser(blueprints gateway.BlueprintGateway, engine gateway.BlueprintEngine, authz usecase.Authorizer) usecase.BlueprintReviser {
-	return &blueprintReviser{blueprints: blueprints, engine: engine, authz: authz}
+func NewBlueprintReviser(blueprints gateway.BlueprintGateway, agent gateway.BlueprintAgent, authz usecase.Authorizer) usecase.BlueprintReviser {
+	return &blueprintReviser{blueprints: blueprints, agent: agent, authz: authz}
 }
 
 // Revise requires can_edit and a current base_version. The engine turns the
@@ -27,7 +27,7 @@ func (s *blueprintReviser) Revise(ctx context.Context, actor, tenantID, id, mess
 		return usecase.BlueprintDetail{}, err
 	}
 	if isImported(cur) { // no brief: the engine edits the model as drawn
-		out, err := s.engine.RevisePlan(ctx, cur.Model, message, history)
+		out, err := s.agent.RevisePlan(ctx, cur.Model, message, history)
 		if err != nil {
 			return usecase.BlueprintDetail{}, err
 		}
@@ -36,7 +36,7 @@ func (s *blueprintReviser) Revise(ctx context.Context, actor, tenantID, id, mess
 		}
 		return appendBlueprintVersion(ctx, s.blueprints, b, planOutcomeVersion(id, entity.BlueprintVersionRevise, message, actor, out), baseVersion)
 	}
-	out, err := s.engine.Revise(ctx, cur.Brief, cur.Model, message, history)
+	out, err := s.agent.Revise(ctx, cur.Brief, cur.Model, message, history)
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}

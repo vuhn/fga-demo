@@ -53,7 +53,7 @@ func (f *fakeSessions) AppendTurn(_ context.Context, s entity.EstimateSession, s
 	return nil
 }
 
-type fakeEstimateEngine struct {
+type fakeEstimateAgent struct {
 	calls  int
 	during func() // runs while the engine "thinks" (a restart in another tab)
 	turn   entity.EstimateTurn
@@ -65,7 +65,7 @@ type fakeEstimateEngine struct {
 	}
 }
 
-func (e *fakeEstimateEngine) EstimateTurn(_ context.Context, _, _ []byte, message string, msgs []entity.EstimateMessage, o map[string]float64, on func(entity.EstimateEvent)) (entity.EstimateTurn, error) {
+func (e *fakeEstimateAgent) EstimateTurn(_ context.Context, _, _ []byte, message string, msgs []entity.EstimateMessage, o map[string]float64, on func(entity.EstimateEvent)) (entity.EstimateTurn, error) {
 	e.calls++
 	if e.during != nil {
 		e.during()
@@ -82,7 +82,7 @@ func (s *seqIDs) NewID() string {
 	return "33333333-3333-3333-3333-33333333333" + string(rune('0'+s.n))
 }
 
-func messenger(sess *fakeSessions, eng *fakeEstimateEngine, deny bool) (func(msg string, o map[string]float64) (string, error), *[]string) {
+func messenger(sess *fakeSessions, eng *fakeEstimateAgent, deny bool) (func(msg string, o map[string]float64) (string, error), *[]string) {
 	events := []string{}
 	m := NewEstimateSessionMessenger(&fakeBlueprints{brief: "null"}, sess, eng, &fakeAuthz{deny: deny}, &seqIDs{})
 	return func(msg string, o map[string]float64) (string, error) {
@@ -101,7 +101,7 @@ func okTurn() entity.EstimateTurn {
 }
 
 func TestEstimateTurnStoresBothMessagesStateAndEstimateTogether(t *testing.T) {
-	sess, eng := newSess(), &fakeEstimateEngine{turn: okTurn()}
+	sess, eng := newSess(), &fakeEstimateAgent{turn: okTurn()}
 	send, _ := messenger(sess, eng, false)
 	events, err := send("  Ho Chi Minh City  ", nil)
 	if err != nil || events != "token" {
@@ -134,7 +134,7 @@ func TestEstimateTurnDeniedOrInvalidNeverReachesTheEngine(t *testing.T) {
 		"bad rate":    {msg: "", o: map[string]float64{"paint": -1}, want: entity.ErrValidation},
 		"rate no key": {msg: "", o: map[string]float64{"": 5}, want: entity.ErrValidation},
 	} {
-		sess, eng := newSess(), &fakeEstimateEngine{turn: okTurn()}
+		sess, eng := newSess(), &fakeEstimateAgent{turn: okTurn()}
 		send, _ := messenger(sess, eng, tc.deny)
 		if _, err := send(tc.msg, tc.o); !errors.Is(err, tc.want) {
 			t.Errorf("%s: want %v, got %v", name, tc.want, err)
@@ -146,7 +146,7 @@ func TestEstimateTurnDeniedOrInvalidNeverReachesTheEngine(t *testing.T) {
 }
 
 func TestEstimateTurnInAnotherTenantIsNotFound(t *testing.T) {
-	sess, eng := newSess(), &fakeEstimateEngine{turn: okTurn()}
+	sess, eng := newSess(), &fakeEstimateAgent{turn: okTurn()}
 	m := NewEstimateSessionMessenger(&fakeBlueprints{brief: "null"}, sess, eng, &fakeAuthz{}, &seqIDs{})
 	if _, err := m.Send(context.Background(), "u", "other", bpID, "hi", nil, func(entity.EstimateEvent) {}); !errors.Is(err, entity.ErrNotFound) || eng.calls != 0 {
 		t.Fatalf("err %v calls %d", err, eng.calls)
@@ -154,7 +154,7 @@ func TestEstimateTurnInAnotherTenantIsNotFound(t *testing.T) {
 }
 
 func TestEstimateTurnTurnCapStopsBeforeTheEngine(t *testing.T) {
-	sess, eng := newSess(), &fakeEstimateEngine{turn: okTurn()}
+	sess, eng := newSess(), &fakeEstimateAgent{turn: okTurn()}
 	sess.sess.Seq = entity.MaxEstimateTurns
 	send, _ := messenger(sess, eng, false)
 	if _, err := send("hi", nil); !errors.Is(err, entity.ErrValidation) || eng.calls != 0 {
@@ -163,14 +163,14 @@ func TestEstimateTurnTurnCapStopsBeforeTheEngine(t *testing.T) {
 }
 
 func TestEstimateTurnEngineErrorOrAbortWritesNothing(t *testing.T) {
-	sess, eng := newSess(), &fakeEstimateEngine{err: entity.ErrEngineUnavailable}
+	sess, eng := newSess(), &fakeEstimateAgent{err: entity.ErrEngineUnavailable}
 	send, _ := messenger(sess, eng, false)
 	if _, err := send("hi", nil); !errors.Is(err, entity.ErrEngineUnavailable) || sess.writes != 0 {
 		t.Fatalf("err %v writes %d", err, sess.writes)
 	}
 	// the browser went away after the engine finished
 	ctx, cancel := context.WithCancel(context.Background())
-	eng2 := &fakeEstimateEngine{turn: okTurn()}
+	eng2 := &fakeEstimateAgent{turn: okTurn()}
 	m := NewEstimateSessionMessenger(&fakeBlueprints{brief: "null"}, sess, eng2, &fakeAuthz{}, &seqIDs{})
 	cancel()
 	if _, err := m.Send(ctx, "u", "t", bpID, "hi", nil, func(entity.EstimateEvent) {}); !errors.Is(err, context.Canceled) || sess.writes != 0 {
@@ -179,7 +179,7 @@ func TestEstimateTurnEngineErrorOrAbortWritesNothing(t *testing.T) {
 }
 
 func TestEstimateTurnConcurrentTurnIs409AndWritesNothing(t *testing.T) {
-	sess, eng := newSess(), &fakeEstimateEngine{turn: okTurn()}
+	sess, eng := newSess(), &fakeEstimateAgent{turn: okTurn()}
 	sess.conflict = true
 	send, _ := messenger(sess, eng, false)
 	if _, err := send("hi", nil); !errors.Is(err, entity.ErrConflict) || sess.writes != 0 {
@@ -188,7 +188,7 @@ func TestEstimateTurnConcurrentTurnIs409AndWritesNothing(t *testing.T) {
 }
 
 func TestEstimateTurnRateOverrideOnlyIsRecordedAsAMessage(t *testing.T) {
-	sess, eng := newSess(), &fakeEstimateEngine{turn: okTurn()}
+	sess, eng := newSess(), &fakeEstimateAgent{turn: okTurn()}
 	send, _ := messenger(sess, eng, false)
 	if _, err := send("", map[string]float64{"paint": 90000}); err != nil {
 		t.Fatal(err)
@@ -200,7 +200,7 @@ func TestEstimateTurnRateOverrideOnlyIsRecordedAsAMessage(t *testing.T) {
 
 func TestEstimateTurnWithoutAnEstimateStoresNone(t *testing.T) {
 	sess := newSess()
-	eng := &fakeEstimateEngine{turn: entity.EstimateTurn{State: json.RawMessage(`{"status":"interviewing"}`), Reply: "Where is it?"}}
+	eng := &fakeEstimateAgent{turn: entity.EstimateTurn{State: json.RawMessage(`{"status":"interviewing"}`), Reply: "Where is it?"}}
 	send, _ := messenger(sess, eng, false)
 	if _, err := send("hi", nil); err != nil || sess.est != nil || sess.sess.Status() != "interviewing" {
 		t.Fatalf("err %v est %v status %s", err, sess.est, sess.sess.Status())
@@ -209,7 +209,7 @@ func TestEstimateTurnWithoutAnEstimateStoresNone(t *testing.T) {
 
 func TestEstimateTurnEmptyReplyIsAnEngineFailure(t *testing.T) {
 	sess := newSess()
-	eng := &fakeEstimateEngine{turn: entity.EstimateTurn{State: json.RawMessage(`{}`), Reply: " "}}
+	eng := &fakeEstimateAgent{turn: entity.EstimateTurn{State: json.RawMessage(`{}`), Reply: " "}}
 	send, _ := messenger(sess, eng, false)
 	if _, err := send("hi", nil); !errors.Is(err, entity.ErrEngineUnavailable) || sess.writes != 0 {
 		t.Fatalf("err %v writes %d", err, sess.writes)
@@ -218,7 +218,7 @@ func TestEstimateTurnEmptyReplyIsAnEngineFailure(t *testing.T) {
 
 func TestEstimateTurnUnknownEngineStatusWritesNothing(t *testing.T) {
 	sess := newSess()
-	eng := &fakeEstimateEngine{turn: entity.EstimateTurn{State: json.RawMessage(`{"status":"weird"}`), Reply: "hi"}}
+	eng := &fakeEstimateAgent{turn: entity.EstimateTurn{State: json.RawMessage(`{"status":"weird"}`), Reply: "hi"}}
 	send, _ := messenger(sess, eng, false)
 	if _, err := send("hi", nil); !errors.Is(err, entity.ErrEngineUnavailable) || sess.writes != 0 {
 		t.Fatalf("err %v writes %d", err, sess.writes)
@@ -257,7 +257,7 @@ func TestAFailedReplaceReturnsTheErrorAndKeepsTheOldSession(t *testing.T) {
 
 func TestRestartingWhileATurnRunsMakesThatTurn409AndKeepsTheNewSession(t *testing.T) {
 	sess := newSess()
-	eng := &fakeEstimateEngine{turn: okTurn()}
+	eng := &fakeEstimateAgent{turn: okTurn()}
 	c := NewEstimateSessionCreator(&fakeBlueprints{brief: "null"}, sess, &fakeAuthz{})
 	eng.during = func() { // the person starts over in another tab
 		if _, err := c.Create(context.Background(), "u", "t", bpID); err != nil {
@@ -274,7 +274,7 @@ func TestRestartingWhileATurnRunsMakesThatTurn409AndKeepsTheNewSession(t *testin
 }
 
 func TestATurnWithoutASessionIsNotFound(t *testing.T) {
-	sess, eng := &fakeSessions{}, &fakeEstimateEngine{turn: okTurn()}
+	sess, eng := &fakeSessions{}, &fakeEstimateAgent{turn: okTurn()}
 	send, _ := messenger(sess, eng, false)
 	if _, err := send("hi", nil); !errors.Is(err, entity.ErrNotFound) || eng.calls != 0 {
 		t.Fatalf("err %v calls %d", err, eng.calls)

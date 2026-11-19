@@ -29,6 +29,7 @@ type Client struct {
 }
 
 var _ gateway.BlueprintEngine = (*Client)(nil)
+var _ gateway.BlueprintAgent = (*Client)(nil)
 
 func New(baseURL string) *Client {
 	return &Client{BaseURL: strings.TrimRight(baseURL, "/"), HTTP: &http.Client{Timeout: 5 * time.Minute}}

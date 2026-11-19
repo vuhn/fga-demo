@@ -21,7 +21,7 @@ cmd/api/wire.go builds infrastructure, services, handlers and injects them
 | `service` | Implementations, one file per operation (`folder_creator.go`). Business logic only. |
 | `infrastructure/postgres` | pgx repos: the display record. |
 | `infrastructure/fga` | OpenFGA client, model bootstrap, and pure tuple builders. The only place tuples are formatted. |
-| `infrastructure/blueprintengine` | HTTP client for the stateless blueprint engine (`gateway.BlueprintEngine`). |
+| `infrastructure/blueprintengine` | HTTP client for the stateless blueprint engine (`gateway.BlueprintEngine` for the deterministic operations, `gateway.BlueprintAgent` for the LLM ones, `gateway.EstimateAgent`; one client implements all). |
 | `infrastructure/{auth,idgen,config}` | JWT and bcrypt, UUIDs, environment config. |
 | `handler/http` | Gin handlers (decode, call one usecase, map errors) and middleware. |
 | `seed` | The fixed demo world, shared by `cmd/seed` and the integration tests. |
