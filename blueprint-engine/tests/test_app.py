@@ -2,9 +2,9 @@
 
 from fastapi.testclient import TestClient
 
-from blueprint_engine.app import create_app
-from blueprint_engine.llm_steps import DraftBrief
-from blueprint_engine.schemas import EditOps
+from fga_engine.app import create_app
+from fga_engine.llm_steps import DraftBrief
+from fga_engine.domain.schemas import EditOps
 
 from briefs import FAMILY_3BR, SHRINKABLE, TOO_BIG
 
@@ -316,8 +316,8 @@ def test_revise_stream_empty_message_is_plain_422():
 def test_thinking_is_streamed_only_while_a_sink_listens():
     import json as _json
     import httpx
-    from blueprint_engine import progress
-    from blueprint_engine.llm import OllamaClient
+    from fga_engine import progress
+    from fga_engine.llm import OllamaClient
 
     def handler(request):
         body = _json.loads(request.content)

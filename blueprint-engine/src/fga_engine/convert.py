@@ -21,7 +21,7 @@ import ezdxf
 import numpy as np
 from pydantic import BaseModel, Field
 
-from .edits import EditError
+from .domain.edits import EditError
 
 MAX_PIXELS = 24_000_000
 DEFAULT_SCALE = 100

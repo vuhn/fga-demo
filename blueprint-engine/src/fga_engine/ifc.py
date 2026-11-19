@@ -25,7 +25,7 @@ import ifcopenshell.api.unit
 import numpy as np
 from ifcopenshell.util.shape_builder import ShapeBuilder
 
-from .schemas import BuildingModel, Opening, Wall
+from .domain.schemas import BuildingModel, Opening, Wall
 
 WALL_HEIGHT = 2.7
 SLAB_DEPTH = 0.2

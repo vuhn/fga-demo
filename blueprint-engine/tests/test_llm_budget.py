@@ -6,8 +6,8 @@ import json
 import httpx
 from pydantic import BaseModel
 
-from blueprint_engine import progress
-from blueprint_engine.llm import OllamaClient
+from fga_engine import progress
+from fga_engine.llm import OllamaClient
 
 
 class Out(BaseModel):

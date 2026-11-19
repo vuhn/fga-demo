@@ -10,12 +10,12 @@ from fastapi.testclient import TestClient
 from shapely.geometry import Polygon
 
 import sample_dxf
-from blueprint_engine.app import create_app
-from blueprint_engine.checks import failed, run_imported_checks
-from blueprint_engine.draw import build_dxf, to_dxf_bytes, to_svg
-from blueprint_engine.dxf_plan import import_dxf
-from blueprint_engine.edits import EditError
-from blueprint_engine.ifc import to_ifc
+from fga_engine.app import create_app
+from fga_engine.domain.checks import failed, run_imported_checks
+from fga_engine.draw import build_dxf, to_dxf_bytes, to_svg
+from fga_engine.dxf_plan import import_dxf
+from fga_engine.domain.edits import EditError
+from fga_engine.ifc import to_ifc
 
 EXPECT = {  # plan -> (rooms, doors, windows, entrance side)
     1: (6, 6, 4, "west"),
@@ -170,7 +170,7 @@ def _own_export_cases():
 @pytest.mark.parametrize("name,brief", _own_export_cases())
 def test_our_own_dxf_export_imports_back_to_the_same_rooms(name, brief):
     """Exports cut doors and windows out of the wall solids; the importer must still find every room."""
-    from blueprint_engine.pipeline import generate
+    from fga_engine.pipeline import generate
 
     gen = generate(brief).model
     assert gen is not None
@@ -190,7 +190,7 @@ def test_our_own_dxf_export_imports_back_to_the_same_rooms(name, brief):
 def test_round_trip_keeps_fixtures_and_reports_unsupported_items():
     """Our export carries furniture blocks with a KIND attribute: every one comes back as a fixture."""
     from briefs import FEASIBLE
-    from blueprint_engine.pipeline import generate
+    from fga_engine.pipeline import generate
 
     gen = None
     for brief in FEASIBLE.values():

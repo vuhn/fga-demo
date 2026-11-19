@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from .building import build_model
-from .checks import area_budget, brief_issues, failed, run_checks
-from .layout import LayoutError, compute_layout
-from .schemas import MIN_AREA, Brief, BuildingModel, CheckResult
+from .domain.building import build_model
+from .domain.checks import area_budget, brief_issues, failed, run_checks
+from .domain.layout import LayoutError, compute_layout
+from .domain.schemas import MIN_AREA, Brief, BuildingModel, CheckResult
 
 
 class GenerateResult(BaseModel):

@@ -16,9 +16,9 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from blueprint_engine import llm_steps
-from blueprint_engine.checks import failed
-from blueprint_engine.llm import LLMError, OllamaClient
+from fga_engine import llm_steps
+from fga_engine.domain.checks import failed
+from fga_engine.llm import LLMError, OllamaClient
 
 
 def main() -> int:

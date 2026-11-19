@@ -14,9 +14,9 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 from shapely.geometry import Point, Polygon, box
 
-from . import prompts
 from .edits import EditError, UnsupportedEdit, _norm
 from .fixtures import SPECS
+from .op_docs import field_sig
 from .schemas import FIXTURE_KINDS, BuildingModel, FixtureKind, PlacedFixture, PlacedRoom, RoomType, Side, _Strict
 
 
@@ -126,7 +126,7 @@ def ops_help() -> str:
     lines = ["Operations (refer to rooms by their current name and openings by id):"]
     for cls in members:
         op = typing.get_args(cls.model_fields["op"].annotation)[0]
-        fields = ", ".join(prompts._field_sig(n, f) for n, f in cls.model_fields.items() if n != "op")
+        fields = ", ".join(field_sig(n, f) for n, f in cls.model_fields.items() if n != "op")
         lines.append(f"- {op} {{{fields}}}: {(cls.__doc__ or '').strip()}")
     lines.append(f"Fixtures: {', '.join(FIXTURE_KINDS)}.")
     return "\n".join(lines)

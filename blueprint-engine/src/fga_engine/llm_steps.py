@@ -20,14 +20,15 @@ from typing import TypeVar
 
 from pydantic import BaseModel, Field, ValidationError
 
-from . import plan_edits, progress, prompts
-from .checks import failed, run_imported_checks
+from . import progress, prompts
+from .domain import plan_edits
+from .domain.checks import failed, run_imported_checks
 from .draw import TitleBlock, build_dxf, to_dxf_bytes
 from .dxf_plan import import_dxf
-from .edits import EditError, UnsupportedEdit, apply_ops, resolve_room
+from .domain.edits import EditError, UnsupportedEdit, apply_ops, resolve_room
 from .llm import LLMClient
 from .pipeline import GenerateResult, generate, generate_fitted
-from .schemas import (
+from .domain.schemas import (
     CheckResult,
     DEFAULT_FIXTURES,
     MAX_NESTED,

@@ -22,7 +22,7 @@ from .estimate_models import (
 )
 from .llm import LLMClient, LLMError
 from .price_source import PriceSource, requests_for
-from .schemas import BuildingModel
+from .domain.schemas import BuildingModel
 from .takeoff import PRICED_FIXTURES, RATE_CATALOG, pending_fixtures, structure_in_scope, takeoff
 
 MAX_RATES = 40

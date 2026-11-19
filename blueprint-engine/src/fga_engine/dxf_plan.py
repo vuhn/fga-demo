@@ -26,8 +26,8 @@ from shapely.geometry.polygon import orient
 from shapely.ops import polygonize, unary_union
 
 from . import dxf_drawing
-from .edits import EditError
-from .schemas import FIXTURE_KINDS, BuildingModel, DrawItem, Opening, Origin, PlacedFixture, PlacedRoom, Side, Wall
+from .domain.edits import EditError
+from .domain.schemas import FIXTURE_KINDS, BuildingModel, DrawItem, Opening, Origin, PlacedFixture, PlacedRoom, Side, Wall
 
 # $INSUNITS code -> metres per unit
 INSUNITS = {1: 0.0254, 2: 0.3048, 4: 0.001, 5: 0.01, 6: 1.0, 9: 2.54e-8, 10: 0.9144}

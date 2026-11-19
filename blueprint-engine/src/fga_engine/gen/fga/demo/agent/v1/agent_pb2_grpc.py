@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from blueprint_engine.gen.fga.demo.agent.v1 import agent_pb2 as fga_dot_demo_dot_agent_dot_v1_dot_agent__pb2
+from fga_engine.gen.fga.demo.agent.v1 import agent_pb2 as fga_dot_demo_dot_agent_dot_v1_dot_agent__pb2
 
 GRPC_GENERATED_VERSION = '1.80.0'
 GRPC_VERSION = grpc.__version__

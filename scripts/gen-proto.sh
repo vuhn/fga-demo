@@ -14,7 +14,7 @@ WANT_GO=v1.36.12; WANT_GRPC=1.5.1
 
 # Python packages that get stubs: the engine always, the agent once it exists.
 PY=()
-for pkg in blueprint-engine/src/fga_engine blueprint-engine/src/blueprint_engine agent/src/fga_agent; do
+for pkg in blueprint-engine/src/fga_engine agent/src/fga_agent; do
   [ -d "$pkg" ] && PY+=("$pkg")
 done
 
