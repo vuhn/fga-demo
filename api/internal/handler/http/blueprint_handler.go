@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -84,7 +85,7 @@ func (h *BlueprintHandler) draft(c *gin.Context) {
 		return
 	}
 	d, err := h.uc.Drafter.Draft(c, actor(c), tenant(c), body.ProjectID, body.Prompt)
-	respond(c, http.StatusOK, draftView(d), err)
+	respond(c, http.StatusOK, mapper.DraftView(d), err)
 }
 
 // importTypes maps an upload's extension to its type: browsers send "", octet-stream or odd types for these.
@@ -174,7 +175,7 @@ func (h *BlueprintHandler) importDXF(c *gin.Context) {
 	}
 	d, err := h.uc.Importer.Import(c, actor(c), tenant(c), usecase.ImportBlueprintInput{
 		ProjectID: c.PostForm("project_id"), Name: c.PostForm("name"), File: file, Unit: c.PostForm("unit"), Convert: opts, PlanIndex: plan})
-	respond(c, http.StatusCreated, blueprintDetailView(d), err)
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
 }
 
 // source downloads the stored original of the current (or ?version=) version. can_edit only.
@@ -255,7 +256,7 @@ func (h *BlueprintHandler) planEdit(c *gin.Context) {
 		return
 	}
 	d, err := h.uc.PlanEditor.Edit(c, actor(c), tenant(c), c.Param("id"), body.Ops, body.BaseVersion)
-	respond(c, http.StatusCreated, blueprintDetailView(d), err)
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
 }
 
 // convert turns a blueprint made from a brief into a DXF plan (a new version, no brief, the drawing as its original).
@@ -267,12 +268,12 @@ func (h *BlueprintHandler) convert(c *gin.Context) {
 		return
 	}
 	d, err := h.uc.PlanConverter.Convert(c, actor(c), tenant(c), c.Param("id"), body.BaseVersion)
-	respond(c, http.StatusCreated, blueprintDetailView(d), err)
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
 }
 
 func (h *BlueprintHandler) list(c *gin.Context) {
 	bs, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("project_id"))
-	respond(c, http.StatusOK, mapSlice(bs, visibleBlueprintView), err)
+	respond(c, http.StatusOK, mapSlice(bs, mapper.VisibleBlueprintView), err)
 }
 
 func (h *BlueprintHandler) create(c *gin.Context) {
@@ -288,12 +289,12 @@ func (h *BlueprintHandler) create(c *gin.Context) {
 	}
 	in := usecase.CreateBlueprintInput{ProjectID: body.ProjectID, Name: body.Name, Brief: body.Brief, SourceKind: body.SourceKind, Prompt: body.Prompt}
 	d, err := h.uc.Creator.Create(c, actor(c), tenant(c), in)
-	respond(c, http.StatusCreated, blueprintDetailView(d), err)
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
 }
 
 func (h *BlueprintHandler) get(c *gin.Context) {
 	d, err := h.uc.Getter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, blueprintDetailView(d), err)
+	respond(c, http.StatusOK, mapper.BlueprintDetailView(d), err)
 }
 
 func (h *BlueprintHandler) rename(c *gin.Context) {
@@ -302,7 +303,7 @@ func (h *BlueprintHandler) rename(c *gin.Context) {
 		return
 	}
 	b, err := h.uc.Renamer.Rename(c, actor(c), tenant(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, blueprintView(b), err)
+	respond(c, http.StatusOK, mapper.BlueprintView(b), err)
 }
 
 func (h *BlueprintHandler) delete(c *gin.Context) {
@@ -318,7 +319,7 @@ func (h *BlueprintHandler) revise(c *gin.Context) {
 		return
 	}
 	d, err := h.uc.Reviser.Revise(c, actor(c), tenant(c), c.Param("id"), body.Message, body.BaseVersion)
-	respond(c, http.StatusCreated, blueprintDetailView(d), err)
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
 }
 
 // reviseStream is revise answered as Server-Sent Events. The stream opens on
@@ -358,7 +359,7 @@ func (h *BlueprintHandler) reviseStream(c *gin.Context) {
 		send("error", eb)
 		return
 	}
-	send("done", blueprintDetailView(d))
+	send("done", mapper.BlueprintDetailView(d))
 }
 
 func (h *BlueprintHandler) review(c *gin.Context) {
@@ -369,7 +370,7 @@ func (h *BlueprintHandler) review(c *gin.Context) {
 		return
 	}
 	d, err := h.uc.Reviewer.Review(c, actor(c), tenant(c), c.Param("id"), body.BaseVersion)
-	respond(c, http.StatusCreated, blueprintDetailView(d), err)
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
 }
 
 func (h *BlueprintHandler) updateBrief(c *gin.Context) {
@@ -381,12 +382,12 @@ func (h *BlueprintHandler) updateBrief(c *gin.Context) {
 		return
 	}
 	d, err := h.uc.BriefUpdater.UpdateBrief(c, actor(c), tenant(c), c.Param("id"), body.Brief, body.BaseVersion)
-	respond(c, http.StatusCreated, blueprintDetailView(d), err)
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
 }
 
 func (h *BlueprintHandler) listVersions(c *gin.Context) {
 	vs, err := h.uc.VersionLister.ListVersions(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(vs, blueprintVersionSummary), err)
+	respond(c, http.StatusOK, mapSlice(vs, mapper.BlueprintVersionSummary), err)
 }
 
 func (h *BlueprintHandler) restore(c *gin.Context) {
@@ -402,7 +403,7 @@ func (h *BlueprintHandler) restore(c *gin.Context) {
 		return
 	}
 	d, err := h.uc.Restorer.Restore(c, actor(c), tenant(c), c.Param("id"), version, body.BaseVersion)
-	respond(c, http.StatusCreated, blueprintDetailView(d), err)
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
 }
 
 func (h *BlueprintHandler) drawing(c *gin.Context) {
@@ -430,27 +431,27 @@ func (h *BlueprintHandler) drawing(c *gin.Context) {
 
 func (h *BlueprintHandler) listGrants(c *gin.Context) {
 	gs, err := h.uc.GrantLister.ListGrants(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(gs, grantView), err)
+	respond(c, http.StatusOK, mapSlice(gs, mapper.GrantView), err)
 }
 
 func (h *BlueprintHandler) listShareCandidates(c *gin.Context) {
 	ms, err := h.uc.CandidateLister.ListShareCandidates(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, memberView), err)
+	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
 }
 
 func (h *BlueprintHandler) share(c *gin.Context) {
-	var body shareBody
+	var body mapper.ShareBody
 	if !bind(c, &body) {
 		return
 	}
-	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.input())
-	respond(c, http.StatusCreated, grantView(g), err)
+	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.Input())
+	respond(c, http.StatusCreated, mapper.GrantView(g), err)
 }
 
 func (h *BlueprintHandler) revoke(c *gin.Context) {
-	var body shareBody
+	var body mapper.ShareBody
 	if !bind(c, &body) {
 		return
 	}
-	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.input()))
+	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.Input()))
 }

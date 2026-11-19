@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -41,7 +42,7 @@ func (h *DocumentHandler) Register(r Routes) {
 
 func (h *DocumentHandler) list(c *gin.Context) {
 	ds, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("folder_id"), c.Query("project_id"))
-	respond(c, http.StatusOK, mapSlice(ds, visibleDocumentView), err)
+	respond(c, http.StatusOK, mapSlice(ds, mapper.VisibleDocumentView), err)
 }
 
 func (h *DocumentHandler) create(c *gin.Context) {
@@ -60,12 +61,12 @@ func (h *DocumentHandler) create(c *gin.Context) {
 	}
 	in.ByteSize = int64(size)
 	d, err := h.uc.Creator.Create(c, actor(c), tenant(c), in)
-	respond(c, http.StatusCreated, documentView(d), err)
+	respond(c, http.StatusCreated, mapper.DocumentView(d), err)
 }
 
 func (h *DocumentHandler) get(c *gin.Context) {
 	d, err := h.uc.Getter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, visibleDocumentView(d), err)
+	respond(c, http.StatusOK, mapper.VisibleDocumentView(d), err)
 }
 
 func (h *DocumentHandler) rename(c *gin.Context) {
@@ -74,7 +75,7 @@ func (h *DocumentHandler) rename(c *gin.Context) {
 		return
 	}
 	d, err := h.uc.Renamer.Rename(c, actor(c), tenant(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, documentView(d), err)
+	respond(c, http.StatusOK, mapper.DocumentView(d), err)
 }
 
 func (h *DocumentHandler) delete(c *gin.Context) {
@@ -83,27 +84,27 @@ func (h *DocumentHandler) delete(c *gin.Context) {
 
 func (h *DocumentHandler) listGrants(c *gin.Context) {
 	gs, err := h.uc.GrantLister.ListGrants(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(gs, grantView), err)
+	respond(c, http.StatusOK, mapSlice(gs, mapper.GrantView), err)
 }
 
 func (h *DocumentHandler) listShareCandidates(c *gin.Context) {
 	ms, err := h.uc.CandidateLister.ListShareCandidates(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, memberView), err)
+	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
 }
 
 func (h *DocumentHandler) share(c *gin.Context) {
-	var body shareBody
+	var body mapper.ShareBody
 	if !bind(c, &body) {
 		return
 	}
-	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.input())
-	respond(c, http.StatusCreated, grantView(g), err)
+	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.Input())
+	respond(c, http.StatusCreated, mapper.GrantView(g), err)
 }
 
 func (h *DocumentHandler) revoke(c *gin.Context) {
-	var body shareBody
+	var body mapper.ShareBody
 	if !bind(c, &body) {
 		return
 	}
-	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.input()))
+	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.Input()))
 }

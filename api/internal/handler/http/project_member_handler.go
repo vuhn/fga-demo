@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -34,7 +35,7 @@ func (h *ProjectMemberHandler) list(c *gin.Context) {
 		return
 	}
 	ms, err := h.lister.List(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, projectMemberView), err)
+	respond(c, http.StatusOK, mapSlice(ms, mapper.ProjectMemberView), err)
 }
 
 func (h *ProjectMemberHandler) listCandidates(c *gin.Context) {
@@ -42,7 +43,7 @@ func (h *ProjectMemberHandler) listCandidates(c *gin.Context) {
 		return
 	}
 	ms, err := h.candidates.ListCandidates(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, memberView), err)
+	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
 }
 
 func (h *ProjectMemberHandler) add(c *gin.Context) {
@@ -54,7 +55,7 @@ func (h *ProjectMemberHandler) add(c *gin.Context) {
 		return
 	}
 	m, err := h.adder.Add(c, actor(c), tenant(c), c.Param("id"), usecase.AddProjectMemberInput{UserID: body.UserID, Role: body.Role})
-	respond(c, http.StatusCreated, projectMemberView(m), err)
+	respond(c, http.StatusCreated, mapper.ProjectMemberView(m), err)
 }
 
 func (h *ProjectMemberHandler) changeRole(c *gin.Context) {
@@ -65,7 +66,7 @@ func (h *ProjectMemberHandler) changeRole(c *gin.Context) {
 		return
 	}
 	m, err := h.roleChanger.ChangeRole(c, actor(c), tenant(c), c.Param("id"), c.Param("userId"), body.Role)
-	respond(c, http.StatusOK, projectMemberView(m), err)
+	respond(c, http.StatusOK, mapper.ProjectMemberView(m), err)
 }
 
 func (h *ProjectMemberHandler) remove(c *gin.Context) {

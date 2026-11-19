@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -26,7 +27,7 @@ func (h *UserHandler) Register(r Routes) {
 
 func (h *UserHandler) list(c *gin.Context) {
 	us, err := h.lister.List(c, actor(c))
-	respond(c, http.StatusOK, mapSlice(us, userView), err)
+	respond(c, http.StatusOK, mapSlice(us, mapper.UserView), err)
 }
 
 func (h *UserHandler) create(c *gin.Context) {
@@ -38,7 +39,7 @@ func (h *UserHandler) create(c *gin.Context) {
 		return
 	}
 	u, err := h.creator.Create(c, actor(c), usecase.CreateUserInput{Email: body.Email, Name: body.Name, Password: body.Password, CompanyID: body.CompanyID})
-	respond(c, http.StatusCreated, userView(u), err)
+	respond(c, http.StatusCreated, mapper.UserView(u), err)
 }
 
 func (h *UserHandler) update(c *gin.Context) {
@@ -47,5 +48,5 @@ func (h *UserHandler) update(c *gin.Context) {
 		return
 	}
 	u, err := h.updater.UpdateName(c, actor(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, userView(u), err)
+	respond(c, http.StatusOK, mapper.UserView(u), err)
 }

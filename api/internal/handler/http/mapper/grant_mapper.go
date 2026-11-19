@@ -1,10 +1,10 @@
-package http
+package mapper
 
 import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
-type grantJSON struct {
+type GrantJSON struct {
 	ID       string  `json:"id"`
 	Relation string  `json:"relation"`
 	Subject  string  `json:"subject"`
@@ -12,17 +12,17 @@ type grantJSON struct {
 	Name     string  `json:"name,omitempty"`
 }
 
-func grantView(g model.Grant) grantJSON {
-	return grantJSON{g.ID, g.Relation, g.SubjectType, g.UserID, g.UserName}
+func GrantView(g model.Grant) GrantJSON {
+	return GrantJSON{g.ID, g.Relation, g.SubjectType, g.UserID, g.UserName}
 }
 
-// shareBody is the share and revoke request body.
-type shareBody struct {
+// ShareBody is the share and revoke request body.
+type ShareBody struct {
 	Relation string `json:"relation"`
 	Subject  string `json:"subject"`
 	UserID   string `json:"user_id"`
 }
 
-func (b shareBody) input() model.ShareInput {
+func (b ShareBody) Input() model.ShareInput {
 	return model.ShareInput{Relation: b.Relation, Subject: b.Subject, UserID: b.UserID}
 }

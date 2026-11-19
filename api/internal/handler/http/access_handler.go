@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -30,6 +30,6 @@ func (h *AccessHandler) report(c *gin.Context) {
 	members := mapSlice(rep.Members, func(m usecase.MemberAccess) gin.H {
 		return gin.H{"user_id": m.UserID, "name": m.Name, "can_view": m.CanView, "can_edit": m.CanEdit, "can_delete": m.CanDelete}
 	})
-	tuples := mapSlice(rep.DirectTuples, func(t model.Tuple) tupleJSON { return tupleJSON{t.User, t.Relation, t.Object} })
+	tuples := mapSlice(rep.DirectTuples, mapper.TupleView)
 	c.JSON(http.StatusOK, gin.H{"object": rep.Object, "direct_tuples": tuples, "members": members})
 }

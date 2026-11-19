@@ -1,4 +1,4 @@
-package http
+package mapper
 
 import (
 	"time"
@@ -6,16 +6,16 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
-type productJSON struct {
+type ProductJSON struct {
 	Product   string    `json:"product"`
 	Enabled   bool      `json:"enabled"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-func productsView(ps []model.Product) []productJSON {
-	out := make([]productJSON, 0, len(ps))
+func ProductsView(ps []model.Product) []ProductJSON {
+	out := make([]ProductJSON, 0, len(ps))
 	for _, p := range ps {
-		out = append(out, productJSON{p.Name, p.Enabled, p.UpdatedAt})
+		out = append(out, ProductJSON{p.Name, p.Enabled, p.UpdatedAt})
 	}
 	return out
 }

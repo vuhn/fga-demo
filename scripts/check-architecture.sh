@@ -67,7 +67,7 @@ $hits" \
 fi
 
 # 7. Go layer layout (the same words as the Python services): business data lives in domain/model (never domain/entity),
-# and a handler's DTOs and view conversions live in the domain's <domain>_mapper.go, not in the handler file.
+# and a handler's DTOs and view conversions live in the domain's mapper/<domain>_mapper.go, not in the handler file.
 if [ -d api/internal/domain/entity ]; then
   violation "api/internal/domain/entity exists" \
     "business data is domain/model in every service; 'entity' only names a technology's own row or wire shape" \
@@ -77,8 +77,8 @@ hits=$(grep -nE '^(func [a-z][A-Za-z]*(View|Views|Summary)\(|type [a-z][A-Za-z]*
 if [ -n "$hits" ]; then
   violation "DTO or view conversion inside a handler file:
 $hits" \
-    "a handler decodes, calls one use case and encodes; the JSON shapes and the model <-> DTO conversions live in <domain>_mapper.go (one per domain, like the Python mapper/ folders)" \
-    "move it to api/internal/handler/http/<domain>_mapper.go"
+    "a handler decodes, calls one use case and encodes; the JSON shapes and the model <-> DTO conversions live in mapper/<domain>_mapper.go (one per domain, like the Python mapper/ folders)" \
+    "move it to api/internal/handler/http/mapper/<domain>_mapper.go"
 fi
 
 # 8. Layer rules of the Python services (their own script; known violations are ratcheted down).

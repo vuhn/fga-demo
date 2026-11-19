@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -36,7 +37,7 @@ func (h *RoleHandler) list(c *gin.Context) {
 		return
 	}
 	roles, err := h.lister.List(c, actor(c), c.Param("id"))
-	respond(c, http.StatusOK, roleViews(roles), err)
+	respond(c, http.StatusOK, mapper.RoleViews(roles), err)
 }
 
 func (h *RoleHandler) get(c *gin.Context) {
@@ -44,7 +45,7 @@ func (h *RoleHandler) get(c *gin.Context) {
 		return
 	}
 	role, err := h.getter.Get(c, actor(c), c.Param("id"), c.Param("roleId"))
-	respond(c, http.StatusOK, roleView(role), err)
+	respond(c, http.StatusOK, mapper.RoleView(role), err)
 }
 
 func (h *RoleHandler) create(c *gin.Context) {
@@ -56,7 +57,7 @@ func (h *RoleHandler) create(c *gin.Context) {
 		return
 	}
 	role, err := h.creator.Create(c, actor(c), c.Param("id"), body.Name, body.Affiliation)
-	respond(c, http.StatusCreated, roleView(role), err)
+	respond(c, http.StatusCreated, mapper.RoleView(role), err)
 }
 
 func (h *RoleHandler) update(c *gin.Context) {
@@ -67,7 +68,7 @@ func (h *RoleHandler) update(c *gin.Context) {
 		return
 	}
 	role, err := h.updater.UpdateName(c, actor(c), c.Param("id"), c.Param("roleId"), body.Name)
-	respond(c, http.StatusOK, roleView(role), err)
+	respond(c, http.StatusOK, mapper.RoleView(role), err)
 }
 
 func (h *RoleHandler) setPermissions(c *gin.Context) {
@@ -82,7 +83,7 @@ func (h *RoleHandler) setPermissions(c *gin.Context) {
 		return
 	}
 	role, err := h.permissionSetter.SetPermissions(c, actor(c), c.Param("id"), c.Param("roleId"), body.Permissions)
-	respond(c, http.StatusOK, roleView(role), err)
+	respond(c, http.StatusOK, mapper.RoleView(role), err)
 }
 
 func (h *RoleHandler) delete(c *gin.Context) {

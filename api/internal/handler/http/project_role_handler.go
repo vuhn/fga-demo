@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -33,7 +34,7 @@ func (h *ProjectRoleHandler) list(c *gin.Context) {
 		return
 	}
 	roles, err := h.lister.List(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(roles, projectRoleView), err)
+	respond(c, http.StatusOK, mapSlice(roles, mapper.ProjectRoleView), err)
 }
 
 func (h *ProjectRoleHandler) create(c *gin.Context) {
@@ -45,7 +46,7 @@ func (h *ProjectRoleHandler) create(c *gin.Context) {
 		return
 	}
 	role, err := h.creator.Create(c, actor(c), tenant(c), c.Param("id"), body.Name, body.Affiliation)
-	respond(c, http.StatusCreated, projectRoleView(role), err)
+	respond(c, http.StatusCreated, mapper.ProjectRoleView(role), err)
 }
 
 func (h *ProjectRoleHandler) setPermissions(c *gin.Context) {
@@ -60,7 +61,7 @@ func (h *ProjectRoleHandler) setPermissions(c *gin.Context) {
 		return
 	}
 	role, err := h.permissionSetter.SetPermissions(c, actor(c), tenant(c), c.Param("id"), c.Param("roleId"), body.Permissions)
-	respond(c, http.StatusOK, projectRoleView(role), err)
+	respond(c, http.StatusOK, mapper.ProjectRoleView(role), err)
 }
 
 func (h *ProjectRoleHandler) delete(c *gin.Context) {

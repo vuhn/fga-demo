@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -28,7 +29,7 @@ func (h *ProductHandler) list(c *gin.Context) {
 		return
 	}
 	ps, err := h.lister.List(c, actor(c), c.Param("id"))
-	respond(c, http.StatusOK, productsView(ps), err)
+	respond(c, http.StatusOK, mapper.ProductsView(ps), err)
 }
 
 func (h *ProductHandler) set(c *gin.Context) {
@@ -43,5 +44,5 @@ func (h *ProductHandler) set(c *gin.Context) {
 		return
 	}
 	ps, err := h.setter.Set(c, actor(c), c.Param("id"), c.Param("product"), *body.Enabled)
-	respond(c, http.StatusOK, productsView(ps), err)
+	respond(c, http.StatusOK, mapper.ProductsView(ps), err)
 }

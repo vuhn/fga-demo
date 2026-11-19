@@ -1,19 +1,19 @@
-package http
+package mapper
 
 import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
-type projectMemberJSON struct {
+type ProjectMemberJSON struct {
 	UserID      string         `json:"user_id"`
 	Email       string         `json:"email"`
 	Name        string         `json:"name"`
 	Affiliation string         `json:"affiliation"`
 	Role        string         `json:"role"`
 	RoleName    string         `json:"role_name,omitempty"`
-	Company     companyRefJSON `json:"company"`
+	Company     CompanyRefJSON `json:"company"`
 }
 
-func projectMemberView(m model.ProjectMember) projectMemberJSON {
-	return projectMemberJSON{m.UserID, m.Email, m.Name, m.Affiliation, m.Role, m.RoleName, companyRefJSON{m.CompanyID, m.CompanyName}}
+func ProjectMemberView(m model.ProjectMember) ProjectMemberJSON {
+	return ProjectMemberJSON{m.UserID, m.Email, m.Name, m.Affiliation, m.Role, m.RoleName, CompanyRefJSON{m.CompanyID, m.CompanyName}}
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -29,7 +30,7 @@ func (h *ProjectHandler) Register(r Routes) {
 
 func (h *ProjectHandler) list(c *gin.Context) {
 	ps, err := h.lister.List(c, actor(c), tenant(c))
-	respond(c, http.StatusOK, mapSlice(ps, visibleProjectView), err)
+	respond(c, http.StatusOK, mapSlice(ps, mapper.VisibleProjectView), err)
 }
 
 func (h *ProjectHandler) create(c *gin.Context) {
@@ -40,7 +41,7 @@ func (h *ProjectHandler) create(c *gin.Context) {
 		return
 	}
 	p, err := h.creator.Create(c, actor(c), tenant(c), body.Name)
-	respond(c, http.StatusCreated, projectView(p), err)
+	respond(c, http.StatusCreated, mapper.ProjectView(p), err)
 }
 
 func (h *ProjectHandler) get(c *gin.Context) {
@@ -48,7 +49,7 @@ func (h *ProjectHandler) get(c *gin.Context) {
 		return
 	}
 	p, err := h.getter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, visibleProjectView(p), err)
+	respond(c, http.StatusOK, mapper.VisibleProjectView(p), err)
 }
 
 func (h *ProjectHandler) rename(c *gin.Context) {
@@ -59,5 +60,5 @@ func (h *ProjectHandler) rename(c *gin.Context) {
 		return
 	}
 	p, err := h.renamer.Rename(c, actor(c), tenant(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, projectView(p), err)
+	respond(c, http.StatusOK, mapper.ProjectView(p), err)
 }

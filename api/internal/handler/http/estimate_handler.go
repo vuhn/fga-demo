@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -35,22 +36,22 @@ func (h *EstimateHandler) Register(r Routes) {
 
 func (h *EstimateHandler) startSession(c *gin.Context) {
 	d, err := h.uc.SessionCreator.Create(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusCreated, estimateSessionView(d), err)
+	respond(c, http.StatusCreated, mapper.EstimateSessionView(d), err)
 }
 
 func (h *EstimateHandler) listEstimates(c *gin.Context) {
 	es, err := h.uc.EstimateLister.List(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(es, estimateSummary), err)
+	respond(c, http.StatusOK, mapSlice(es, mapper.EstimateSummary), err)
 }
 
 func (h *EstimateHandler) getEstimate(c *gin.Context) {
 	e, err := h.uc.EstimateGetter.Get(c, actor(c), tenant(c), c.Param("id"), c.Param("eid"))
-	respond(c, http.StatusOK, estimateView(e), err)
+	respond(c, http.StatusOK, mapper.EstimateView(e), err)
 }
 
 func (h *EstimateHandler) getSession(c *gin.Context) {
 	d, err := h.uc.SessionGetter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, estimateSessionView(d), err)
+	respond(c, http.StatusOK, mapper.EstimateSessionView(d), err)
 }
 
 // send runs one agent turn as Server-Sent Events: progress, token, fact, question, rate and estimate events as
@@ -94,6 +95,6 @@ func (h *EstimateHandler) send(c *gin.Context) {
 		emit("error", data)
 		return
 	}
-	data, _ := json.Marshal(estimateSessionView(d))
+	data, _ := json.Marshal(mapper.EstimateSessionView(d))
 	emit("done", data)
 }

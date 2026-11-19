@@ -25,7 +25,7 @@ cmd/api/wire.go builds infrastructure, services, handlers and injects them
 | `infrastructure/blueprintengine` | HTTP client for the stateless blueprint engine (`gateway.BlueprintEngine` for the deterministic operations, `gateway.BlueprintAgent` for the LLM ones, `gateway.EstimateAgent`; one client implements all). |
 | `infrastructure/{auth,idgen,config}` | JWT and bcrypt, UUIDs, environment config. |
 | `handler/http` | Gin handlers (decode, call one usecase, map errors) and middleware. |
-| `handler/http/<domain>_mapper.go` | The domain's JSON DTOs and the conversions model <-> DTO (views out, shared request bodies in). Handlers never hold a `...View` function or a `...JSON` type. |
+| `handler/http/mapper/<domain>_mapper.go` | The domain's JSON DTOs and the conversions model <-> DTO (views out, shared request bodies in). Handlers never hold a `...View` function or a `...JSON` type. |
 | `seed` | The fixed demo world, shared by `cmd/seed` and the integration tests. |
 
 Rules:

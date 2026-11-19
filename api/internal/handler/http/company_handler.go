@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -28,7 +29,7 @@ func (h *CompanyHandler) Register(r Routes) {
 
 func (h *CompanyHandler) listAll(c *gin.Context) {
 	cs, err := h.allLister.ListAll(c, actor(c))
-	respond(c, http.StatusOK, mapSlice(cs, companyView), err)
+	respond(c, http.StatusOK, mapSlice(cs, mapper.CompanyView), err)
 }
 
 func (h *CompanyHandler) list(c *gin.Context) {
@@ -36,7 +37,7 @@ func (h *CompanyHandler) list(c *gin.Context) {
 		return
 	}
 	cs, err := h.lister.List(c, actor(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(cs, companyView), err)
+	respond(c, http.StatusOK, mapSlice(cs, mapper.CompanyView), err)
 }
 
 func (h *CompanyHandler) create(c *gin.Context) {
@@ -48,7 +49,7 @@ func (h *CompanyHandler) create(c *gin.Context) {
 		return
 	}
 	co, err := h.creator.Create(c, actor(c), c.Param("id"), usecase.CreateCompanyInput{Name: body.Name, TaxID: body.TaxID})
-	respond(c, http.StatusCreated, companyView(co), err)
+	respond(c, http.StatusCreated, mapper.CompanyView(co), err)
 }
 
 func (h *CompanyHandler) claim(c *gin.Context) {
@@ -59,5 +60,5 @@ func (h *CompanyHandler) claim(c *gin.Context) {
 		return
 	}
 	co, err := h.claimer.Claim(c, actor(c), c.Param("id"), body.CompanyIDs)
-	respond(c, http.StatusOK, companyView(co), err)
+	respond(c, http.StatusOK, mapper.CompanyView(co), err)
 }

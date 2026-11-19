@@ -1,4 +1,4 @@
-package http
+package mapper
 
 import (
 	"time"
@@ -6,7 +6,7 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
-type companyJSON struct {
+type CompanyJSON struct {
 	ID                string     `json:"id"`
 	Name              string     `json:"name"`
 	TaxID             string     `json:"tax_id,omitempty"`
@@ -18,6 +18,6 @@ type companyJSON struct {
 	CreatedAt         time.Time  `json:"created_at"`
 }
 
-func companyView(c model.Company) companyJSON {
-	return companyJSON{c.ID, c.Name, c.TaxID, c.CreatedByTenantID, c.TenantID, c.Claimed(), c.ClaimedAt, c.MemberCount, c.CreatedAt}
+func CompanyView(c model.Company) CompanyJSON {
+	return CompanyJSON{c.ID, c.Name, c.TaxID, c.CreatedByTenantID, c.TenantID, c.Claimed(), c.ClaimedAt, c.MemberCount, c.CreatedAt}
 }
