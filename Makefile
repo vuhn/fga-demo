@@ -57,6 +57,7 @@ check:
 	cd web && npm run build
 
 verify-live: compose-up seed test-integration
+	@if [ "$(SIDECARS)" = 1 ]; then scripts/smoke-replay.sh /tmp/replay-after.txt && diff specs/re-architecture-system/baseline/replay-before.txt /tmp/replay-after.txt && echo "smoke-replay: same statuses and shapes as the baseline"; fi
 
 init:
 	bash scripts/init.sh
