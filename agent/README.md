@@ -15,16 +15,16 @@ make agent-test   # pytest, no LLM
 request -> handler -> usecase (interface) -> service -> gateway (interface) -> infrastructure -> Ollama, Engine, ...
 ```
 
-`handler/grpc/` is the delivery layer: the `<domain>_handler.py` endpoint classes plus the delivery plumbing around them (`servicer.py`, `server.py` with health, `errors.py`, `mapper/`, and `common/*_helper.py` for what the handlers share, e.g. `streaming_helper.py`). It decodes, calls one use case and encodes; it never holds business rules and never imports a service or an adapter (`wire.py` injects them).
+`handler/grpc/` is the delivery layer: the `<domain>_handler.py` endpoint classes plus the delivery plumbing around them (`servicer.py`, `server.py` with health, `mapper/`, and `common/*_helper.py` for what the handlers share: `streaming_helper.py`, `error_helper.py`). It decodes, calls one use case and encodes; it never holds business rules and never imports a service or an adapter (`wire.py` injects them).
 
 ```text
 fga_agent/
   wire.py, serve.py            composition root and entrypoint
   domain/   model/ gateway/ errors.py        business data, interfaces to the outside, domain errors
-  usecase/  <op>.py  helper/                 one Protocol per operation (signatures only); shared business rules
+  usecase/  <op>.py  helper/                 one Protocol per operation (signatures only); shared business rules (design_catalog_loader)
   service/  <op>.py  helper/  prompts/       <Op>Service implements the use case; shared rules; prompt functions
   infrastructure/  ollama/ engine_grpc/ entity/   one folder per technology; entity = their wire shapes
-  handler/  grpc/ (<domain>_handler.py, common/, mapper/, servicer, server, errors)   delivery layer
+  handler/  grpc/ (<domain>_handler.py, common/ helpers, mapper/, servicer, server)   delivery layer
 ```
 
 ## Where things go
@@ -38,7 +38,7 @@ fga_agent/
 | A business operation | `usecase/<operation>.py` (interface, verb methods) + `service/<operation>.py` (`<Operation>Service`, the logic), wired in `wire.py` |
 | A prompt | `service/prompts/<operation>.py`, pure functions; model-specific tuning stays in `infrastructure/ollama` |
 | A new Engine operation | a method in `engine.proto`, a typed method on `gateway.BlueprintEngine`, and its `@rpc` adapter in `infrastructure/engine_grpc/blueprint_engine.py` (a test fails until every `EngineService` method is used or deliberately left out) |
-| An RPC | a method of `handler/grpc/<domain>_handler.py` (with its own `<Domain>Usecases`): decode, call one use case with a `CallContext`, encode through `mapper/`; `servicer.py` only delegates; errors through `errors.py`, streams through `common/streaming_helper.py` |
+| An RPC | a method of `handler/grpc/<domain>_handler.py` (with its own `<Domain>Usecases`): decode, call one use case with a `CallContext`, encode through `mapper/`; `servicer.py` only delegates; errors through `common/error_helper.py`, streams through `common/streaming_helper.py` |
 
 Calls carry a `CallContext` (request id) and, for long runs, a progress callback (`Callable[[Progress], None]`) explicitly (it may raise `Cancelled`); there are no ambient `ContextVar`s.
 

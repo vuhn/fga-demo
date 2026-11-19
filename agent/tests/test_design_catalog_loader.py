@@ -6,7 +6,7 @@ from fga_agent.domain.model.call_context import CallContext
 from fga_agent.domain.model.design_limits import DesignLimits
 from fga_agent.domain.errors import EngineUnavailable
 from fga_agent.domain.model.operation_catalog import OperationCatalog
-from fga_agent.service.design_catalog_loader import DesignCatalogLoaderService
+from fga_agent.service.helper.design_catalog_loader import DesignCatalogLoaderService
 
 CTX = CallContext()
 

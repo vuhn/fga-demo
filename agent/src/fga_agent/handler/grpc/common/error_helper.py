@@ -9,9 +9,9 @@ import uuid
 
 import grpc
 
-from ...domain.model.call_context import CallContext
-from ...domain.errors import EngineUnavailable, InvalidEdit, LlmUnavailable
-from .mapper import error_mapper
+from ....domain.model.call_context import CallContext
+from ....domain.errors import EngineUnavailable, InvalidEdit, LlmUnavailable
+from ..mapper import error_mapper
 
 log = logging.getLogger("fga_agent.grpc")
 DETAIL_KEY = "error-detail-bin"

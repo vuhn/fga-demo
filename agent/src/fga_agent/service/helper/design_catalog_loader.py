@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import threading
 
-from ..domain.model.call_context import CallContext
-from ..domain.model.design_limits import DesignLimits
-from ..domain.gateway import BlueprintEngine
-from ..domain.model.operation_catalog import OperationCatalog
+from ...domain.model.call_context import CallContext
+from ...domain.model.design_limits import DesignLimits
+from ...domain.gateway import BlueprintEngine
+from ...domain.model.operation_catalog import OperationCatalog
 
 
 class DesignCatalogLoaderService:

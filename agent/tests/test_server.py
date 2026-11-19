@@ -13,8 +13,7 @@ from fga_agent.handler.grpc.server import SERVICE, build_server
 from fga_agent.domain.model.progress import Progress
 from fga_agent.handler.grpc.common.streaming_helper import CancelToken, stream_run
 from fga_agent.infrastructure.engine_grpc.blueprint_engine import GrpcBlueprintEngine, open_channel
-from fga_agent.service.design_catalog_loader import DesignCatalogLoaderService
-from fga_agent.wire import Usecases
+from fga_agent.service.helper.design_catalog_loader import DesignCatalogLoaderService
 
 
 def _status(ch, service=""):
@@ -34,7 +33,7 @@ def test_health_is_not_serving_until_the_catalog_loads():
     eng = Running()
     eng.engine.down = True
     engine = GrpcBlueprintEngine(open_channel(eng.addr), timeout=5)
-    built = build_server(Usecases(design_catalog=DesignCatalogLoaderService(engine)), retry_s=0.05)
+    built = build_server(DesignCatalogLoaderService(engine).load, retry_s=0.05)
     port = built.server.add_insecure_port("127.0.0.1:0")
     built.server.start()
     built.watch_catalog()

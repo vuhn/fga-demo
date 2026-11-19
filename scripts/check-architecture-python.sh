@@ -111,14 +111,14 @@ for svc in "$ROOT"/agent/src/*; do
 done
 
 # 9. handler/ is the delivery layer, like Go's handler/http: `<domain>_handler.py` endpoint classes (one per domain, own
-# use cases, thin: decode, call one use case, encode through mapper/) plus delivery plumbing (servicer, server, errors, mapper/, and common/<kind>_helper.py for what the handlers share,
+# use cases, thin: decode, call one use case, encode through mapper/) plus delivery plumbing (servicer, server, mapper/, and common/<kind>_helper.py for what the handlers share,
 # errors, mapper/). Delivery code imports no service, adapter or domain logic (only models, errors and gateway types).
 for svc in "$ROOT"/agent/src/*; do
   dir="$svc/handler/grpc"
   [ -d "$dir" ] || continue
   for f in "$dir"/*.py; do
     n=$(basename "$f")
-    case "$n" in __init__.py|errors.py|server.py|servicer.py|*_handler.py) ;; *) report agent-handler-shape "${f#$ROOT/}" "an endpoint file is named after its domain, like Go's <domain>_handler.go; the only other files are the delivery plumbing (servicer, server, errors) and common/" "name it <domain>_handler.py";; esac
+    case "$n" in __init__.py|server.py|servicer.py|*_handler.py) ;; *) report agent-handler-shape "${f#$ROOT/}" "an endpoint file is named after its domain, like Go's <domain>_handler.go; the only other files are the delivery plumbing (servicer, server) and common/" "name it <domain>_handler.py";; esac
   done
   for f in "$dir"/common/*.py; do
     [ -f "$f" ] || continue
@@ -192,6 +192,16 @@ for svc in "$ROOT"/agent/src/*; do
       [ -f "$e" ] || [ "$n" = helper ] || [ "$n" = prompts ] || report agent-layer-layout "${e#$ROOT/}" "service holds use case implementations, helper/ and prompts/" "move it"
     done
   fi
+done
+
+# 13. wire.py is the composition root: it imports the layers, no layer imports it (a handler defines its own
+# <Domain>Usecases, like the Go handlers; wire builds them). Only serve.py, the entrypoint, may import it.
+for svc in "$ROOT"/agent/src/*; do
+  while IFS= read -r f; do
+    [ "$(basename "$f")" = serve.py ] && continue
+    report agent-wire-import "${f#$ROOT/}" "the composition root depends on the layers, never the other way round" \
+      "take what you need as a constructor argument (a handler declares its own <Domain>Usecases)"
+  done < <(grep -rlE '^[[:space:]]*(from[[:space:]]+[.A-Za-z_]*wire[[:space:]]+import|from[[:space:]]+\.+[[:space:]]+import[[:space:]]+wire|import[[:space:]]+[A-Za-z_.]*wire)' --include='*.py' "$svc" 2>/dev/null | grep -v '/gen/')
 done
 
 [ $fail = 0 ] && echo "python architecture: ok"
