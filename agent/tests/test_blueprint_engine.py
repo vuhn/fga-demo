@@ -4,6 +4,8 @@ import pytest
 from fake_engine import Running
 
 from fga_agent.domain.model.call_context import CallContext
+from fga_agent.domain.model.estimate_facts import EstimateFacts
+from fga_agent.domain.model.estimate_session import EstimateFact, RoomScope
 from fga_agent.domain.errors import EngineUnavailable, InvalidEdit, UnsupportedEdit
 from fga.demo.common.v1 import common_pb2 as c
 from fga.demo.engine.v1 import engine_pb2
@@ -38,7 +40,20 @@ def test_each_method_is_exactly_one_engine_rpc(eng):
     assert g.run_checks(CTX, b"{}").ok
     assert g.apply_brief_ops(CTX, b"{}", b"[]").changed
     assert g.normalize_draft(CTX, b"{}").notes == ["n"]
-    assert eng.engine.calls == ["Generate", "ApplyPlanOps", "RunChecks", "ApplyBriefOps", "NormalizeDraft"]
+    facts = EstimateFacts(facts={"quality": EstimateFact("good", "user"), "floor_height": EstimateFact(3.0, "assumed"),
+                                 "mep_in_scope": EstimateFact(False, "user"), "storeys": EstimateFact(2, "user")},
+                          scope={"r1": RoomScope("existing", "user")}, fixtures_existing=["f1"], excluded=["window"])
+    summary = g.summarize_plan(CTX, b"{}", facts)
+    assert [r.name for r in summary.rooms] == ["Living"] and summary.rooms[0].area_m2 == 22.5
+    assert (summary.fixtures[0].id, summary.fixtures[0].kind, summary.fixtures[0].room_id) == ("f1", "toilet", "r1")
+    assert summary.openings[0].room_ids == ["r1", "outside"] and summary.openings[0].width == 0.9
+    assert summary.pending_fixtures == ["f1"] and summary.structure_in_scope
+    sent = {f.name: f for f in eng.engine.facts_seen.facts}
+    assert sent["quality"].text == "good" and sent["floor_height"].number == 3.0 and sent["mep_in_scope"].flag is False
+    assert sent["storeys"].number == 2.0 and sent["floor_height"].source == c.FACT_SOURCE_ASSUMED
+    assert [(x.room_id, x.state) for x in eng.engine.facts_seen.scope] == [("r1", c.ROOM_STATE_EXISTING)]
+    assert list(eng.engine.facts_seen.fixtures_existing) == ["f1"] and list(eng.engine.facts_seen.excluded) == ["window"]
+    assert eng.engine.calls == ["Generate", "ApplyPlanOps", "RunChecks", "ApplyBriefOps", "NormalizeDraft", "SummarizePlan"]
 
 
 def test_the_catalog_calls_map_to_domain_types(eng):

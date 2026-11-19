@@ -45,7 +45,9 @@ def revision(**over) -> PlanRevision:
 
 
 class ScriptedEngine:
-    def __init__(self, drafts=(), builds=(), generates=(), plans=()) -> None:
+    def __init__(self, drafts=(), builds=(), generates=(), plans=(), limits=None, summaries=()) -> None:
+        self.limits, self.summaries = limits or LIMITS, list(summaries)
+        self.summarized: list = []
         self.drafts, self.builds, self.generates, self.plans = list(drafts), list(builds), list(generates), list(plans)
         self.normalized: list[bytes] = []
         self.generated: list[tuple[bytes, bytes]] = []
@@ -63,7 +65,7 @@ class ScriptedEngine:
         return self._guard(CATALOG)
 
     def design_limits(self, ctx):
-        return self._guard(LIMITS)
+        return self._guard(self.limits)
 
     def _guard(self, value):
         if self.down:
@@ -86,3 +88,7 @@ class ScriptedEngine:
     def apply_plan_ops(self, ctx, model: bytes, ops: bytes) -> PlanRevision:
         self.plan_ops.append((model, ops))
         return self._next(self.plans)
+
+    def summarize_plan(self, ctx, model: bytes, facts):
+        self.summarized.append((model, facts))
+        return self._next(self.summaries)

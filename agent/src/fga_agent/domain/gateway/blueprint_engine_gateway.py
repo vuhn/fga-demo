@@ -5,8 +5,10 @@ from typing import Protocol
 from ..model.brief import BriefBuild, BriefDraft
 from ..model.call_context import CallContext
 from ..model.design_limits import DesignLimits
+from ..model.estimate_facts import EstimateFacts
 from ..model.operation_catalog import OperationCatalog
 from ..model.plan import PlanRevision
+from ..model.plan_summary import PlanSummary
 from ..model.plan_check import PlanCheckReport
 
 
@@ -28,3 +30,5 @@ class BlueprintEngine(Protocol):
     def apply_plan_ops(self, ctx: CallContext, model: bytes, ops: bytes) -> PlanRevision: ...
 
     def run_checks(self, ctx: CallContext, model: bytes, brief: bytes = b"") -> PlanCheckReport: ...
+
+    def summarize_plan(self, ctx: CallContext, model: bytes, facts: EstimateFacts) -> PlanSummary: ...

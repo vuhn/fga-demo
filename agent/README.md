@@ -9,7 +9,9 @@ make agent        # serve on :8091 with reload (needs the Engine on :8092 and Ol
 make agent-test   # pytest, no LLM
 ```
 
-Served so far, from `handler/grpc/blueprint_handler.py`: `BriefFromText` (unary) and the streams `Revise`, `RevisePlan` (plan kept as drawn) and `Review` (each: progress, then a result or an in-band error). `Revise` ends with one automatic review round when the edit introduced errors the plan did not have (`BriefReviewer`: forbidden ops, 15% area cap, a round kept only when the issue score drops). `EstimateTurn` (T13b) answers UNIMPLEMENTED. A refusal before the first stream message is a gRPC status with an `ErrorDetail`; after it, an `Error` event.
+Served so far, from `handler/grpc/blueprint_handler.py`: `BriefFromText` (unary) and the streams `Revise`, `RevisePlan` (plan kept as drawn) and `Review` (each: progress, then a result or an in-band error). `Revise` ends with one automatic review round when the edit introduced errors the plan did not have (`BriefReviewer`: forbidden ops, 15% area cap, a round kept only when the issue score drops). `EstimateTurn` (T13b) answers UNIMPLEMENTED.
+
+The estimate interview is built (T12) and waits for the turn (T13b) to be wired: `EstimateReader` (the model reads one message as four claim lists, `{quote, field, value}`; `ClaimChecker` drops a claim whose quote is not in the message or whose value is invalid; `KeywordReader` adds what code reads with certainty and vetoes what the message cannot support) and `EstimateInterview` (the open questions in order, decided by code; what a message changes; the fingerprint of a session). The plan comes in as the Engine's typed `SummarizePlan` (`gateway.BlueprintEngine.summarize_plan`), asked with the session's facts, and the catalog (`rate_catalog`, `priced_fixtures`, `default_markups`) comes from the shared `DesignCatalogLoader`. A refusal before the first stream message is a gRPC status with an `ErrorDetail`; after it, an `Error` event.
 
 ## Layers
 
