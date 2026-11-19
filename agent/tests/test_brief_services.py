@@ -10,6 +10,7 @@ from fga_agent.domain.errors import Cancelled, EngineUnavailable, InvalidEdit, L
 from fga_agent.domain.model.brief import BriefDraft
 from fga_agent.domain.model.call_context import CallContext
 from fga_agent.service.brief_drafter import BriefDrafterService
+from fga_agent.service.brief_reviewer import BriefReviewerService
 from fga_agent.service.brief_reviser import BriefReviserService
 from fga_agent.service.helper.design_catalog_loader import DesignCatalogLoaderService
 from fga_agent.service.helper.feedback_asker import FeedbackAskerService
@@ -38,7 +39,8 @@ def drafter(llm, engine):
 
 
 def reviser(llm, engine):
-    return BriefReviserService(engine, DesignCatalogLoaderService(engine), FeedbackAskerService(llm))
+    catalog, asker = DesignCatalogLoaderService(engine), FeedbackAskerService(llm)
+    return BriefReviserService(engine, catalog, asker, BriefReviewerService(engine, catalog, asker))
 
 
 def revise(svc, message="make the kitchen bigger", history=(), steps=None):

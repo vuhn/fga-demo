@@ -17,6 +17,7 @@ class FakeEngine(rpc.EngineServiceServicer):
         self.down = False  # answer UNAVAILABLE while True
         self.refuse: tuple[int, str] | None = None  # (ErrorCode, message): INVALID_ARGUMENT with a detail
         self.refuse_only: str | None = None  # limit `refuse` to this one RPC
+        self.clean = False  # Generate answers a plan with no failed check
         self.request_ids: list[str] = []
 
     def _enter(self, name: str, context) -> None:
@@ -46,13 +47,15 @@ class FakeEngine(rpc.EngineServiceServicer):
 
     def Generate(self, request, context):
         self._enter("Generate", context)
+        failed = [] if self.clean else [c.Check(rule="x", severity="error", ok=False, message="m", room_id="r1")]
         return e.BriefResult(brief_json=request.brief_json, model_json=b"{}", ok=True, attempts=1, issue_score=2,
                              room_targets=[e.RoomTarget(room_id="r1", target_area=12.5)], changed=request.repair,
-                             checks=[c.Check(rule="x", severity="error", ok=False, message="m", room_id="r1")])
+                             checks=failed)
 
     def ApplyBriefOps(self, request, context):
         self._enter("ApplyBriefOps", context)
-        return e.BriefResult(brief_json=request.ops_json, ok=True, changed=True)
+        return e.BriefResult(brief_json=request.ops_json, model_json=b"{}", ok=True, changed=True,
+                             room_targets=[e.RoomTarget(room_id="r1", target_area=12.5)])
 
     def ApplyPlanOps(self, request, context):
         self._enter("ApplyPlanOps", context)

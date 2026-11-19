@@ -18,11 +18,11 @@
 | `tests/test_app.py::test_revise_gives_up_after_three_attempts` | agent/tests/test_brief_services.py::test_revising_gives_up_after_three_attempts | mapped (T11a) |
 | `tests/test_app.py::test_unsupported_is_not_retried` | agent/tests/test_brief_services.py::test_an_unsupported_request_is_not_retried | mapped (T11a) |
 | `tests/test_app.py::test_history_reaches_the_revise_prompt` | agent/tests/test_brief_services.py::test_the_history_and_the_current_brief_reach_the_prompt | mapped (T11a) |
-| `tests/test_app.py::test_reviewer_keeps_an_improving_round` | | pending |
-| `tests/test_app.py::test_reviewer_refuses_forbidden_ops_and_never_returns_a_worse_plan` | | pending |
-| `tests/test_app.py::test_reviewer_caps_total_area_change` | | pending |
+| `tests/test_app.py::test_reviewer_keeps_an_improving_round` | agent/tests/test_review_services.py::test_the_reviewer_keeps_an_improving_round | mapped (T11b) |
+| `tests/test_app.py::test_reviewer_refuses_forbidden_ops_and_never_returns_a_worse_plan` | agent/tests/test_review_services.py::test_the_reviewer_refuses_forbidden_operations_and_never_returns_a_worse_plan (+ ::test_the_reviewer_discards_a_round_that_does_not_help_and_stops) | mapped (T11b) |
+| `tests/test_app.py::test_reviewer_caps_total_area_change` | agent/tests/test_review_services.py::test_the_reviewer_caps_the_total_area_change | mapped (T11b) |
 | `tests/test_app.py::test_checks_carry_issue_ids_categories_and_hints` | | pending |
-| `tests/test_app.py::test_reviewer_retries_an_answer_that_changes_nothing` | | pending |
+| `tests/test_app.py::test_reviewer_retries_an_answer_that_changes_nothing` | agent/tests/test_review_services.py::test_the_reviewer_retries_an_answer_that_changes_nothing | mapped (T11b) |
 | `tests/test_app.py::test_removing_the_hall_is_steered_to_open_plan` | | pending |
 | `tests/test_app.py::test_draft_can_ask_for_open_plan` | | pending |
 | `tests/test_app.py::test_revise_stream_emits_progress_then_result` | agent/tests/test_blueprint_handler.py::test_revise_streams_progress_then_one_result | mapped (T11a) |
@@ -167,10 +167,10 @@
 | `tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[north_entry_2br-brief4]` | | pending |
 | `tests/test_import.py::test_round_trip_keeps_fixtures_and_reports_unsupported_items` | | pending |
 | `tests/test_import.py::test_dimensions_and_other_entities_are_kept_as_drawing_items` | | pending |
-| `tests/test_import.py::test_plan_revise_renames_adds_and_resizes` | | pending |
-| `tests/test_import.py::test_plan_revise_adds_and_removes_fixtures` | | pending |
-| `tests/test_import.py::test_plan_revise_refuses_geometry_changes_and_unknown_names` | | pending |
-| `tests/test_import.py::test_plan_revise_stream_reports_result` | | pending |
+| `tests/test_import.py::test_plan_revise_renames_adds_and_resizes` | agent/tests/test_review_services.py::test_a_plan_chat_applies_the_ops_through_the_engine_and_reports_what_was_done (applying the ops is the Engine's `ApplyPlanOps`, covered by its tests) | mapped (T11b) |
+| `tests/test_import.py::test_plan_revise_adds_and_removes_fixtures` | agent/tests/test_review_services.py::test_a_plan_chat_applies_the_ops_through_the_engine_and_reports_what_was_done (the fixture edit itself is the Engine's `ApplyPlanOps`) | mapped (T11b) |
+| `tests/test_import.py::test_plan_revise_refuses_geometry_changes_and_unknown_names` | agent/tests/test_review_services.py::test_a_plan_chat_asks_for_geometry_changes_to_be_refused_and_does_not_retry (+ ::test_a_plan_chat_retries_an_unknown_name_with_the_error_and_says_so) | mapped (T11b) |
+| `tests/test_import.py::test_plan_revise_stream_reports_result` | agent/tests/test_blueprint_handler.py::test_revise_plan_streams_progress_then_one_result_without_a_brief | mapped (T11b) |
 | `tests/test_import.py::test_a_loose_leaf_and_arc_door_sits_in_its_wall_and_a_free_wall_end_adds_no_wall` | | pending |
 | `tests/test_patch.py::test_provenance_is_recorded` | | pending |
 | `tests/test_patch.py::test_no_change_leaves_the_file_as_it_was` | | pending |

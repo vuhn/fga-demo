@@ -1,6 +1,5 @@
 """AgentService: each RPC delegates to a `<domain>_handler.py` built by `wire.py` with its own `<Domain>Usecases` (like the
-Go API's handlers); this class only routes. RevisePlan, Review (T11b) and EstimateTurn (T13b) answer UNIMPLEMENTED until
-their tasks land."""
+Go API's handlers); this class only routes. EstimateTurn (T13b) answers UNIMPLEMENTED until its task lands."""
 
 from __future__ import annotations
 
@@ -17,3 +16,9 @@ class AgentServicer(rpc.AgentServiceServicer):
 
     def Revise(self, request, context):
         return self._blueprint.Revise(request, context)
+
+    def RevisePlan(self, request, context):
+        return self._blueprint.RevisePlan(request, context)
+
+    def Review(self, request, context):
+        return self._blueprint.Review(request, context)
