@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -18,9 +18,9 @@ func NewRoleLister(tenants gateway.TenantGateway, roles gateway.RoleGateway, aut
 	return &roleLister{tenants: tenants, roles: roles, authz: authz}
 }
 
-func (s *roleLister) List(ctx context.Context, actor, tenantID string) ([]entity.Role, error) {
+func (s *roleLister) List(ctx context.Context, actor, tenantID string) ([]model.Role, error) {
 	// Member managers need the list to offer custom roles next to the built-in ones.
-	if err := s.authz.PlatformOr(ctx, actor, "can_manage_members", tenantID, entity.ErrForbidden); err != nil {
+	if err := s.authz.PlatformOr(ctx, actor, "can_manage_members", tenantID, model.ErrForbidden); err != nil {
 		return nil, err
 	}
 	if _, err := s.tenants.Get(ctx, tenantID); err != nil {

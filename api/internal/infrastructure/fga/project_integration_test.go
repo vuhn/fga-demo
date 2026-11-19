@@ -5,7 +5,7 @@ package fga_test
 import (
 	"testing"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/fga"
 
 	. "github.com/vuhn/fga-demo/api/internal/seed"
@@ -30,11 +30,11 @@ func TestProjectRoleUnion(t *testing.T) {
 
 	// Tenant custom external role with contribute; Dan holds it instead of external_user.
 	tr := fga.RoleRelations{}
-	created, err := tr.Created(Acme, acmeSubRole, entity.AffiliationExternal)
+	created, err := tr.Created(Acme, acmeSubRole, model.AffiliationExternal)
 	if err != nil {
 		t.Fatal(err)
 	}
-	grants, err := tr.Permissions(Acme, acmeSubRole, []string{entity.PermContribute})
+	grants, err := tr.Permissions(Acme, acmeSubRole, []string{model.PermContribute})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,11 +49,11 @@ func TestProjectRoleUnion(t *testing.T) {
 
 	// Project role in Annex with view; Dan joins Annex with it.
 	pRel := fga.ProjectRoleRelations{}
-	pCreated, err := pRel.Created(ProjAcmeAnnex, annexReviewer, entity.AffiliationExternal)
+	pCreated, err := pRel.Created(ProjAcmeAnnex, annexReviewer, model.AffiliationExternal)
 	if err != nil {
 		t.Fatal(err)
 	}
-	pGrants, err := pRel.Permissions(ProjAcmeAnnex, annexReviewer, []string{entity.PermView})
+	pGrants, err := pRel.Permissions(ProjAcmeAnnex, annexReviewer, []string{model.PermView})
 	if err != nil {
 		t.Fatal(err)
 	}

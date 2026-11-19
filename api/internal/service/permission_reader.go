@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -20,17 +20,17 @@ func NewPermissionReader(authz usecase.Authorizer) usecase.PermissionReader {
 func (s *permissionReader) Mine(ctx context.Context, actor, tenantID string) (usecase.MyPermissions, error) {
 	out := usecase.MyPermissions{TenantID: tenantID}
 	if tenantID != "" {
-		if err := entity.RequireUUID("tenant_id", tenantID); err != nil {
+		if err := model.RequireUUID("tenant_id", tenantID); err != nil {
 			return out, err
 		}
 	}
-	perms, err := s.authz.Permissions(ctx, actor, entity.ObjectTypePlatform, []string{entity.PlatformID})
+	perms, err := s.authz.Permissions(ctx, actor, model.ObjectTypePlatform, []string{model.PlatformID})
 	if err != nil {
 		return out, err
 	}
-	out.Platform = perms[entity.PlatformID]
+	out.Platform = perms[model.PlatformID]
 	if tenantID != "" {
-		perms, err := s.authz.Permissions(ctx, actor, entity.ObjectTypeTenant, []string{tenantID})
+		perms, err := s.authz.Permissions(ctx, actor, model.ObjectTypeTenant, []string{tenantID})
 		if err != nil {
 			return out, err
 		}

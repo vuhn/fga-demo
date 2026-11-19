@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -27,13 +27,13 @@ func (s *blueprintVersionRestorer) Restore(ctx context.Context, actor, tenantID,
 		return usecase.BlueprintDetail{}, err
 	}
 	if version < 1 || version >= b.CurrentVersion {
-		return usecase.BlueprintDetail{}, entity.Invalid("version must be an earlier version (1 to %d)", b.CurrentVersion-1)
+		return usecase.BlueprintDetail{}, model.Invalid("version must be an earlier version (1 to %d)", b.CurrentVersion-1)
 	}
 	old, err := s.blueprints.GetVersion(ctx, id, version)
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
 	v := old
-	v.Kind, v.Message, v.CreatedBy = entity.BlueprintVersionRestore, fmt.Sprintf("restored version %d", version), actor
+	v.Kind, v.Message, v.CreatedBy = model.BlueprintVersionRestore, fmt.Sprintf("restored version %d", version), actor
 	return appendBlueprintVersion(ctx, s.blueprints, b, v, baseVersion)
 }

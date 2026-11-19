@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -26,61 +26,61 @@ func NewAlbumCreator(projects gateway.ProjectGateway, albums gateway.AlbumGatewa
 // can_create_private_album (internal members); a subalbum also needs
 // can_edit on its parent, so an external admin can only nest inside content
 // they can already work in.
-func (s *albumCreator) Create(ctx context.Context, actor, tenantID string, in usecase.CreateAlbumInput) (entity.Album, error) {
-	name, err := entity.CleanName("name", in.Name)
+func (s *albumCreator) Create(ctx context.Context, actor, tenantID string, in usecase.CreateAlbumInput) (model.Album, error) {
+	name, err := model.CleanName("name", in.Name)
 	if err != nil {
-		return entity.Album{}, err
+		return model.Album{}, err
 	}
 	projectID := in.ProjectID
-	var parent *entity.Album
+	var parent *model.Album
 	if in.ParentID != nil {
-		if err := entity.RequireUUID("parent_id", *in.ParentID); err != nil {
-			return entity.Album{}, err
+		if err := model.RequireUUID("parent_id", *in.ParentID); err != nil {
+			return model.Album{}, err
 		}
 		if err := checkAlbumDepth(ctx, s.albums, tenantID, *in.ParentID); err != nil {
-			return entity.Album{}, err
+			return model.Album{}, err
 		}
 		p, err := loadAlbum(ctx, s.albums, tenantID, *in.ParentID)
 		if err != nil {
-			return entity.Album{}, err
+			return model.Album{}, err
 		}
 		parent = &p
 		if projectID != "" && projectID != p.ProjectID {
-			return entity.Album{}, entity.Invalid("project_id must match the parent's project")
+			return model.Album{}, model.Invalid("project_id must match the parent's project")
 		}
 		projectID = p.ProjectID
 	} else {
-		if err := entity.RequireUUID("project_id", projectID); err != nil {
-			return entity.Album{}, err
+		if err := model.RequireUUID("project_id", projectID); err != nil {
+			return model.Album{}, err
 		}
 		if _, err := loadProject(ctx, s.projects, tenantID, projectID); err != nil {
-			return entity.Album{}, err
+			return model.Album{}, err
 		}
 	}
-	if err := s.authz.Require(ctx, actor, "can_create_album", entity.ObjectTypeProject, projectID); err != nil {
-		return entity.Album{}, err
+	if err := s.authz.Require(ctx, actor, "can_create_album", model.ObjectTypeProject, projectID); err != nil {
+		return model.Album{}, err
 	}
 	if in.IsPrivate {
-		if err := s.authz.Require(ctx, actor, "can_create_private_album", entity.ObjectTypeProject, projectID); err != nil {
-			return entity.Album{}, err
+		if err := s.authz.Require(ctx, actor, "can_create_private_album", model.ObjectTypeProject, projectID); err != nil {
+			return model.Album{}, err
 		}
 	}
 	if parent != nil {
-		if err := s.authz.Require(ctx, actor, "can_edit", entity.ObjectTypeAlbum, parent.ID); err != nil {
-			return entity.Album{}, err
+		if err := s.authz.Require(ctx, actor, "can_edit", model.ObjectTypeAlbum, parent.ID); err != nil {
+			return model.Album{}, err
 		}
 	}
 
-	a := entity.Album{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: projectID, ParentID: in.ParentID, Name: name, CreatedBy: actor, IsPrivate: in.IsPrivate}
-	owner := entity.OwnerGrant(s.ids.NewID(), tenantID, entity.ObjectTypeAlbum, a.ID, actor)
+	a := model.Album{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: projectID, ParentID: in.ParentID, Name: name, CreatedBy: actor, IsPrivate: in.IsPrivate}
+	owner := model.OwnerGrant(s.ids.NewID(), tenantID, model.ObjectTypeAlbum, a.ID, actor)
 	if err := s.albums.Create(ctx, a, owner); err != nil {
-		return entity.Album{}, err
+		return model.Album{}, err
 	}
 	err = s.guard.Grant(ctx, s.relations.Created(a), nil, func(ctx context.Context) error {
 		return s.albums.Delete(ctx, a.ID)
 	})
 	if err != nil {
-		return entity.Album{}, err
+		return model.Album{}, err
 	}
 	return s.albums.Get(ctx, a.ID)
 }

@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 // Authorizer turns OpenFGA Checks into allow/deny decisions for the services.
@@ -26,7 +26,7 @@ type Authorizer interface {
 	ListObjectIDs(ctx context.Context, actor, relation, objectType string) ([]string, error)
 	// Permissions evaluates every permission relation of objectType for each
 	// id in one BatchCheck.
-	Permissions(ctx context.Context, actor, objectType string, ids []string) (map[string]entity.Perms, error)
+	Permissions(ctx context.Context, actor, objectType string, ids []string) (map[string]model.Perms, error)
 	// BatchCheck evaluates arbitrary checks. Callers authorize them first.
-	BatchCheck(ctx context.Context, checks []entity.CheckRequest) ([]bool, error)
+	BatchCheck(ctx context.Context, checks []model.CheckRequest) ([]bool, error)
 }

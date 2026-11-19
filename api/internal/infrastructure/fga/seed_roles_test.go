@@ -3,7 +3,7 @@ package fga_test
 import (
 	"testing"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/seed"
 )
 
@@ -12,7 +12,7 @@ func TestSeedCustomRolesHaveNoAssignees(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[entity.Tuple]bool{
+	want := map[model.Tuple]bool{
 		{User: "tenant:" + seed.Acme, Relation: "tenant", Object: "tenant_role:" + seed.AcmeAuditor}:                            true,
 		{User: "tenant_role:" + seed.AcmeAuditor, Relation: "internal_role", Object: "tenant:" + seed.Acme}:                     true,
 		{User: "tenant_role:" + seed.AcmeAuditor + "#assignee", Relation: "grant_view", Object: "tenant:" + seed.Acme}:          true,

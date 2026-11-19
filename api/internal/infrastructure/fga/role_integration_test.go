@@ -5,7 +5,7 @@ package fga_test
 import (
 	"testing"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 
 	. "github.com/vuhn/fga-demo/api/internal/seed"
 )
@@ -35,7 +35,7 @@ var relationsByType = map[string][]string{
 func TestInternalAdminCoversInternalUser(t *testing.T) {
 	ctx, c := newStore(t, "fga-demo-role-test")
 	// Zed is an internal admin who owns nothing.
-	if err := c.Write(ctx, []entity.Tuple{{User: "user:" + Zed, Relation: "internal_admin", Object: "tenant:" + Acme}}, nil); err != nil {
+	if err := c.Write(ctx, []model.Tuple{{User: "user:" + Zed, Relation: "internal_admin", Object: "tenant:" + Acme}}, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -60,12 +60,12 @@ func TestInternalAdminCoversInternalUser(t *testing.T) {
 			objects = append(objects, [2]string{"photo", p.ID})
 		}
 	}
-	var checks []entity.CheckRequest
+	var checks []model.CheckRequest
 	for _, o := range objects {
 		for _, r := range relationsByType[o[0]] {
 			checks = append(checks,
-				entity.CheckRequest{UserID: Cara, Relation: r, ObjectType: o[0], ObjectID: o[1]},
-				entity.CheckRequest{UserID: Zed, Relation: r, ObjectType: o[0], ObjectID: o[1]})
+				model.CheckRequest{UserID: Cara, Relation: r, ObjectType: o[0], ObjectID: o[1]},
+				model.CheckRequest{UserID: Zed, Relation: r, ObjectType: o[0], ObjectID: o[1]})
 		}
 	}
 	res, err := c.BatchCheck(ctx, checks)
@@ -106,7 +106,7 @@ func TestCustomRoleGrant(t *testing.T) {
 	}
 	assertRows(t, ctx, c, "before auditor", before)
 
-	write(t, ctx, c, []entity.Tuple{{
+	write(t, ctx, c, []model.Tuple{{
 		User: "user:" + Dan, Relation: "assignee", Object: "tenant_role:" + AcmeAuditor,
 	}}, nil)
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Shape checks the import rules cannot see (AST based). Run by scripts/check-architecture-python.sh.
 
-  agent-thin-handler  a public method of a handler class (handler/grpc/*_handler.py) has at most MAX_HANDLER_STMTS
+  agent-thin-handler  (Agent and Engine) a public method of a handler class (handler/grpc/*_handler.py) has at most MAX_HANDLER_STMTS
                       statements, no loops, and calls at most ONE use case method (`self._uc.<field>.<method>(...)`).
   agent-pure-mapper   a function in a mapper/*_mapper.py (handler or infrastructure) has at most MAX_MAPPER_STMTS
                       statements: mapping is conversion only.
@@ -76,7 +76,10 @@ def functions(tree: ast.AST):
             yield n
 
 
-for src in sorted((ROOT / "agent" / "src").glob("*")):
+# The Agent is checked in full. The Engine's delivery layer (handler/) follows the same shape rules now; its flat domain
+# and legacy modules are refactored later (see docs/harness/progress.md), so nothing else of the Engine is judged here.
+SOURCES = sorted((ROOT / "agent" / "src").glob("*")) + sorted((ROOT / "blueprint-engine" / "src").glob("*"))
+for src in SOURCES:
     if not src.is_dir():
         continue
     for path in sorted(src.rglob("*.py")):
@@ -84,6 +87,8 @@ for src in sorted((ROOT / "agent" / "src").glob("*")):
             continue
         tree = ast.parse(path.read_text(), str(path))
         rel = path.relative_to(src).as_posix()
+        if src.parent.parent.name != "agent" and not rel.startswith("handler/"):
+            continue
         if rel.startswith("domain/model/") and path.name != "__init__.py":
             for node in tree.body:
                 data = isinstance(node, ast.ClassDef) and (

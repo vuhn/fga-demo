@@ -7,8 +7,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type EstimateSessionRepo struct{ pool *pgxpool.Pool }
@@ -22,7 +22,7 @@ func NewEstimateSessionRepo(pool *pgxpool.Pool) *EstimateSessionRepo {
 // Replace upserts the blueprint's one session: a first start inserts it, a restart resets the row (state
 // cleared, seq 0, epoch + 1) and deletes its messages, in one transaction. The upsert comes first so the row
 // lock makes a turn that is saving at that moment either finish before the reset or fail its epoch guard.
-func (r *EstimateSessionRepo) Replace(ctx context.Context, s entity.EstimateSession) error {
+func (r *EstimateSessionRepo) Replace(ctx context.Context, s model.EstimateSession) error {
 	return inTx(ctx, r.pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `INSERT INTO estimate_sessions (blueprint_id, blueprint_version, state, created_by)
 			VALUES ($1, $2, $3, $4)
@@ -36,27 +36,27 @@ func (r *EstimateSessionRepo) Replace(ctx context.Context, s entity.EstimateSess
 	})
 }
 
-func (r *EstimateSessionRepo) Get(ctx context.Context, blueprintID string) (entity.EstimateSession, error) {
-	var s entity.EstimateSession
+func (r *EstimateSessionRepo) Get(ctx context.Context, blueprintID string) (model.EstimateSession, error) {
+	var s model.EstimateSession
 	var state string
 	err := r.pool.QueryRow(ctx, `SELECT blueprint_id, blueprint_version, epoch, state::text, seq, created_by, created_at, updated_at
 		FROM estimate_sessions WHERE blueprint_id = $1`, blueprintID).Scan(&s.BlueprintID, &s.BlueprintVersion, &s.Epoch, &state, &s.Seq, &s.CreatedBy, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
-		return entity.EstimateSession{}, mapErr(err)
+		return model.EstimateSession{}, mapErr(err)
 	}
 	s.State = json.RawMessage(state)
 	return s, nil
 }
 
-func (r *EstimateSessionRepo) Messages(ctx context.Context, blueprintID string) ([]entity.EstimateMessage, error) {
+func (r *EstimateSessionRepo) Messages(ctx context.Context, blueprintID string) ([]model.EstimateMessage, error) {
 	rows, err := r.pool.Query(ctx, `SELECT blueprint_id, seq, role, content, created_at FROM estimate_messages WHERE blueprint_id = $1 ORDER BY seq`, blueprintID)
 	if err != nil {
 		return nil, mapErr(err)
 	}
 	defer rows.Close()
-	out := []entity.EstimateMessage{}
+	out := []model.EstimateMessage{}
 	for rows.Next() {
-		var m entity.EstimateMessage
+		var m model.EstimateMessage
 		if err := rows.Scan(&m.BlueprintID, &m.Seq, &m.Role, &m.Content, &m.CreatedAt); err != nil {
 			return nil, err
 		}
@@ -67,7 +67,7 @@ func (r *EstimateSessionRepo) Messages(ctx context.Context, blueprintID string) 
 
 // AppendTurn: the UPDATE only matches while epoch and seq are unchanged, so a concurrent turn that finished
 // first, or a restart since this turn began, makes this one a 409 with nothing written.
-func (r *EstimateSessionRepo) AppendTurn(ctx context.Context, s entity.EstimateSession, state []byte, user, assistant entity.EstimateMessage, est *entity.BlueprintEstimate) error {
+func (r *EstimateSessionRepo) AppendTurn(ctx context.Context, s model.EstimateSession, state []byte, user, assistant model.EstimateMessage, est *model.BlueprintEstimate) error {
 	return inTx(ctx, r.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `UPDATE estimate_sessions SET state = $1, seq = seq + 1, updated_at = now() WHERE blueprint_id = $2 AND epoch = $3 AND seq = $4`,
 			string(jsonOr(state, "{}")), s.BlueprintID, s.Epoch, s.Seq)
@@ -75,9 +75,9 @@ func (r *EstimateSessionRepo) AppendTurn(ctx context.Context, s entity.EstimateS
 			return err
 		}
 		if tag.RowsAffected() == 0 {
-			return entity.Conflict("another turn finished first or the estimate was restarted; reload the session")
+			return model.Conflict("another turn finished first or the estimate was restarted; reload the session")
 		}
-		for i, m := range []entity.EstimateMessage{user, assistant} {
+		for i, m := range []model.EstimateMessage{user, assistant} {
 			if _, err := tx.Exec(ctx, `INSERT INTO estimate_messages (blueprint_id, seq, role, content) VALUES ($1, $2, $3, $4)`,
 				s.BlueprintID, s.Seq*2+i+1, m.Role, m.Content); err != nil {
 				return err

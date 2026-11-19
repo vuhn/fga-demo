@@ -10,14 +10,14 @@ from briefs import STUDIO
 from fga_engine.gen.fga.demo.common.v1 import common_pb2 as c
 from fga_engine.gen.fga.demo.engine.v1 import engine_pb2 as e
 from fga_engine.gen.fga.demo.engine.v1 import engine_pb2_grpc as rpc
-from fga_engine.handler.grpc.errors import DETAIL_KEY
+from fga_engine.handler.grpc.common.error_helper import DETAIL_KEY
 from fga_engine.handler.grpc.server import SERVICE, build_server
-from fga_engine.wire import build_engine
+from fga_engine.wire import build_servicer
 
 
 @pytest.fixture(scope="module")
 def channel():
-    server = build_server(build_engine())
+    server = build_server(build_servicer())
     port = server.add_insecure_port("127.0.0.1:0")
     server.start()
     with grpc.insecure_channel(f"127.0.0.1:{port}") as ch:

@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -21,7 +21,7 @@ func NewMyTenantLister(tenants gateway.TenantGateway, members gateway.Membership
 // ListMine is ListObjects can_read_tenant, then a Postgres load of those ids
 // with the membership labels.
 func (s *myTenantLister) ListMine(ctx context.Context, actor string) ([]usecase.TenantView, error) {
-	ids, err := s.authz.ListObjectIDs(ctx, actor, "can_read_tenant", entity.ObjectTypeTenant)
+	ids, err := s.authz.ListObjectIDs(ctx, actor, "can_read_tenant", model.ObjectTypeTenant)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func (s *myTenantLister) ListMine(ctx context.Context, actor string) ([]usecase.
 	if err != nil {
 		return nil, err
 	}
-	labels := map[string]entity.Membership{}
+	labels := map[string]model.Membership{}
 	for _, m := range memberships {
 		labels[m.TenantID] = m
 	}

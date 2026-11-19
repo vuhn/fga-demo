@@ -7,15 +7,15 @@ The Go service (module `github.com/vuhn/fga-demo/api`, Gin, pgx, goose). It is t
 Dependencies point inward. Paths are under `internal/`.
 
 ```text
-handler/http  ->  usecase (interfaces)  ->  domain/entity
-service       ->  usecase, usecase/helper, domain/gateway, domain/entity
-infrastructure -> domain/gateway, domain/entity
+handler/http  ->  usecase (interfaces)  ->  domain/model
+service       ->  usecase, usecase/helper, domain/gateway, domain/model
+infrastructure -> domain/gateway, domain/model
 cmd/api/wire.go builds infrastructure, services, handlers and injects them
 ```
 
 | Layer | Responsibility |
 | --- | --- |
-| `domain/entity` | Entities, value types, sentinel errors. Stdlib only. |
+| `domain/model` | Business models (entities), value types, sentinel errors. Stdlib only. |
 | `domain/gateway` | Data-access interfaces (Postgres repos, OpenFGA). |
 | `usecase`, `usecase/helper` | One interface per operation (`FolderCreator`), plus shared rule interfaces (`WriteGuard`, `SharePolicy`). |
 | `service` | Implementations, one file per operation (`folder_creator.go`). Business logic only. |
@@ -25,13 +25,14 @@ cmd/api/wire.go builds infrastructure, services, handlers and injects them
 | `infrastructure/blueprintengine` | HTTP client for the stateless blueprint engine (`gateway.BlueprintEngine` for the deterministic operations, `gateway.BlueprintAgent` for the LLM ones, `gateway.EstimateAgent`; one client implements all). |
 | `infrastructure/{auth,idgen,config}` | JWT and bcrypt, UUIDs, environment config. |
 | `handler/http` | Gin handlers (decode, call one usecase, map errors) and middleware. |
+| `handler/http/mapper/<domain>_mapper.go` | The domain's JSON DTOs and the conversions model <-> DTO (views out, shared request bodies in). Handlers never hold a `...View` function or a `...JSON` type. |
 | `seed` | The fixed demo world, shared by `cmd/seed` and the integration tests. |
 
 Rules:
 
 - `domain`, `usecase`, and `service` never import Gin, pgx, or the OpenFGA SDK.
 - Constructors take interfaces; `cmd/api/wire.go` is the only place that names concrete types. A new operation is a usecase interface, a service file, and wiring.
-- **Each domain is separate in every layer.** Folder, document, album, photo, blueprint (and user, tenant, product, member, role) own their entity, gateways, repos, relation builder, usecases, services, handler, and routes. Do not merge them behind a shared abstraction. The only shared code is cross-domain rules in `service/helper.go` and SQL plumbing in `postgres/grant_rows.go`. Member removal also drops that person's custom-role assignee tuples.
+- **Each domain is separate in every layer.** Folder, document, album, photo, blueprint (and user, tenant, product, member, role) own their model, gateways, repos, relation builder, usecases, services, handler, and routes. Do not merge them behind a shared abstraction. The only shared code is cross-domain rules in `service/helper.go` and SQL plumbing in `postgres/grant_rows.go`. Member removal also drops that person's custom-role assignee tuples.
 
 ## Request lifecycle
 

@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -24,7 +24,7 @@ func (s *estimateSessionGetter) Get(ctx context.Context, actor, tenantID, bluepr
 	if _, err := loadBlueprint(ctx, s.blueprints, tenantID, blueprintID); err != nil {
 		return usecase.EstimateSessionDetail{}, err
 	}
-	if err := s.authz.RequireVisible(ctx, actor, "can_edit", entity.ObjectTypeBlueprint, blueprintID); err != nil {
+	if err := s.authz.RequireVisible(ctx, actor, "can_edit", model.ObjectTypeBlueprint, blueprintID); err != nil {
 		return usecase.EstimateSessionDetail{}, err
 	}
 	return readEstimateSession(ctx, s.sessions, blueprintID)

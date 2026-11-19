@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 func TestErrorsMapToSentinels(t *testing.T) {
@@ -20,9 +20,9 @@ func TestErrorsMapToSentinels(t *testing.T) {
 		want   error
 		msg    string
 	}{
-		{422, `{"error":"invalid_edit","message":"no room called pool"}`, entity.ErrValidation, "no room called pool"},
-		{422, `{"detail":[{"loc":["body","brief","lot","width"],"msg":"Input should be greater than 0"}]}`, entity.ErrValidation, "brief.lot.width: Input should be greater than 0"},
-		{502, `{"error":"llm_unavailable","message":"ollama down"}`, entity.ErrEngineUnavailable, "ollama down"},
+		{422, `{"error":"invalid_edit","message":"no room called pool"}`, model.ErrValidation, "no room called pool"},
+		{422, `{"detail":[{"loc":["body","brief","lot","width"],"msg":"Input should be greater than 0"}]}`, model.ErrValidation, "brief.lot.width: Input should be greater than 0"},
+		{502, `{"error":"llm_unavailable","message":"ollama down"}`, model.ErrEngineUnavailable, "ollama down"},
 	}
 	for _, tc := range cases {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +35,7 @@ func TestErrorsMapToSentinels(t *testing.T) {
 			t.Errorf("status %d: got %v, want %v containing %q", tc.status, err, tc.want, tc.msg)
 		}
 	}
-	if _, err := New("http://127.0.0.1:1").BriefFromText(context.Background(), "x"); !errors.Is(err, entity.ErrEngineUnavailable) {
+	if _, err := New("http://127.0.0.1:1").BriefFromText(context.Background(), "x"); !errors.Is(err, model.ErrEngineUnavailable) {
 		t.Errorf("connection refused: got %v", err)
 	}
 }
@@ -96,7 +96,7 @@ func TestReviseStreamRelaysProgressThenResult(t *testing.T) {
 	}))
 	defer srv.Close()
 	var got []string
-	out, err := New(srv.URL).ReviseStream(context.Background(), []byte(`{}`), nil, "x", nil, func(p entity.BlueprintProgress) { got = append(got, p.Stage) })
+	out, err := New(srv.URL).ReviseStream(context.Background(), []byte(`{}`), nil, "x", nil, func(p model.BlueprintProgress) { got = append(got, p.Stage) })
 	if err != nil || !out.Built() || strings.Join(got, ",") != "ask_model,checks" || strings.Join(out.Notes, ",") != "a,b" {
 		t.Fatalf("got %v %v %+v", got, err, out)
 	}
@@ -108,9 +108,9 @@ func TestReviseStreamErrorsMapToSentinels(t *testing.T) {
 		io.WriteString(w, `{"event":"error","status":422,"error":"invalid_edit","message":"no room called pool"}`+"\n")
 	}))
 	called := 0
-	_, err := New(srv.URL).ReviseStream(context.Background(), []byte(`{}`), nil, "x", nil, func(entity.BlueprintProgress) { called++ })
+	_, err := New(srv.URL).ReviseStream(context.Background(), []byte(`{}`), nil, "x", nil, func(model.BlueprintProgress) { called++ })
 	srv.Close()
-	if !errors.Is(err, entity.ErrValidation) || !strings.Contains(err.Error(), "no room called pool") || called != 1 {
+	if !errors.Is(err, model.ErrValidation) || !strings.Contains(err.Error(), "no room called pool") || called != 1 {
 		t.Errorf("got %v after %d progress", err, called)
 	}
 
@@ -120,9 +120,9 @@ func TestReviseStreamErrorsMapToSentinels(t *testing.T) {
 		io.WriteString(w, `{"error":"invalid_edit","message":"say what to change"}`)
 	}))
 	called = 0
-	_, err = New(srv.URL).ReviseStream(context.Background(), []byte(`{}`), nil, "x", nil, func(entity.BlueprintProgress) { called++ })
+	_, err = New(srv.URL).ReviseStream(context.Background(), []byte(`{}`), nil, "x", nil, func(model.BlueprintProgress) { called++ })
 	srv.Close()
-	if !errors.Is(err, entity.ErrValidation) || called != 0 {
+	if !errors.Is(err, model.ErrValidation) || called != 0 {
 		t.Errorf("got %v after %d progress", err, called)
 	}
 
@@ -130,7 +130,7 @@ func TestReviseStreamErrorsMapToSentinels(t *testing.T) {
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	_, err = New(srv.URL).ReviseStream(context.Background(), []byte(`{}`), nil, "x", nil, nil)
 	srv.Close()
-	if !errors.Is(err, entity.ErrEngineUnavailable) {
+	if !errors.Is(err, model.ErrEngineUnavailable) {
 		t.Errorf("empty stream: got %v", err)
 	}
 }
@@ -154,7 +154,7 @@ func TestImportDXFSendsTheFileAndUnitAndParsesPlans(t *testing.T) {
 		io.WriteString(w, `{"plans":[{"index":1,"name":"Plan 1","room_count":3,"net_area":41.5,"ok":true,"model":{"source":"imported"},"checks":[],"svg":"<svg/>"}],"report":{"units":"mm"}}`)
 	}))
 	defer srv.Close()
-	res, err := New(srv.URL).ImportDXF(context.Background(), entity.Upload{Name: "plan.dxf", MimeType: entity.DXFMimeType, Data: []byte("DXFDATA")}, "mm")
+	res, err := New(srv.URL).ImportDXF(context.Background(), model.Upload{Name: "plan.dxf", MimeType: model.DXFMimeType, Data: []byte("DXFDATA")}, "mm")
 	if err != nil || len(res.Plans) != 1 {
 		t.Fatalf("%v %v", res, err)
 	}
@@ -170,8 +170,8 @@ func TestImportDXFRefusalIsValidation(t *testing.T) {
 		io.WriteString(w, `{"error":"invalid_edit","message":"no wall linework found"}`)
 	}))
 	defer srv.Close()
-	_, err := New(srv.URL).ImportDXF(context.Background(), entity.Upload{Name: "a.dxf", Data: []byte("x")}, "")
-	if !errors.Is(err, entity.ErrValidation) || !strings.Contains(err.Error(), "no wall linework") {
+	_, err := New(srv.URL).ImportDXF(context.Background(), model.Upload{Name: "a.dxf", Data: []byte("x")}, "")
+	if !errors.Is(err, model.ErrValidation) || !strings.Contains(err.Error(), "no wall linework") {
 		t.Errorf("got %v", err)
 	}
 }
@@ -231,14 +231,14 @@ func TestPatchDXFSendsTheFileAndBothModelsAndDecodesTheResult(t *testing.T) {
 		io.WriteString(w, `{"dxf":"UEFUQ0hFRA==","report":{"applied":["a"],"added":[],"skipped":[]}}`)
 	}))
 	defer srv.Close()
-	f, err := New(srv.URL).PatchDXF(context.Background(), entity.Upload{Name: "original.dxf", MimeType: entity.DXFMimeType, Data: []byte("ORIG")}, []byte(`{"v":1}`), []byte(`{"v":2}`))
+	f, err := New(srv.URL).PatchDXF(context.Background(), model.Upload{Name: "original.dxf", MimeType: model.DXFMimeType, Data: []byte("ORIG")}, []byte(`{"v":1}`), []byte(`{"v":2}`))
 	if err != nil || string(f.Data) != "PATCHED" || !strings.Contains(string(f.Report), `"applied":["a"]`) {
 		t.Fatalf("%v %+v", err, f)
 	}
 
 	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, `{"dxf":"","report":{}}`) }))
 	defer bad.Close()
-	if _, err := New(bad.URL).PatchDXF(context.Background(), entity.Upload{Name: "a.dxf", Data: []byte("x")}, nil, nil); !errors.Is(err, entity.ErrEngineUnavailable) {
+	if _, err := New(bad.URL).PatchDXF(context.Background(), model.Upload{Name: "a.dxf", Data: []byte("x")}, nil, nil); !errors.Is(err, model.ErrEngineUnavailable) {
 		t.Fatalf("empty file: got %v", err)
 	}
 }
@@ -288,8 +288,8 @@ func TestEstimateTurnRelaysEventsThenReturnsTheDoneOutcome(t *testing.T) {
 	defer srv.Close()
 	var names []string
 	turn, err := New(srv.URL).EstimateTurn(context.Background(), []byte(`{"rooms":[]}`), nil, "hi",
-		[]entity.EstimateMessage{{Role: "assistant", Content: "Where?"}}, map[string]float64{"paint": 5},
-		func(ev entity.EstimateEvent) { names = append(names, ev.Name) })
+		[]model.EstimateMessage{{Role: "assistant", Content: "Where?"}}, map[string]float64{"paint": 5},
+		func(ev model.EstimateEvent) { names = append(names, ev.Name) })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,16 +308,16 @@ func TestEstimateTurnErrorEventsAndRefusalsMapToSentinels(t *testing.T) {
 		status int
 		want   error
 	}{
-		{`{"event":"token","data":{"text":"x"}}` + "\n" + `{"event":"error","status":502,"error":"llm_unavailable","message":"down"}` + "\n", 200, entity.ErrEngineUnavailable},
-		{`{"event":"error","status":422,"error":"invalid_edit","message":"bad"}` + "\n", 200, entity.ErrValidation},
-		{`{"event":"token","data":{"text":"x"}}` + "\n", 200, entity.ErrEngineUnavailable}, // ended without done
-		{`{"detail":"nope"}`, 422, entity.ErrValidation},
+		{`{"event":"token","data":{"text":"x"}}` + "\n" + `{"event":"error","status":502,"error":"llm_unavailable","message":"down"}` + "\n", 200, model.ErrEngineUnavailable},
+		{`{"event":"error","status":422,"error":"invalid_edit","message":"bad"}` + "\n", 200, model.ErrValidation},
+		{`{"event":"token","data":{"text":"x"}}` + "\n", 200, model.ErrEngineUnavailable}, // ended without done
+		{`{"detail":"nope"}`, 422, model.ErrValidation},
 	} {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(tc.status)
 			io.WriteString(w, tc.body)
 		}))
-		_, err := New(srv.URL).EstimateTurn(context.Background(), []byte(`{}`), nil, "hi", nil, nil, func(entity.EstimateEvent) {})
+		_, err := New(srv.URL).EstimateTurn(context.Background(), []byte(`{}`), nil, "hi", nil, nil, func(model.EstimateEvent) {})
 		srv.Close()
 		if !errors.Is(err, tc.want) {
 			t.Errorf("%s: got %v want %v", tc.body, err, tc.want)

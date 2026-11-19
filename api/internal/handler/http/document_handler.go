@@ -5,7 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -39,22 +40,9 @@ func (h *DocumentHandler) Register(r Routes) {
 	g.DELETE("/documents/:id/grants", h.revoke)
 }
 
-func documentView(d entity.Document) map[string]any {
-	return map[string]any{
-		"id": d.ID, "tenant_id": d.TenantID, "project_id": d.ProjectID, "folder_id": d.FolderID, "name": d.Name,
-		"mime_type": d.MimeType, "byte_size": d.ByteSize, "created_by": d.CreatedBy, "created_at": d.CreatedAt,
-	}
-}
-
-func visibleDocumentView(v entity.Visible[entity.Document]) map[string]any {
-	m := documentView(v.Value)
-	m["permissions"] = v.Perms
-	return m
-}
-
 func (h *DocumentHandler) list(c *gin.Context) {
 	ds, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("folder_id"), c.Query("project_id"))
-	respond(c, http.StatusOK, mapSlice(ds, visibleDocumentView), err)
+	respond(c, http.StatusOK, mapSlice(ds, mapper.VisibleDocumentView), err)
 }
 
 func (h *DocumentHandler) create(c *gin.Context) {
@@ -68,17 +56,17 @@ func (h *DocumentHandler) create(c *gin.Context) {
 	in.MimeType, _ = body["mime_type"].(string)
 	size, ok := body["byte_size"].(float64)
 	if !ok || size != float64(int64(size)) {
-		writeErr(c, entity.Invalid("byte_size must be an integer"))
+		writeErr(c, model.Invalid("byte_size must be an integer"))
 		return
 	}
 	in.ByteSize = int64(size)
 	d, err := h.uc.Creator.Create(c, actor(c), tenant(c), in)
-	respond(c, http.StatusCreated, documentView(d), err)
+	respond(c, http.StatusCreated, mapper.DocumentView(d), err)
 }
 
 func (h *DocumentHandler) get(c *gin.Context) {
 	d, err := h.uc.Getter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, visibleDocumentView(d), err)
+	respond(c, http.StatusOK, mapper.VisibleDocumentView(d), err)
 }
 
 func (h *DocumentHandler) rename(c *gin.Context) {
@@ -87,7 +75,7 @@ func (h *DocumentHandler) rename(c *gin.Context) {
 		return
 	}
 	d, err := h.uc.Renamer.Rename(c, actor(c), tenant(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, documentView(d), err)
+	respond(c, http.StatusOK, mapper.DocumentView(d), err)
 }
 
 func (h *DocumentHandler) delete(c *gin.Context) {
@@ -96,27 +84,27 @@ func (h *DocumentHandler) delete(c *gin.Context) {
 
 func (h *DocumentHandler) listGrants(c *gin.Context) {
 	gs, err := h.uc.GrantLister.ListGrants(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(gs, grantView), err)
+	respond(c, http.StatusOK, mapSlice(gs, mapper.GrantView), err)
 }
 
 func (h *DocumentHandler) listShareCandidates(c *gin.Context) {
 	ms, err := h.uc.CandidateLister.ListShareCandidates(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, memberView), err)
+	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
 }
 
 func (h *DocumentHandler) share(c *gin.Context) {
-	var body shareBody
+	var body mapper.ShareBody
 	if !bind(c, &body) {
 		return
 	}
-	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.input())
-	respond(c, http.StatusCreated, grantView(g), err)
+	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.Input())
+	respond(c, http.StatusCreated, mapper.GrantView(g), err)
 }
 
 func (h *DocumentHandler) revoke(c *gin.Context) {
-	var body shareBody
+	var body mapper.ShareBody
 	if !bind(c, &body) {
 		return
 	}
-	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.input()))
+	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.Input()))
 }

@@ -3,22 +3,22 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
 // loadPhoto returns the photo when it exists in the header tenant.
-func loadPhoto(ctx context.Context, photos gateway.PhotoGateway, tenantID, id string) (entity.Photo, error) {
-	if err := entity.RequireUUID("id", id); err != nil {
-		return entity.Photo{}, err
+func loadPhoto(ctx context.Context, photos gateway.PhotoGateway, tenantID, id string) (model.Photo, error) {
+	if err := model.RequireUUID("id", id); err != nil {
+		return model.Photo{}, err
 	}
 	p, err := photos.Get(ctx, id)
 	if err != nil {
-		return entity.Photo{}, err
+		return model.Photo{}, err
 	}
 	if p.TenantID != tenantID {
-		return entity.Photo{}, entity.ErrNotFound
+		return model.Photo{}, model.ErrNotFound
 	}
 	return p, nil
 }
@@ -28,7 +28,7 @@ func requirePhotoShare(ctx context.Context, photos gateway.PhotoGateway, authz u
 	if _, err := loadPhoto(ctx, photos, tenantID, id); err != nil {
 		return err
 	}
-	return authz.Require(ctx, actor, "can_share", entity.ObjectTypePhoto, id)
+	return authz.Require(ctx, actor, "can_share", model.ObjectTypePhoto, id)
 }
 
-func photoID(p entity.Photo) string { return p.ID }
+func photoID(p model.Photo) string { return p.ID }

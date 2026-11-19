@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	commonv1 "github.com/vuhn/fga-demo/api/internal/infrastructure/grpcgen/fga/demo/common/v1"
 	enginev1 "github.com/vuhn/fga-demo/api/internal/infrastructure/grpcgen/fga/demo/engine/v1"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/grpcutil"
@@ -138,9 +138,15 @@ func TestStatusMapping(t *testing.T) {
 		invalid bool
 		want    string
 	}{
-		{"edit error", func(ctx context.Context) error { return refuse(ctx, commonv1.ErrorCode_ERROR_CODE_EDIT_ERROR, "area too small") }, true, "area too small"},
-		{"unsupported", func(ctx context.Context) error { return refuse(ctx, commonv1.ErrorCode_ERROR_CODE_UNSUPPORTED, "no such op") }, true, "no such op"},
-		{"bad file", func(ctx context.Context) error { return refuse(ctx, commonv1.ErrorCode_ERROR_CODE_BAD_FILE, "not a DXF") }, true, "not a DXF"},
+		{"edit error", func(ctx context.Context) error {
+			return refuse(ctx, commonv1.ErrorCode_ERROR_CODE_EDIT_ERROR, "area too small")
+		}, true, "area too small"},
+		{"unsupported", func(ctx context.Context) error {
+			return refuse(ctx, commonv1.ErrorCode_ERROR_CODE_UNSUPPORTED, "no such op")
+		}, true, "no such op"},
+		{"bad file", func(ctx context.Context) error {
+			return refuse(ctx, commonv1.ErrorCode_ERROR_CODE_BAD_FILE, "not a DXF")
+		}, true, "not a DXF"},
 		{"invalid without detail", func(context.Context) error { return status.Error(codes.InvalidArgument, "bare") }, true, "bare"},
 		{"unavailable", func(context.Context) error { return status.Error(codes.Unavailable, "down") }, false, "down"},
 		{"internal", func(context.Context) error { return status.Error(codes.Internal, "boom") }, false, "boom"},
@@ -155,10 +161,10 @@ func TestStatusMapping(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("err = %v, want it to say %q", err, tc.want)
 			}
-			if tc.invalid != errors.Is(err, entity.ErrValidation) {
-				t.Errorf("ErrValidation = %v, want %v (%v)", errors.Is(err, entity.ErrValidation), tc.invalid, err)
+			if tc.invalid != errors.Is(err, model.ErrValidation) {
+				t.Errorf("ErrValidation = %v, want %v (%v)", errors.Is(err, model.ErrValidation), tc.invalid, err)
 			}
-			if !tc.invalid && !errors.Is(err, entity.ErrEngineUnavailable) {
+			if !tc.invalid && !errors.Is(err, model.ErrEngineUnavailable) {
 				t.Errorf("want ErrEngineUnavailable, got %v", err)
 			}
 		})
@@ -173,7 +179,7 @@ func TestADownEngineIsUnavailable(t *testing.T) {
 	defer cc.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if _, err := c.Generate(ctx, nil, nil, false); !errors.Is(err, entity.ErrEngineUnavailable) {
+	if _, err := c.Generate(ctx, nil, nil, false); !errors.Is(err, model.ErrEngineUnavailable) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -186,7 +192,7 @@ func TestDeadline(t *testing.T) {
 	t.Run("default applies when the caller has none", func(t *testing.T) {
 		start := time.Now()
 		_, err := serve(t, slow, 100*time.Millisecond).Generate(context.Background(), nil, nil, false)
-		if !errors.Is(err, entity.ErrEngineUnavailable) || time.Since(start) > 3*time.Second {
+		if !errors.Is(err, model.ErrEngineUnavailable) || time.Since(start) > 3*time.Second {
 			t.Fatalf("err = %v after %v", err, time.Since(start))
 		}
 	})
@@ -195,7 +201,7 @@ func TestDeadline(t *testing.T) {
 		defer cancel()
 		start := time.Now()
 		_, err := serve(t, slow, time.Hour).Generate(ctx, nil, nil, false)
-		if !errors.Is(err, entity.ErrEngineUnavailable) || time.Since(start) > 3*time.Second {
+		if !errors.Is(err, model.ErrEngineUnavailable) || time.Since(start) > 3*time.Second {
 			t.Fatalf("err = %v after %v", err, time.Since(start))
 		}
 	})
@@ -214,7 +220,7 @@ func TestALargeUploadAndAnswerCrossTheWire(t *testing.T) {
 			"model": map[string]any{"rooms": []any{}}, "checks": []any{}, "svg": "<svg/>"}})
 		return &enginev1.ImportDXFResponse{PlansJson: plans, ReportJson: []byte(`{"skipped":0}`)}, nil
 	}}
-	res, err := serve(t, f, time.Minute).ImportDXF(context.Background(), entity.Upload{Name: "plan.dxf", MimeType: "application/dxf", Data: big}, "mm")
+	res, err := serve(t, f, time.Minute).ImportDXF(context.Background(), model.Upload{Name: "plan.dxf", MimeType: "application/dxf", Data: big}, "mm")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,8 +234,8 @@ func TestImportRefusesAnUnreadableFile(t *testing.T) {
 	f := &fake{importer: func(ctx context.Context, _ *enginev1.ImportDXFRequest) (*enginev1.ImportDXFResponse, error) {
 		return nil, refuse(ctx, commonv1.ErrorCode_ERROR_CODE_BAD_FILE, "file is too large")
 	}}
-	_, err := serve(t, f, time.Minute).ImportDXF(context.Background(), entity.Upload{Name: "x.dxf"}, "")
-	if !errors.Is(err, entity.ErrValidation) || !strings.Contains(err.Error(), "file is too large") {
+	_, err := serve(t, f, time.Minute).ImportDXF(context.Background(), model.Upload{Name: "x.dxf"}, "")
+	if !errors.Is(err, model.ErrValidation) || !strings.Contains(err.Error(), "file is too large") {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -243,11 +249,11 @@ func TestRender(t *testing.T) {
 		return &enginev1.RenderResponse{Data: []byte("%PDF"), MediaType: "application/pdf"}, nil
 	}}
 	c := serve(t, f, time.Minute)
-	d, err := c.Render(context.Background(), []byte(`{}`), entity.DrawingPDF, entity.BlueprintTitleBlock{Project: "House", Version: 3, Issued: "2026-11-19", Author: "ada"})
+	d, err := c.Render(context.Background(), []byte(`{}`), model.DrawingPDF, model.BlueprintTitleBlock{Project: "House", Version: 3, Issued: "2026-11-19", Author: "ada"})
 	if err != nil || d.Format != "pdf" || d.ContentType != "application/pdf" || string(d.Data) != "%PDF" {
 		t.Fatalf("drawing = %+v err %v", d, err)
 	}
-	if _, err := c.Render(context.Background(), nil, "bmp", entity.BlueprintTitleBlock{}); !errors.Is(err, entity.ErrValidation) {
+	if _, err := c.Render(context.Background(), nil, "bmp", model.BlueprintTitleBlock{}); !errors.Is(err, model.ErrValidation) {
 		t.Errorf("unknown format err = %v", err)
 	}
 }
@@ -276,11 +282,11 @@ func TestConvertPatchCreateAndEdit(t *testing.T) {
 	c := serve(t, f, time.Minute)
 	ctx := context.Background()
 
-	conv, err := c.ConvertToDXF(ctx, entity.Upload{Name: "a.png", MimeType: "image/png", Data: []byte("x")}, entity.ConvertOptions{Scale: 100, LongestM: 12.5})
+	conv, err := c.ConvertToDXF(ctx, model.Upload{Name: "a.png", MimeType: "image/png", Data: []byte("x")}, model.ConvertOptions{Scale: 100, LongestM: 12.5})
 	if err != nil || string(conv.DXF) != "DXF" || string(conv.Report) != `{"w":[]}` {
 		t.Errorf("convert = %+v %v", conv, err)
 	}
-	p, err := c.PatchDXF(ctx, entity.Upload{Name: "o.dxf", MimeType: "application/dxf", Data: []byte("o")}, []byte("b"), []byte("c"))
+	p, err := c.PatchDXF(ctx, model.Upload{Name: "o.dxf", MimeType: "application/dxf", Data: []byte("o")}, []byte("b"), []byte("c"))
 	if err != nil || string(p.Data) != "PATCHED" || p.Name != "o.dxf" || p.MimeType != "application/dxf" || string(p.Report) != `{"applied":1}` {
 		t.Errorf("patch = %+v %v", p, err)
 	}
@@ -298,17 +304,17 @@ func TestPatchWithoutAFileIsAnEngineFault(t *testing.T) {
 	f := &fake{patch: func(context.Context, *enginev1.PatchDXFRequest) (*enginev1.PatchDXFResponse, error) {
 		return &enginev1.PatchDXFResponse{}, nil
 	}}
-	_, err := serve(t, f, time.Minute).PatchDXF(context.Background(), entity.Upload{Name: "o.dxf"}, nil, nil)
-	if !errors.Is(err, entity.ErrEngineUnavailable) {
+	_, err := serve(t, f, time.Minute).PatchDXF(context.Background(), model.Upload{Name: "o.dxf"}, nil, nil)
+	if !errors.Is(err, model.ErrEngineUnavailable) {
 		t.Fatalf("err = %v", err)
 	}
 }
 
 func TestInBandErrors(t *testing.T) {
-	if err := grpcutil.InBand("agent", &commonv1.ErrorDetail{Code: commonv1.ErrorCode_ERROR_CODE_DEPENDENCY_UNAVAILABLE, Message: "llm down", Dependency: "llm"}); !errors.Is(err, entity.ErrEngineUnavailable) {
+	if err := grpcutil.InBand("agent", &commonv1.ErrorDetail{Code: commonv1.ErrorCode_ERROR_CODE_DEPENDENCY_UNAVAILABLE, Message: "llm down", Dependency: "llm"}); !errors.Is(err, model.ErrEngineUnavailable) {
 		t.Errorf("dependency err = %v", err)
 	}
-	if err := grpcutil.InBand("agent", &commonv1.ErrorDetail{Code: commonv1.ErrorCode_ERROR_CODE_UNSUPPORTED, Message: "nope"}); !errors.Is(err, entity.ErrValidation) {
+	if err := grpcutil.InBand("agent", &commonv1.ErrorDetail{Code: commonv1.ErrorCode_ERROR_CODE_UNSUPPORTED, Message: "nope"}); !errors.Is(err, model.ErrValidation) {
 		t.Errorf("refusal err = %v", err)
 	}
 	if grpcutil.InBand("agent", nil) != nil {

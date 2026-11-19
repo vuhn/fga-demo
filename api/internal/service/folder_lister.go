@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -19,19 +19,19 @@ func NewFolderLister(folders gateway.FolderGateway, authz usecase.Authorizer) us
 
 // List is ListObjects can_view, then a Postgres load of those ids in the
 // tenant, with the caller's permissions on each.
-func (s *folderLister) List(ctx context.Context, actor, tenantID, projectID string) ([]entity.Visible[entity.Folder], error) {
+func (s *folderLister) List(ctx context.Context, actor, tenantID, projectID string) ([]model.Visible[model.Folder], error) {
 	if projectID != "" {
-		if err := entity.RequireUUID("project_id", projectID); err != nil {
+		if err := model.RequireUUID("project_id", projectID); err != nil {
 			return nil, err
 		}
 	}
-	ids, err := s.authz.ListObjectIDs(ctx, actor, "can_view", entity.ObjectTypeFolder)
+	ids, err := s.authz.ListObjectIDs(ctx, actor, "can_view", model.ObjectTypeFolder)
 	if err != nil || len(ids) == 0 {
-		return []entity.Visible[entity.Folder]{}, err
+		return []model.Visible[model.Folder]{}, err
 	}
 	folders, err := s.folders.ListByIDs(ctx, tenantID, ids, projectID)
 	if err != nil {
 		return nil, err
 	}
-	return withPerms(ctx, s.authz, actor, entity.ObjectTypeFolder, folders, folderID)
+	return withPerms(ctx, s.authz, actor, model.ObjectTypeFolder, folders, folderID)
 }

@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 // Client calls the engine at BaseURL. LLM steps take tens of seconds on a
@@ -53,18 +53,18 @@ type stepOut struct {
 	DXF   []byte   `json:"dxf"` // base64 in JSON; only /v1/generate/plan sets it
 }
 
-func (o stepOut) outcome() entity.BlueprintOutcome {
+func (o stepOut) outcome() model.BlueprintOutcome {
 	r := o.Result
-	return entity.BlueprintOutcome{Brief: r.Brief, Model: r.Model, Checks: r.Checks, Issues: r.Issues, OK: r.OK,
+	return model.BlueprintOutcome{Brief: r.Brief, Model: r.Model, Checks: r.Checks, Issues: r.Issues, OK: r.OK,
 		Notes: append(append([]string{}, o.Notes...), r.Notes...), DXF: o.DXF}
 }
 
-func (c *Client) BriefFromText(ctx context.Context, prompt string) (entity.BlueprintDraft, error) {
+func (c *Client) BriefFromText(ctx context.Context, prompt string) (model.BlueprintDraft, error) {
 	var out draftOut
 	if err := c.postJSON(ctx, "/v1/brief/from-text", map[string]any{"prompt": prompt}, &out); err != nil {
-		return entity.BlueprintDraft{}, err
+		return model.BlueprintDraft{}, err
 	}
-	return entity.BlueprintDraft{Brief: out.Brief, Notes: out.Notes}, nil
+	return model.BlueprintDraft{Brief: out.Brief, Notes: out.Notes}, nil
 }
 
 type importOut struct {
@@ -82,7 +82,7 @@ type importOut struct {
 }
 
 // ConvertToDXF sends a PDF or image to /v1/convert/dxf. The engine keeps nothing.
-func (c *Client) ConvertToDXF(ctx context.Context, file entity.Upload, opts entity.ConvertOptions) (entity.BlueprintConversion, error) {
+func (c *Client) ConvertToDXF(ctx context.Context, file model.Upload, opts model.ConvertOptions) (model.BlueprintConversion, error) {
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
 	h := textproto.MIMEHeader{}
@@ -90,31 +90,31 @@ func (c *Client) ConvertToDXF(ctx context.Context, file entity.Upload, opts enti
 	h.Set("Content-Type", file.MimeType)
 	part, err := w.CreatePart(h)
 	if err != nil {
-		return entity.BlueprintConversion{}, err
+		return model.BlueprintConversion{}, err
 	}
 	if _, err := part.Write(file.Data); err != nil {
-		return entity.BlueprintConversion{}, err
+		return model.BlueprintConversion{}, err
 	}
 	for k, v := range map[string]string{"scale": fmt.Sprint(opts.Scale), "longest_m": fmt.Sprint(opts.LongestM)} {
 		if err := w.WriteField(k, v); err != nil {
-			return entity.BlueprintConversion{}, err
+			return model.BlueprintConversion{}, err
 		}
 	}
 	if err := w.Close(); err != nil {
-		return entity.BlueprintConversion{}, err
+		return model.BlueprintConversion{}, err
 	}
 	var out struct {
 		DXF    []byte          `json:"dxf"` // base64 in JSON
 		Report json.RawMessage `json:"report"`
 	}
 	if err := c.do(ctx, "/v1/convert/dxf", w.FormDataContentType(), &body, &out); err != nil {
-		return entity.BlueprintConversion{}, err
+		return model.BlueprintConversion{}, err
 	}
-	return entity.BlueprintConversion{DXF: out.DXF, Report: out.Report}, nil
+	return model.BlueprintConversion{DXF: out.DXF, Report: out.Report}, nil
 }
 
 // ImportDXF sends the file to /v1/import/dxf. The engine reads it and keeps nothing.
-func (c *Client) ImportDXF(ctx context.Context, file entity.Upload, unit string) (entity.BlueprintImport, error) {
+func (c *Client) ImportDXF(ctx context.Context, file model.Upload, unit string) (model.BlueprintImport, error) {
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
 	h := textproto.MIMEHeader{}
@@ -122,50 +122,50 @@ func (c *Client) ImportDXF(ctx context.Context, file entity.Upload, unit string)
 	h.Set("Content-Type", file.MimeType)
 	part, err := w.CreatePart(h)
 	if err != nil {
-		return entity.BlueprintImport{}, err
+		return model.BlueprintImport{}, err
 	}
 	if _, err := part.Write(file.Data); err != nil {
-		return entity.BlueprintImport{}, err
+		return model.BlueprintImport{}, err
 	}
 	if err := w.WriteField("unit", unit); err != nil {
-		return entity.BlueprintImport{}, err
+		return model.BlueprintImport{}, err
 	}
 	if err := w.Close(); err != nil {
-		return entity.BlueprintImport{}, err
+		return model.BlueprintImport{}, err
 	}
 	var out importOut
 	if err := c.do(ctx, "/v1/import/dxf", w.FormDataContentType(), &body, &out); err != nil {
-		return entity.BlueprintImport{}, err
+		return model.BlueprintImport{}, err
 	}
-	res := entity.BlueprintImport{Report: out.Report}
+	res := model.BlueprintImport{Report: out.Report}
 	for _, p := range out.Plans {
-		res.Plans = append(res.Plans, entity.BlueprintImportPlan{Index: p.Index, Name: p.Name, RoomCount: p.RoomCount,
+		res.Plans = append(res.Plans, model.BlueprintImportPlan{Index: p.Index, Name: p.Name, RoomCount: p.RoomCount,
 			NetArea: p.NetArea, OK: p.OK, Model: p.Model, Checks: p.Checks, SVG: p.SVG})
 	}
 	return res, nil
 }
 
-func (c *Client) Generate(ctx context.Context, brief, previous []byte, repair bool) (entity.BlueprintOutcome, error) {
+func (c *Client) Generate(ctx context.Context, brief, previous []byte, repair bool) (model.BlueprintOutcome, error) {
 	var out stepOut
 	err := c.postJSON(ctx, "/v1/generate", map[string]any{"brief": json.RawMessage(brief), "previous": rawOrNull(previous), "repair": repair}, &out)
 	return out.outcome(), err
 }
 
 // CreatePlan sends the brief to /v1/generate/plan: no brief comes back, only the plan read from the DXF the engine drew.
-func (c *Client) CreatePlan(ctx context.Context, brief []byte) (entity.BlueprintOutcome, error) {
+func (c *Client) CreatePlan(ctx context.Context, brief []byte) (model.BlueprintOutcome, error) {
 	var out stepOut
 	err := c.postJSON(ctx, "/v1/generate/plan", map[string]any{"brief": json.RawMessage(brief)}, &out)
 	return out.outcome(), err
 }
 
 // DrawPlan sends a stored model to /v1/plan/draw: the engine draws it into a DXF and reads it back. No LLM.
-func (c *Client) DrawPlan(ctx context.Context, model []byte, title string) (entity.BlueprintOutcome, error) {
+func (c *Client) DrawPlan(ctx context.Context, plan []byte, title string) (model.BlueprintOutcome, error) {
 	var out stepOut
-	err := c.postJSON(ctx, "/v1/plan/draw", map[string]any{"model": json.RawMessage(model), "title": title}, &out)
+	err := c.postJSON(ctx, "/v1/plan/draw", map[string]any{"model": json.RawMessage(plan), "title": title}, &out)
 	return out.outcome(), err
 }
 
-func (c *Client) Revise(ctx context.Context, brief, previous []byte, message string, history []string) (entity.BlueprintOutcome, error) {
+func (c *Client) Revise(ctx context.Context, brief, previous []byte, message string, history []string) (model.BlueprintOutcome, error) {
 	var out stepOut
 	err := c.postJSON(ctx, "/v1/revise", map[string]any{"brief": json.RawMessage(brief), "previous": rawOrNull(previous),
 		"message": message, "history": nonNil(history)}, &out)
@@ -175,33 +175,33 @@ func (c *Client) Revise(ctx context.Context, brief, previous []byte, message str
 // ReviseStream reads the engine's NDJSON stream: progress lines go to
 // onProgress, the result line is the outcome, an error line is mapped like a
 // plain engine error. A refusal before the stream opens comes back from send.
-func (c *Client) ReviseStream(ctx context.Context, brief, previous []byte, message string, history []string, onProgress func(entity.BlueprintProgress)) (entity.BlueprintOutcome, error) {
+func (c *Client) ReviseStream(ctx context.Context, brief, previous []byte, message string, history []string, onProgress func(model.BlueprintProgress)) (model.BlueprintOutcome, error) {
 	return c.stream(ctx, "/v1/revise/stream", map[string]any{"brief": json.RawMessage(brief), "previous": rawOrNull(previous),
 		"message": message, "history": nonNil(history)}, onProgress)
 }
 
 // RevisePlan is the chat edit of an imported plan: no brief, the model as drawn is edited by ops.
-func (c *Client) RevisePlan(ctx context.Context, model []byte, message string, history []string) (entity.BlueprintOutcome, error) {
+func (c *Client) RevisePlan(ctx context.Context, plan []byte, message string, history []string) (model.BlueprintOutcome, error) {
 	var out stepOut
-	err := c.postJSON(ctx, "/v1/plan/revise", map[string]any{"model": json.RawMessage(model), "message": message,
+	err := c.postJSON(ctx, "/v1/plan/revise", map[string]any{"model": json.RawMessage(plan), "message": message,
 		"history": nonNil(history)}, &out)
 	return out.outcome(), err
 }
 
-func (c *Client) RevisePlanStream(ctx context.Context, model []byte, message string, history []string, onProgress func(entity.BlueprintProgress)) (entity.BlueprintOutcome, error) {
-	return c.stream(ctx, "/v1/plan/revise/stream", map[string]any{"model": json.RawMessage(model), "message": message,
+func (c *Client) RevisePlanStream(ctx context.Context, plan []byte, message string, history []string, onProgress func(model.BlueprintProgress)) (model.BlueprintOutcome, error) {
+	return c.stream(ctx, "/v1/plan/revise/stream", map[string]any{"model": json.RawMessage(plan), "message": message,
 		"history": nonNil(history)}, onProgress)
 }
 
 // EditPlan sends explicit ops to /v1/plan/edit: the same result shape as a chat edit, no LLM.
-func (c *Client) EditPlan(ctx context.Context, model, ops []byte) (entity.BlueprintOutcome, error) {
+func (c *Client) EditPlan(ctx context.Context, plan, ops []byte) (model.BlueprintOutcome, error) {
 	var out stepOut
-	err := c.postJSON(ctx, "/v1/plan/edit", map[string]any{"model": json.RawMessage(model), "ops": json.RawMessage(ops)}, &out)
+	err := c.postJSON(ctx, "/v1/plan/edit", map[string]any{"model": json.RawMessage(plan), "ops": json.RawMessage(ops)}, &out)
 	return out.outcome(), err
 }
 
 // PatchDXF sends the original file and the two models to /v1/export/dxf-patch. The engine keeps nothing.
-func (c *Client) PatchDXF(ctx context.Context, original entity.Upload, base, current []byte) (entity.PatchedFile, error) {
+func (c *Client) PatchDXF(ctx context.Context, original model.Upload, base, current []byte) (model.PatchedFile, error) {
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
 	h := textproto.MIMEHeader{}
@@ -209,42 +209,42 @@ func (c *Client) PatchDXF(ctx context.Context, original entity.Upload, base, cur
 	h.Set("Content-Type", original.MimeType)
 	part, err := w.CreatePart(h)
 	if err != nil {
-		return entity.PatchedFile{}, err
+		return model.PatchedFile{}, err
 	}
 	if _, err := part.Write(original.Data); err != nil {
-		return entity.PatchedFile{}, err
+		return model.PatchedFile{}, err
 	}
 	if err := w.WriteField("base", string(base)); err != nil {
-		return entity.PatchedFile{}, err
+		return model.PatchedFile{}, err
 	}
 	if err := w.WriteField("current", string(current)); err != nil {
-		return entity.PatchedFile{}, err
+		return model.PatchedFile{}, err
 	}
 	if err := w.Close(); err != nil {
-		return entity.PatchedFile{}, err
+		return model.PatchedFile{}, err
 	}
 	var out struct {
 		DXF    string          `json:"dxf"`
 		Report json.RawMessage `json:"report"`
 	}
 	if err := c.do(ctx, "/v1/export/dxf-patch", w.FormDataContentType(), &body, &out); err != nil {
-		return entity.PatchedFile{}, err
+		return model.PatchedFile{}, err
 	}
 	data, err := base64.StdEncoding.DecodeString(out.DXF)
 	if err != nil || len(data) == 0 {
-		return entity.PatchedFile{}, fmt.Errorf("%w: bad engine response: no file", entity.ErrEngineUnavailable)
+		return model.PatchedFile{}, fmt.Errorf("%w: bad engine response: no file", model.ErrEngineUnavailable)
 	}
-	return entity.PatchedFile{Name: original.Name, MimeType: original.MimeType, Data: data, Report: out.Report}, nil
+	return model.PatchedFile{Name: original.Name, MimeType: original.MimeType, Data: data, Report: out.Report}, nil
 }
 
-func (c *Client) stream(ctx context.Context, path string, payload map[string]any, onProgress func(entity.BlueprintProgress)) (entity.BlueprintOutcome, error) {
+func (c *Client) stream(ctx context.Context, path string, payload map[string]any, onProgress func(model.BlueprintProgress)) (model.BlueprintOutcome, error) {
 	b, err := json.Marshal(payload)
 	if err != nil {
-		return entity.BlueprintOutcome{}, err
+		return model.BlueprintOutcome{}, err
 	}
 	resp, err := c.send(ctx, path, "application/json", bytes.NewReader(b))
 	if err != nil {
-		return entity.BlueprintOutcome{}, err
+		return model.BlueprintOutcome{}, err
 	}
 	defer resp.Body.Close()
 	r := bufio.NewReader(resp.Body)
@@ -260,33 +260,33 @@ func (c *Client) stream(ctx context.Context, path string, payload map[string]any
 				Data    json.RawMessage `json:"data"`
 			}
 			if jerr := json.Unmarshal(line, &ev); jerr != nil {
-				return entity.BlueprintOutcome{}, fmt.Errorf("%w: bad engine stream: %v", entity.ErrEngineUnavailable, jerr)
+				return model.BlueprintOutcome{}, fmt.Errorf("%w: bad engine stream: %v", model.ErrEngineUnavailable, jerr)
 			}
 			switch ev.Event {
 			case "progress":
 				if onProgress != nil {
-					onProgress(entity.BlueprintProgress{Kind: ev.Kind, Stage: ev.Stage, Message: ev.Message})
+					onProgress(model.BlueprintProgress{Kind: ev.Kind, Stage: ev.Stage, Message: ev.Message})
 				}
 			case "result":
 				var out stepOut
 				if jerr := json.Unmarshal(ev.Data, &out); jerr != nil {
-					return entity.BlueprintOutcome{}, fmt.Errorf("%w: bad engine response: %v", entity.ErrEngineUnavailable, jerr)
+					return model.BlueprintOutcome{}, fmt.Errorf("%w: bad engine response: %v", model.ErrEngineUnavailable, jerr)
 				}
 				return out.outcome(), nil
 			case "error":
 				if ev.Status/100 == 4 {
-					return entity.BlueprintOutcome{}, entity.Invalid("%s", ev.Message)
+					return model.BlueprintOutcome{}, model.Invalid("%s", ev.Message)
 				}
-				return entity.BlueprintOutcome{}, fmt.Errorf("%w: engine %d: %s", entity.ErrEngineUnavailable, ev.Status, ev.Message)
+				return model.BlueprintOutcome{}, fmt.Errorf("%w: engine %d: %s", model.ErrEngineUnavailable, ev.Status, ev.Message)
 			}
 		}
 		if err != nil {
-			return entity.BlueprintOutcome{}, fmt.Errorf("%w: engine stream ended without a result", entity.ErrEngineUnavailable)
+			return model.BlueprintOutcome{}, fmt.Errorf("%w: engine stream ended without a result", model.ErrEngineUnavailable)
 		}
 	}
 }
 
-func (c *Client) Review(ctx context.Context, brief, previous []byte, history []string) (entity.BlueprintOutcome, error) {
+func (c *Client) Review(ctx context.Context, brief, previous []byte, history []string) (model.BlueprintOutcome, error) {
 	var out stepOut
 	err := c.postJSON(ctx, "/v1/review", map[string]any{"brief": json.RawMessage(brief), "previous": rawOrNull(previous),
 		"history": nonNil(history)}, &out)
@@ -300,23 +300,23 @@ func nonNil(s []string) []string {
 	return s
 }
 
-func (c *Client) Render(ctx context.Context, model []byte, format string, tb entity.BlueprintTitleBlock) (entity.Drawing, error) {
-	in := map[string]any{"model": json.RawMessage(model), "format": format, "title_block": map[string]any{
+func (c *Client) Render(ctx context.Context, plan []byte, format string, tb model.BlueprintTitleBlock) (model.Drawing, error) {
+	in := map[string]any{"model": json.RawMessage(plan), "format": format, "title_block": map[string]any{
 		"project": tb.Project, "version": tb.Version, "issued": tb.Issued, "author": tb.Author}}
 	b, err := json.Marshal(in)
 	if err != nil {
-		return entity.Drawing{}, err
+		return model.Drawing{}, err
 	}
 	resp, err := c.send(ctx, "/v1/render", "application/json", bytes.NewReader(b))
 	if err != nil {
-		return entity.Drawing{}, err
+		return model.Drawing{}, err
 	}
 	defer resp.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 50<<20))
 	if err != nil {
-		return entity.Drawing{}, fmt.Errorf("%w: %v", entity.ErrEngineUnavailable, err)
+		return model.Drawing{}, fmt.Errorf("%w: %v", model.ErrEngineUnavailable, err)
 	}
-	return entity.Drawing{Format: format, ContentType: resp.Header.Get("Content-Type"), Data: data}, nil
+	return model.Drawing{Format: format, ContentType: resp.Header.Get("Content-Type"), Data: data}, nil
 }
 
 func (c *Client) postJSON(ctx context.Context, path string, in, out any) error {
@@ -334,7 +334,7 @@ func (c *Client) do(ctx context.Context, path, contentType string, body io.Reade
 	}
 	defer resp.Body.Close()
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-		return fmt.Errorf("%w: bad engine response: %v", entity.ErrEngineUnavailable, err)
+		return fmt.Errorf("%w: bad engine response: %v", model.ErrEngineUnavailable, err)
 	}
 	return nil
 }
@@ -354,7 +354,7 @@ func (c *Client) sendWith(ctx context.Context, hc *http.Client, path, contentTyp
 	req.Header.Set("Content-Type", contentType)
 	resp, err := hc.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", entity.ErrEngineUnavailable, err)
+		return nil, fmt.Errorf("%w: %v", model.ErrEngineUnavailable, err)
 	}
 	if resp.StatusCode/100 == 2 {
 		return resp, nil
@@ -362,9 +362,9 @@ func (c *Client) sendWith(ctx context.Context, hc *http.Client, path, contentTyp
 	defer resp.Body.Close()
 	msg := errorMessage(resp.Body)
 	if resp.StatusCode/100 == 4 {
-		return nil, entity.Invalid("%s", msg)
+		return nil, model.Invalid("%s", msg)
 	}
-	return nil, fmt.Errorf("%w: engine %d: %s", entity.ErrEngineUnavailable, resp.StatusCode, msg)
+	return nil, fmt.Errorf("%w: engine %d: %s", model.ErrEngineUnavailable, resp.StatusCode, msg)
 }
 
 // errorMessage reads the engine's {"message"} or FastAPI's {"detail": [...]}.

@@ -10,8 +10,8 @@ import (
 	fga "github.com/openfga/go-sdk"
 	fgaclient "github.com/openfga/go-sdk/client"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 const (
@@ -57,7 +57,7 @@ func (c *Client) Check(ctx context.Context, userID, relation, objectType, object
 	return resp.GetAllowed(), nil
 }
 
-func (c *Client) BatchCheck(ctx context.Context, checks []entity.CheckRequest) ([]bool, error) {
+func (c *Client) BatchCheck(ctx context.Context, checks []model.CheckRequest) ([]bool, error) {
 	out := make([]bool, len(checks))
 	for start := 0; start < len(checks); start += maxBatchCheck {
 		end := min(start+maxBatchCheck, len(checks))
@@ -108,9 +108,9 @@ func (c *Client) ListObjectIDs(ctx context.Context, userID, relation, objectType
 	return ids, nil
 }
 
-func (c *Client) ReadTuples(ctx context.Context, objectType, objectID string) ([]entity.Tuple, error) {
+func (c *Client) ReadTuples(ctx context.Context, objectType, objectID string) ([]model.Tuple, error) {
 	o := obj(objectType, objectID)
-	var out []entity.Tuple
+	var out []model.Tuple
 	var token string
 	for {
 		opts := fgaclient.ClientReadOptions{}
@@ -123,7 +123,7 @@ func (c *Client) ReadTuples(ctx context.Context, objectType, objectID string) ([
 		}
 		for _, t := range resp.GetTuples() {
 			k := t.GetKey()
-			out = append(out, entity.Tuple{User: k.GetUser(), Relation: k.GetRelation(), Object: k.GetObject()})
+			out = append(out, model.Tuple{User: k.GetUser(), Relation: k.GetRelation(), Object: k.GetObject()})
 		}
 		token = resp.GetContinuationToken()
 		if token == "" {
@@ -132,7 +132,7 @@ func (c *Client) ReadTuples(ctx context.Context, objectType, objectID string) ([
 	}
 }
 
-func (c *Client) Write(ctx context.Context, writes, deletes []entity.Tuple) error {
+func (c *Client) Write(ctx context.Context, writes, deletes []model.Tuple) error {
 	if len(writes)+len(deletes) == 0 {
 		return nil
 	}

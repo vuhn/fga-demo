@@ -2,11 +2,10 @@ package http
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -29,29 +28,9 @@ func (h *ProjectHandler) Register(r Routes) {
 	g.PATCH("/projects/:id", h.rename)
 }
 
-type projectJSON struct {
-	ID        string    `json:"id"`
-	TenantID  string    `json:"tenant_id"`
-	Name      string    `json:"name"`
-	CreatedBy string    `json:"created_by,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-func projectView(p entity.Project) projectJSON {
-	return projectJSON{p.ID, p.TenantID, p.Name, p.CreatedBy, p.CreatedAt}
-}
-
-func visibleProjectView(v entity.Visible[entity.Project]) map[string]any {
-	p := v.Value
-	return map[string]any{
-		"id": p.ID, "tenant_id": p.TenantID, "name": p.Name, "created_by": p.CreatedBy, "created_at": p.CreatedAt,
-		"permissions": v.Perms,
-	}
-}
-
 func (h *ProjectHandler) list(c *gin.Context) {
 	ps, err := h.lister.List(c, actor(c), tenant(c))
-	respond(c, http.StatusOK, mapSlice(ps, visibleProjectView), err)
+	respond(c, http.StatusOK, mapSlice(ps, mapper.VisibleProjectView), err)
 }
 
 func (h *ProjectHandler) create(c *gin.Context) {
@@ -62,7 +41,7 @@ func (h *ProjectHandler) create(c *gin.Context) {
 		return
 	}
 	p, err := h.creator.Create(c, actor(c), tenant(c), body.Name)
-	respond(c, http.StatusCreated, projectView(p), err)
+	respond(c, http.StatusCreated, mapper.ProjectView(p), err)
 }
 
 func (h *ProjectHandler) get(c *gin.Context) {
@@ -70,7 +49,7 @@ func (h *ProjectHandler) get(c *gin.Context) {
 		return
 	}
 	p, err := h.getter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, visibleProjectView(p), err)
+	respond(c, http.StatusOK, mapper.VisibleProjectView(p), err)
 }
 
 func (h *ProjectHandler) rename(c *gin.Context) {
@@ -81,5 +60,5 @@ func (h *ProjectHandler) rename(c *gin.Context) {
 		return
 	}
 	p, err := h.renamer.Rename(c, actor(c), tenant(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, projectView(p), err)
+	respond(c, http.StatusOK, mapper.ProjectView(p), err)
 }

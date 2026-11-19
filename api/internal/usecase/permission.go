@@ -3,15 +3,15 @@ package usecase
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 // MyPermissions is the caller's platform permissions and, when a tenant is
 // given, their permissions on that tenant.
 type MyPermissions struct {
-	Platform entity.Perms
+	Platform model.Perms
 	TenantID string
-	Tenant   entity.Perms // nil when no tenant was requested
+	Tenant   model.Perms // nil when no tenant was requested
 }
 
 // PermissionReader answers "what may I do here" for the caller only.

@@ -8,14 +8,14 @@ description: Implement or change Go API code in api/ (Gin, pgx, OpenFGA, goose) 
 Source of truth: `api/ARCHITECTURE.md` (layers, lifecycle, consistency) and CLAUDE.md "Architecture rules" + "Authorization invariants". Read them when unsure; this skill is the working checklist.
 
 ## Layers (dependencies point inward)
-`domain/entity` (stdlib only) and `domain/gateway` (interfaces) -> `usecase` (one interface per operation, e.g. `FolderCreator`) + `usecase/helper` -> `service` (one file per operation, `folder_creator.go`) -> `infrastructure/{postgres,fga,blueprintengine,auth,idgen,config}` implements gateways -> `handler/http`.
+`domain/model` (stdlib only) and `domain/gateway` (interfaces) -> `usecase` (one interface per operation, e.g. `FolderCreator`) + `usecase/helper` -> `service` (one file per operation, `folder_creator.go`) -> `infrastructure/{postgres,fga,blueprintengine,auth,idgen,config}` implements gateways -> `handler/http`.
 `domain`, `usecase`, `service` never import Gin, pgx, or the OpenFGA SDK (`scripts/check-architecture.sh` enforces).
 
 ## Adding an operation: touch exactly these
 1. Spec first: `docs/decision-catalog.md` (the Check), `docs/http-api.md` (route), plus `tuple-catalog`/`authorization-model` if tuples or model change.
-2. `domain/entity` types/errors; `domain/gateway` method if new data access.
+2. `domain/model` types/errors; `domain/gateway` method if new data access.
 3. `usecase/<domain>_<op>.go`: one interface.
-4. `service/<domain>_<op>.go`: validate -> authorize via `usecase.Authorizer` (`Require` 403, `RequireVisible` 404, `PlatformOr`, `Permissions`) -> gateways -> `helper.WriteGuard` for stores. No tuple strings here; pass `entity.Tuple`.
+4. `service/<domain>_<op>.go`: validate -> authorize via `usecase.Authorizer` (`Require` 403, `RequireVisible` 404, `PlatformOr`, `Permissions`) -> gateways -> `helper.WriteGuard` for stores. No tuple strings here; pass `model.Tuple`.
 5. `infrastructure/postgres/<domain>_repo.go` (literal table names) and `infrastructure/fga/<domain>_relations.go` (pure `*Relations` builders, unit-tested); migration via `db-design` if schema changes.
 6. `handler/http/<domain>_handler.go`: decode, read actor (JWT `sub`) and tenant (`X-Tenant-ID`), call ONE usecase method, map errors with `writeErr`; register in the handler's own `Register(Routes)`.
 7. `cmd/api/wire.go`: the only place that builds the graph; constructors take interfaces.

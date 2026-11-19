@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -26,7 +26,7 @@ func NewWriteGuard(authz gateway.AuthzGateway, log *slog.Logger) helper.WriteGua
 
 // Grant persists access: Postgres has already committed; now write tuples.
 // When OpenFGA fails, undo the Postgres rows and report tuple_write_failed.
-func (w *writeGuard) Grant(ctx context.Context, writes, deletes []entity.Tuple, undo func(context.Context) error) error {
+func (w *writeGuard) Grant(ctx context.Context, writes, deletes []model.Tuple, undo func(context.Context) error) error {
 	err := w.authz.Write(ctx, writes, deletes)
 	if err == nil {
 		return nil
@@ -35,14 +35,14 @@ func (w *writeGuard) Grant(ctx context.Context, writes, deletes []entity.Tuple, 
 	if cerr := undo(context.WithoutCancel(ctx)); cerr != nil {
 		w.log.Error("compensation failed; postgres and openfga may have drifted (fail-closed)", "err", cerr, "tuple_err", err)
 	}
-	return fmt.Errorf("%w: %v", entity.ErrTupleWriteFailed, err)
+	return fmt.Errorf("%w: %v", model.ErrTupleWriteFailed, err)
 }
 
 // Revoke removes access: delete tuples first, then Postgres rows. When
 // Postgres fails, restore exactly the tuples that existed before.
-func (w *writeGuard) Revoke(ctx context.Context, deletes, restore []entity.Tuple, persist func(context.Context) error) error {
+func (w *writeGuard) Revoke(ctx context.Context, deletes, restore []model.Tuple, persist func(context.Context) error) error {
 	if err := w.authz.Write(ctx, nil, deletes); err != nil {
-		return fmt.Errorf("%w: %v", entity.ErrTupleWriteFailed, err)
+		return fmt.Errorf("%w: %v", model.ErrTupleWriteFailed, err)
 	}
 	err := persist(ctx)
 	if err == nil {
@@ -52,7 +52,7 @@ func (w *writeGuard) Revoke(ctx context.Context, deletes, restore []entity.Tuple
 	if cerr := w.authz.Write(context.WithoutCancel(ctx), restore, nil); cerr != nil {
 		w.log.Error("tuple restore failed; display rows remain without tuples (fail-closed)", "err", cerr, "pg_err", err)
 	}
-	if errors.Is(err, entity.ErrNotFound) || errors.Is(err, entity.ErrConflict) {
+	if errors.Is(err, model.ErrNotFound) || errors.Is(err, model.ErrConflict) {
 		return err
 	}
 	return fmt.Errorf("revoke: %w", err)
@@ -77,47 +77,47 @@ func NewSharePolicy(authz usecase.Authorizer) helper.SharePolicy {
 	return &sharePolicy{authz: authz}
 }
 
-func (sharePolicy) NewGrant(tenantID, objectType, objectID string, in entity.ShareInput) (entity.Grant, error) {
+func (sharePolicy) NewGrant(tenantID, objectType, objectID string, in model.ShareInput) (model.Grant, error) {
 	switch in.Relation {
-	case entity.RelViewer, entity.RelEditor:
-	case entity.RelOwner:
-		return entity.Grant{}, entity.Invalid("owner cannot be granted or revoked")
+	case model.RelViewer, model.RelEditor:
+	case model.RelOwner:
+		return model.Grant{}, model.Invalid("owner cannot be granted or revoked")
 	default:
-		return entity.Grant{}, entity.Invalid("relation must be viewer or editor")
+		return model.Grant{}, model.Invalid("relation must be viewer or editor")
 	}
-	g := entity.Grant{TenantID: tenantID, ObjectType: objectType, ObjectID: objectID, Relation: in.Relation, SubjectType: in.Subject}
-	if in.Subject == entity.SubjectUser {
-		if err := entity.RequireUUID("user_id", in.UserID); err != nil {
-			return entity.Grant{}, err
+	g := model.Grant{TenantID: tenantID, ObjectType: objectType, ObjectID: objectID, Relation: in.Relation, SubjectType: in.Subject}
+	if in.Subject == model.SubjectUser {
+		if err := model.RequireUUID("user_id", in.UserID); err != nil {
+			return model.Grant{}, err
 		}
 		uid := in.UserID
 		g.UserID = &uid
 	} else if in.UserID != "" {
-		return entity.Grant{}, entity.Invalid("user_id is only allowed with subject user")
+		return model.Grant{}, model.Invalid("user_id is only allowed with subject user")
 	}
 	return g, nil
 }
 
-func (p *sharePolicy) CheckGrantee(ctx context.Context, tenantID string, g entity.Grant) error {
+func (p *sharePolicy) CheckGrantee(ctx context.Context, tenantID string, g model.Grant) error {
 	if g.UserID == nil {
 		return nil
 	}
-	ok, err := p.authz.Check(ctx, *g.UserID, "can_read_tenant", entity.ObjectTypeTenant, tenantID)
+	ok, err := p.authz.Check(ctx, *g.UserID, "can_read_tenant", model.ObjectTypeTenant, tenantID)
 	if err != nil {
 		return err
 	}
 	if !ok {
-		return entity.ErrNotAMember
+		return model.ErrNotAMember
 	}
-	if g.Relation != entity.RelEditor {
+	if g.Relation != model.RelEditor {
 		return nil
 	}
-	ok, err = p.authz.Check(ctx, *g.UserID, "can_contribute", entity.ObjectTypeTenant, tenantID)
+	ok, err = p.authz.Check(ctx, *g.UserID, "can_contribute", model.ObjectTypeTenant, tenantID)
 	if err != nil {
 		return err
 	}
 	if !ok {
-		return entity.ErrCannotUpload
+		return model.ErrCannotUpload
 	}
 	return nil
 }
@@ -126,8 +126,8 @@ func (p *sharePolicy) CheckGrantee(ctx context.Context, tenantID string, g entit
 
 // withPerms pairs each object with the actor's permissions on it, so the UI
 // needs no extra Check round trips.
-func withPerms[T any](ctx context.Context, authz usecase.Authorizer, actor, objectType string, xs []T, id func(T) string) ([]entity.Visible[T], error) {
-	out := make([]entity.Visible[T], 0, len(xs))
+func withPerms[T any](ctx context.Context, authz usecase.Authorizer, actor, objectType string, xs []T, id func(T) string) ([]model.Visible[T], error) {
+	out := make([]model.Visible[T], 0, len(xs))
 	if len(xs) == 0 {
 		return out, nil
 	}
@@ -140,7 +140,7 @@ func withPerms[T any](ctx context.Context, authz usecase.Authorizer, actor, obje
 		return nil, err
 	}
 	for _, x := range xs {
-		out = append(out, entity.Visible[T]{Value: x, Perms: perms[id(x)]})
+		out = append(out, model.Visible[T]{Value: x, Perms: perms[id(x)]})
 	}
 	return out, nil
 }

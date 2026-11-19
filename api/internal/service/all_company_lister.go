@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -18,7 +18,7 @@ func NewAllCompanyLister(companies gateway.CompanyGateway, authz usecase.Authori
 }
 
 // ListAll is platform only: it spans tenants.
-func (s *allCompanyLister) ListAll(ctx context.Context, actor string) ([]entity.Company, error) {
+func (s *allCompanyLister) ListAll(ctx context.Context, actor string) ([]model.Company, error) {
 	if err := s.authz.RequirePlatform(ctx, actor); err != nil {
 		return nil, err
 	}

@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -48,7 +48,7 @@ func (s *blueprintReviewer) Review(ctx context.Context, actor, tenantID, id stri
 		if len(out.Notes) > 0 {
 			msg = "no fix found: " + strings.Join(out.Notes, "; ")
 		}
-		return usecase.BlueprintDetail{}, entity.Invalid("%s", msg)
+		return usecase.BlueprintDetail{}, model.Invalid("%s", msg)
 	}
-	return appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(id, entity.BlueprintVersionReview, "", actor, out), baseVersion)
+	return appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(id, model.BlueprintVersionReview, "", actor, out), baseVersion)
 }

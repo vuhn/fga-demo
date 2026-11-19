@@ -7,13 +7,13 @@ import os
 import signal
 
 from .handler.grpc.server import build_server
-from .wire import build_engine
+from .wire import build_servicer
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     addr = os.environ.get("GRPC_ADDR", "0.0.0.0:8092")
-    server = build_server(build_engine(), workers=int(os.environ.get("GRPC_WORKERS", "8")))
+    server = build_server(build_servicer(), workers=int(os.environ.get("GRPC_WORKERS", "8")))
     if server.add_insecure_port(addr) == 0:
         raise SystemExit(f"cannot listen on {addr}")
     server.start()

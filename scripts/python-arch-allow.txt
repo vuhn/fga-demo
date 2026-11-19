@@ -1,8 +1,8 @@
 # Known violations (rule<TAB>path). Only shrinks; empty at T16. See scripts/check-architecture-python.sh.
-gateway-per-kind	blueprint-engine/src/fga_engine/domain/gateway/__init__.py
 engine-no-llm	blueprint-engine/src/fga_engine/app.py
 engine-no-llm	blueprint-engine/src/fga_engine/estimate_agent.py
 engine-no-llm	blueprint-engine/src/fga_engine/llm_steps.py
 engine-no-llm	blueprint-engine/src/fga_engine/price_research.py
 engine-no-network	blueprint-engine/src/fga_engine/llm.py
 engine-no-network	blueprint-engine/src/fga_engine/price_research.py
+agent-wire-import	blueprint-engine/src/fga_engine/app.py

@@ -6,8 +6,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type MembershipRepo struct{ pool *pgxpool.Pool }
@@ -25,15 +25,15 @@ const memberCols = `m.tenant_id, m.user_id, ` + affiliationExpr + `,
 const memberFrom = `tenant_members m JOIN users u ON u.id = m.user_id JOIN companies c ON c.id = u.company_id
 	LEFT JOIN tenant_roles cr ON cr.id = m.tenant_role_id`
 
-func (r *MembershipRepo) query(ctx context.Context, q string, args ...any) ([]entity.Membership, error) {
+func (r *MembershipRepo) query(ctx context.Context, q string, args ...any) ([]model.Membership, error) {
 	rows, err := r.pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, mapErr(err)
 	}
 	defer rows.Close()
-	out := []entity.Membership{}
+	out := []model.Membership{}
 	for rows.Next() {
-		var m entity.Membership
+		var m model.Membership
 		if err := rows.Scan(&m.TenantID, &m.UserID, &m.Affiliation, &m.Role, &m.RoleName, &m.CustomRoleID, &m.Email, &m.Name, &m.CompanyID, &m.CompanyName); err != nil {
 			return nil, err
 		}
@@ -42,27 +42,27 @@ func (r *MembershipRepo) query(ctx context.Context, q string, args ...any) ([]en
 	return out, rows.Err()
 }
 
-func (r *MembershipRepo) Get(ctx context.Context, tenantID, userID string) (entity.Membership, error) {
+func (r *MembershipRepo) Get(ctx context.Context, tenantID, userID string) (model.Membership, error) {
 	ms, err := r.query(ctx, `SELECT `+memberCols+` FROM `+memberFrom+` WHERE m.tenant_id = $1 AND m.user_id = $2`, tenantID, userID)
 	if err != nil {
-		return entity.Membership{}, err
+		return model.Membership{}, err
 	}
 	if len(ms) == 0 {
-		return entity.Membership{}, entity.ErrNotFound
+		return model.Membership{}, model.ErrNotFound
 	}
 	return ms[0], nil
 }
 
-func (r *MembershipRepo) List(ctx context.Context, tenantID, affiliation string) ([]entity.Membership, error) {
+func (r *MembershipRepo) List(ctx context.Context, tenantID, affiliation string) ([]model.Membership, error) {
 	return r.query(ctx, `SELECT `+memberCols+` FROM `+memberFrom+`
 		WHERE m.tenant_id = $1 AND ($2 = '' OR `+affiliationExpr+` = $2) ORDER BY `+affiliationExpr+`, u.name`, tenantID, affiliation)
 }
 
-func (r *MembershipRepo) ListForUser(ctx context.Context, userID string) ([]entity.Membership, error) {
+func (r *MembershipRepo) ListForUser(ctx context.Context, userID string) ([]model.Membership, error) {
 	return r.query(ctx, `SELECT `+memberCols+` FROM `+memberFrom+` WHERE m.user_id = $1`, userID)
 }
 
-func (r *MembershipRepo) Insert(ctx context.Context, m entity.Membership) error {
+func (r *MembershipRepo) Insert(ctx context.Context, m model.Membership) error {
 	_, err := r.pool.Exec(ctx, `INSERT INTO tenant_members (tenant_id, user_id, role, tenant_role_id)
 		VALUES ($1, $2, $3, NULLIF($4, '')::uuid)`,
 		m.TenantID, m.UserID, m.Role, m.CustomRoleID)
@@ -75,7 +75,7 @@ func (r *MembershipRepo) UpdateRole(ctx context.Context, tenantID, userID, role,
 		return mapErr(err)
 	}
 	if tag.RowsAffected() == 0 {
-		return entity.ErrNotFound
+		return model.ErrNotFound
 	}
 	return nil
 }
@@ -86,7 +86,7 @@ func (r *MembershipRepo) CountInternalAdmins(ctx context.Context, tenantID strin
 	return n, mapErr(err)
 }
 
-func (r *MembershipRepo) ListUserGrants(ctx context.Context, tenantID, userID string) ([]entity.Grant, error) {
+func (r *MembershipRepo) ListUserGrants(ctx context.Context, tenantID, userID string) ([]model.Grant, error) {
 	return queryGrants(ctx, r.pool, `g.tenant_id = $1 AND g.user_id = $2`, tenantID, userID)
 }
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -26,7 +26,7 @@ func (s *folderDeleter) Delete(ctx context.Context, actor, tenantID, id string) 
 	if _, err := loadFolder(ctx, s.folders, tenantID, id); err != nil {
 		return err
 	}
-	if err := s.authz.Require(ctx, actor, "can_delete", entity.ObjectTypeFolder, id); err != nil {
+	if err := s.authz.Require(ctx, actor, "can_delete", model.ObjectTypeFolder, id); err != nil {
 		return err
 	}
 	has, err := s.folders.HasChildren(ctx, id)
@@ -34,9 +34,9 @@ func (s *folderDeleter) Delete(ctx context.Context, actor, tenantID, id string) 
 		return err
 	}
 	if has {
-		return fmt.Errorf("%w: folder still has children", entity.ErrConflict)
+		return fmt.Errorf("%w: folder still has children", model.ErrConflict)
 	}
-	return s.guard.RevokeObject(ctx, entity.ObjectTypeFolder, id, func(ctx context.Context) error {
+	return s.guard.RevokeObject(ctx, model.ObjectTypeFolder, id, func(ctx context.Context) error {
 		return s.folders.Delete(ctx, id)
 	})
 }

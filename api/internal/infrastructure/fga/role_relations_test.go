@@ -5,15 +5,15 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 func TestRoleCreated(t *testing.T) {
-	got, err := RoleRelations{}.Created(tT, "c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", entity.AffiliationInternal)
+	got, err := RoleRelations{}.Created(tT, "c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", model.AffiliationInternal)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []entity.Tuple{
+	want := []model.Tuple{
 		{User: "tenant:" + tT, Relation: "tenant", Object: "tenant_role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"},
 		{User: "tenant_role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", Relation: "internal_role", Object: "tenant:" + tT},
 	}
@@ -23,24 +23,24 @@ func TestRoleCreated(t *testing.T) {
 }
 
 func TestRolePermissions(t *testing.T) {
-	got, err := RoleRelations{}.Permissions(tT, "c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", []string{entity.PermView, entity.PermManageMembers})
+	got, err := RoleRelations{}.Permissions(tT, "c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", []string{model.PermView, model.PermManageMembers})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []entity.Tuple{
+	want := []model.Tuple{
 		{User: "tenant_role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#assignee", Relation: "grant_view", Object: "tenant:" + tT},
 		{User: "tenant_role:c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa#assignee", Relation: "grant_manage_members", Object: "tenant:" + tT},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("permissions = %v", got)
 	}
-	if _, err := (RoleRelations{}).Permissions(tT, "c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", []string{"owner"}); !errors.Is(err, entity.ErrValidation) {
+	if _, err := (RoleRelations{}).Permissions(tT, "c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", []string{"owner"}); !errors.Is(err, model.ErrValidation) {
 		t.Fatalf("err = %v", err)
 	}
 }
 
 func TestRoleRemoval(t *testing.T) {
-	got, err := RoleRelations{}.Removal(tT, "c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", entity.AffiliationExternal, []string{entity.PermView}, []string{tU})
+	got, err := RoleRelations{}.Removal(tT, "c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", model.AffiliationExternal, []string{model.PermView}, []string{tU})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,28 +54,28 @@ func TestRoleRemoval(t *testing.T) {
 }
 
 func TestNormalizePermissions(t *testing.T) {
-	got, err := entity.NormalizePermissions([]string{entity.PermEdit, entity.PermView, entity.PermEdit})
+	got, err := model.NormalizePermissions([]string{model.PermEdit, model.PermView, model.PermEdit})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{entity.PermView, entity.PermEdit}
+	want := []string{model.PermView, model.PermEdit}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("normalized = %v", got)
 	}
-	if _, err := entity.NormalizePermissions([]string{"internal_admin"}); !errors.Is(err, entity.ErrValidation) {
+	if _, err := model.NormalizePermissions([]string{"internal_admin"}); !errors.Is(err, model.ErrValidation) {
 		t.Fatalf("err = %v", err)
 	}
-	empty, err := entity.NormalizePermissions(nil)
+	empty, err := model.NormalizePermissions(nil)
 	if err != nil || len(empty) != 0 {
 		t.Fatalf("empty = %v %v", empty, err)
 	}
 }
 
 func TestCleanRoleName(t *testing.T) {
-	if _, err := entity.CleanRoleName("internal_admin"); !errors.Is(err, entity.ErrValidation) {
+	if _, err := model.CleanRoleName("internal_admin"); !errors.Is(err, model.ErrValidation) {
 		t.Fatalf("reserved err = %v", err)
 	}
-	got, err := entity.CleanRoleName("  Auditor  ")
+	got, err := model.CleanRoleName("  Auditor  ")
 	if err != nil || got != "Auditor" {
 		t.Fatalf("name = %q %v", got, err)
 	}

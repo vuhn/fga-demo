@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -18,7 +18,7 @@ func NewFolderGrantLister(folders gateway.FolderGateway, grants gateway.FolderGr
 	return &folderGrantLister{folders: folders, grants: grants, authz: authz}
 }
 
-func (s *folderGrantLister) ListGrants(ctx context.Context, actor, tenantID, id string) ([]entity.Grant, error) {
+func (s *folderGrantLister) ListGrants(ctx context.Context, actor, tenantID, id string) ([]model.Grant, error) {
 	if err := requireFolderShare(ctx, s.folders, s.authz, actor, tenantID, id); err != nil {
 		return nil, err
 	}

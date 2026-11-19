@@ -4,22 +4,22 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
 // loadAlbum returns the album when it exists in the header tenant.
-func loadAlbum(ctx context.Context, albums gateway.AlbumGateway, tenantID, id string) (entity.Album, error) {
-	if err := entity.RequireUUID("id", id); err != nil {
-		return entity.Album{}, err
+func loadAlbum(ctx context.Context, albums gateway.AlbumGateway, tenantID, id string) (model.Album, error) {
+	if err := model.RequireUUID("id", id); err != nil {
+		return model.Album{}, err
 	}
 	a, err := albums.Get(ctx, id)
 	if err != nil {
-		return entity.Album{}, err
+		return model.Album{}, err
 	}
 	if a.TenantID != tenantID {
-		return entity.Album{}, entity.ErrNotFound
+		return model.Album{}, model.ErrNotFound
 	}
 	return a, nil
 }
@@ -31,10 +31,10 @@ func checkAlbumDepth(ctx context.Context, albums gateway.AlbumGateway, tenantID,
 	id := &parentID
 	for depth := 1; id != nil; depth++ {
 		if depth > maxDepth {
-			return fmt.Errorf("%w: album depth exceeds %d", entity.ErrConflict, maxDepth)
+			return fmt.Errorf("%w: album depth exceeds %d", model.ErrConflict, maxDepth)
 		}
 		if seen[*id] {
-			return fmt.Errorf("%w: album cycle", entity.ErrConflict)
+			return fmt.Errorf("%w: album cycle", model.ErrConflict)
 		}
 		seen[*id] = true
 		a, err := albums.Get(ctx, *id)
@@ -42,7 +42,7 @@ func checkAlbumDepth(ctx context.Context, albums gateway.AlbumGateway, tenantID,
 			return err
 		}
 		if a.TenantID != tenantID {
-			return entity.ErrNotFound
+			return model.ErrNotFound
 		}
 		id = a.ParentID
 	}
@@ -54,7 +54,7 @@ func requireAlbumShare(ctx context.Context, albums gateway.AlbumGateway, authz u
 	if _, err := loadAlbum(ctx, albums, tenantID, id); err != nil {
 		return err
 	}
-	return authz.Require(ctx, actor, "can_share", entity.ObjectTypeAlbum, id)
+	return authz.Require(ctx, actor, "can_share", model.ObjectTypeAlbum, id)
 }
 
-func albumID(a entity.Album) string { return a.ID }
+func albumID(a model.Album) string { return a.ID }

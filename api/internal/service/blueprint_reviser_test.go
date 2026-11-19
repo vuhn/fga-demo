@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -17,19 +17,19 @@ const bpID = "11111111-1111-1111-1111-111111111111"
 type fakeBlueprints struct {
 	gateway.BlueprintGateway
 	brief    string
-	appended []entity.BlueprintVersion
+	appended []model.BlueprintVersion
 }
 
-func (f *fakeBlueprints) Get(context.Context, string) (entity.Blueprint, error) {
-	return entity.Blueprint{ID: bpID, TenantID: "t", CurrentVersion: 1}, nil
+func (f *fakeBlueprints) Get(context.Context, string) (model.Blueprint, error) {
+	return model.Blueprint{ID: bpID, TenantID: "t", CurrentVersion: 1}, nil
 }
-func (f *fakeBlueprints) GetVersion(context.Context, string, int) (entity.BlueprintVersion, error) {
-	return entity.BlueprintVersion{BlueprintID: bpID, Version: 1, Brief: json.RawMessage(f.brief), Model: json.RawMessage(`{"a":1}`)}, nil
+func (f *fakeBlueprints) GetVersion(context.Context, string, int) (model.BlueprintVersion, error) {
+	return model.BlueprintVersion{BlueprintID: bpID, Version: 1, Brief: json.RawMessage(f.brief), Model: json.RawMessage(`{"a":1}`)}, nil
 }
-func (f *fakeBlueprints) ListVersions(context.Context, string) ([]entity.BlueprintVersion, error) {
+func (f *fakeBlueprints) ListVersions(context.Context, string) ([]model.BlueprintVersion, error) {
 	return nil, nil
 }
-func (f *fakeBlueprints) AppendVersion(_ context.Context, v entity.BlueprintVersion, _ int) error {
+func (f *fakeBlueprints) AppendVersion(_ context.Context, v model.BlueprintVersion, _ int) error {
 	f.appended = append(f.appended, v)
 	return nil
 }
@@ -42,8 +42,8 @@ type fakeEngine struct {
 	noModel bool // CreatePlan: the brief cannot be built
 }
 
-func (e *fakeEngine) out() (entity.BlueprintOutcome, error) {
-	return entity.BlueprintOutcome{Brief: json.RawMessage(`{"must":"be ignored"}`), Model: json.RawMessage(`{"b":2}`), OK: true}, e.err
+func (e *fakeEngine) out() (model.BlueprintOutcome, error) {
+	return model.BlueprintOutcome{Brief: json.RawMessage(`{"must":"be ignored"}`), Model: json.RawMessage(`{"b":2}`), OK: true}, e.err
 }
 
 // fakeAgent implements gateway.BlueprintAgent (the LLM operations).
@@ -53,14 +53,14 @@ type fakeAgent struct {
 	err   error
 }
 
-func (e *fakeAgent) out() (entity.BlueprintOutcome, error) {
-	return entity.BlueprintOutcome{Brief: json.RawMessage(`{"must":"be ignored"}`), Model: json.RawMessage(`{"b":2}`), OK: true}, e.err
+func (e *fakeAgent) out() (model.BlueprintOutcome, error) {
+	return model.BlueprintOutcome{Brief: json.RawMessage(`{"must":"be ignored"}`), Model: json.RawMessage(`{"b":2}`), OK: true}, e.err
 }
-func (e *fakeAgent) Revise(context.Context, []byte, []byte, string, []string) (entity.BlueprintOutcome, error) {
+func (e *fakeAgent) Revise(context.Context, []byte, []byte, string, []string) (model.BlueprintOutcome, error) {
 	e.calls = append(e.calls, "Revise")
 	return e.out()
 }
-func (e *fakeAgent) RevisePlan(context.Context, []byte, string, []string) (entity.BlueprintOutcome, error) {
+func (e *fakeAgent) RevisePlan(context.Context, []byte, string, []string) (model.BlueprintOutcome, error) {
 	e.calls = append(e.calls, "RevisePlan")
 	return e.out()
 }
@@ -72,7 +72,7 @@ type fakeAuthz struct {
 
 func (a *fakeAuthz) Require(context.Context, string, string, string, string) error {
 	if a.deny {
-		return entity.ErrForbidden
+		return model.ErrForbidden
 	}
 	return nil
 }
@@ -100,7 +100,7 @@ func TestReviseOnBriefPlanStillUsesBrief(t *testing.T) {
 }
 
 func TestReviseImportedWritesNothingOnEngineError(t *testing.T) {
-	bp, eng := &fakeBlueprints{brief: "null"}, &fakeAgent{err: entity.Invalid("not supported")}
+	bp, eng := &fakeBlueprints{brief: "null"}, &fakeAgent{err: model.Invalid("not supported")}
 	if _, err := NewBlueprintReviser(bp, eng, &fakeAuthz{}).Revise(context.Background(), "u", "t", bpID, "move wall", 1); err == nil {
 		t.Fatal("want error")
 	}
@@ -112,10 +112,10 @@ func TestReviseImportedWritesNothingOnEngineError(t *testing.T) {
 func TestReviseDeniedOrStaleNeverReachesTheEngine(t *testing.T) {
 	bp, eng := &fakeBlueprints{brief: "null"}, &fakeAgent{}
 	s := NewBlueprintReviser(bp, eng, &fakeAuthz{deny: true})
-	if _, err := s.Revise(context.Background(), "u", "t", bpID, "x", 1); !errors.Is(err, entity.ErrForbidden) {
+	if _, err := s.Revise(context.Background(), "u", "t", bpID, "x", 1); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("want forbidden, got %v", err)
 	}
-	if _, err := NewBlueprintReviser(bp, eng, &fakeAuthz{}).Revise(context.Background(), "u", "t", bpID, "x", 7); !errors.Is(err, entity.ErrConflict) {
+	if _, err := NewBlueprintReviser(bp, eng, &fakeAuthz{}).Revise(context.Background(), "u", "t", bpID, "x", 7); !errors.Is(err, model.ErrConflict) {
 		t.Fatalf("want conflict, got %v", err)
 	}
 	if len(eng.calls) != 0 {

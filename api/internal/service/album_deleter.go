@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -26,7 +26,7 @@ func (s *albumDeleter) Delete(ctx context.Context, actor, tenantID, id string) e
 	if _, err := loadAlbum(ctx, s.albums, tenantID, id); err != nil {
 		return err
 	}
-	if err := s.authz.Require(ctx, actor, "can_delete", entity.ObjectTypeAlbum, id); err != nil {
+	if err := s.authz.Require(ctx, actor, "can_delete", model.ObjectTypeAlbum, id); err != nil {
 		return err
 	}
 	has, err := s.albums.HasChildren(ctx, id)
@@ -34,9 +34,9 @@ func (s *albumDeleter) Delete(ctx context.Context, actor, tenantID, id string) e
 		return err
 	}
 	if has {
-		return fmt.Errorf("%w: album still has children", entity.ErrConflict)
+		return fmt.Errorf("%w: album still has children", model.ErrConflict)
 	}
-	return s.guard.RevokeObject(ctx, entity.ObjectTypeAlbum, id, func(ctx context.Context) error {
+	return s.guard.RevokeObject(ctx, model.ObjectTypeAlbum, id, func(ctx context.Context) error {
 		return s.albums.Delete(ctx, id)
 	})
 }

@@ -6,8 +6,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type ProductRepo struct{ pool *pgxpool.Pool }
@@ -16,19 +16,19 @@ var _ gateway.ProductGateway = (*ProductRepo)(nil)
 
 func NewProductRepo(pool *pgxpool.Pool) *ProductRepo { return &ProductRepo{pool: pool} }
 
-func (r *ProductRepo) List(ctx context.Context, tenantID string) ([]entity.Product, error) {
+func (r *ProductRepo) List(ctx context.Context, tenantID string) ([]model.Product, error) {
 	return listProducts(ctx, r.pool, tenantID)
 }
 
-func listProducts(ctx context.Context, pool *pgxpool.Pool, tenantID string) ([]entity.Product, error) {
+func listProducts(ctx context.Context, pool *pgxpool.Pool, tenantID string) ([]model.Product, error) {
 	rows, err := pool.Query(ctx, `SELECT product, enabled, updated_at FROM tenant_products WHERE tenant_id = $1 ORDER BY product`, tenantID)
 	if err != nil {
 		return nil, mapErr(err)
 	}
 	defer rows.Close()
-	out := []entity.Product{}
+	out := []model.Product{}
 	for rows.Next() {
-		var p entity.Product
+		var p model.Product
 		if err := rows.Scan(&p.Name, &p.Enabled, &p.UpdatedAt); err != nil {
 			return nil, err
 		}

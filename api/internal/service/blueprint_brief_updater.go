@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -40,5 +40,5 @@ func (s *blueprintBriefUpdater) UpdateBrief(ctx context.Context, actor, tenantID
 	if err := requireBuilt(out); err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
-	return appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(id, entity.BlueprintVersionEdit, "edited the brief", actor, out), baseVersion)
+	return appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(id, model.BlueprintVersionEdit, "edited the brief", actor, out), baseVersion)
 }

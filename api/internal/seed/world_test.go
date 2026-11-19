@@ -3,7 +3,7 @@ package seed
 import (
 	"testing"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 // The seeded membership labels must equal what the derivation gives, so the
@@ -13,7 +13,7 @@ func TestSeedAffiliationMatchesCompany(t *testing.T) {
 		if got := AffiliationIn(m.TenantID, m.UserID); got != m.Affiliation {
 			t.Errorf("tenant %s user %s: seed says %s, company says %s", m.TenantID, m.UserID, m.Affiliation, got)
 		}
-		if err := entity.CheckAffiliationRole(m.Affiliation, m.Role); err != nil {
+		if err := model.CheckAffiliationRole(m.Affiliation, m.Role); err != nil {
 			t.Errorf("tenant %s user %s: %v", m.TenantID, m.UserID, err)
 		}
 	}

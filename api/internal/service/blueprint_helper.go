@@ -7,22 +7,22 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
 // loadBlueprint returns the blueprint when it exists in the header tenant.
-func loadBlueprint(ctx context.Context, blueprints gateway.BlueprintGateway, tenantID, id string) (entity.Blueprint, error) {
-	if err := entity.RequireUUID("id", id); err != nil {
-		return entity.Blueprint{}, err
+func loadBlueprint(ctx context.Context, blueprints gateway.BlueprintGateway, tenantID, id string) (model.Blueprint, error) {
+	if err := model.RequireUUID("id", id); err != nil {
+		return model.Blueprint{}, err
 	}
 	b, err := blueprints.Get(ctx, id)
 	if err != nil {
-		return entity.Blueprint{}, err
+		return model.Blueprint{}, err
 	}
 	if b.TenantID != tenantID {
-		return entity.Blueprint{}, entity.ErrNotFound
+		return model.Blueprint{}, model.ErrNotFound
 	}
 	return b, nil
 }
@@ -32,7 +32,7 @@ func requireBlueprintShare(ctx context.Context, blueprints gateway.BlueprintGate
 	if _, err := loadBlueprint(ctx, blueprints, tenantID, id); err != nil {
 		return err
 	}
-	return authz.Require(ctx, actor, "can_share", entity.ObjectTypeBlueprint, id)
+	return authz.Require(ctx, actor, "can_share", model.ObjectTypeBlueprint, id)
 }
 
 // requireBlueprintCreate loads the project in the tenant and requires
@@ -41,65 +41,65 @@ func requireBlueprintCreate(ctx context.Context, projects gateway.ProjectGateway
 	if _, err := loadProject(ctx, projects, tenantID, projectID); err != nil {
 		return err
 	}
-	return authz.Require(ctx, actor, "can_create_blueprint", entity.ObjectTypeProject, projectID)
+	return authz.Require(ctx, actor, "can_create_blueprint", model.ObjectTypeProject, projectID)
 }
 
 // loadBlueprintForEdit loads the blueprint, requires can_edit, and returns
 // its current version when that is still baseVersion (409 otherwise). The
 // engine is called only after this, so a denied or stale request never
 // reaches the LLM.
-func loadBlueprintForEdit(ctx context.Context, blueprints gateway.BlueprintGateway, authz usecase.Authorizer, actor, tenantID, id string, baseVersion int) (entity.Blueprint, entity.BlueprintVersion, error) {
+func loadBlueprintForEdit(ctx context.Context, blueprints gateway.BlueprintGateway, authz usecase.Authorizer, actor, tenantID, id string, baseVersion int) (model.Blueprint, model.BlueprintVersion, error) {
 	b, err := loadBlueprint(ctx, blueprints, tenantID, id)
 	if err != nil {
-		return entity.Blueprint{}, entity.BlueprintVersion{}, err
+		return model.Blueprint{}, model.BlueprintVersion{}, err
 	}
-	if err := authz.Require(ctx, actor, "can_edit", entity.ObjectTypeBlueprint, id); err != nil {
-		return entity.Blueprint{}, entity.BlueprintVersion{}, err
+	if err := authz.Require(ctx, actor, "can_edit", model.ObjectTypeBlueprint, id); err != nil {
+		return model.Blueprint{}, model.BlueprintVersion{}, err
 	}
 	if baseVersion < 1 {
-		return entity.Blueprint{}, entity.BlueprintVersion{}, entity.Invalid("base_version must be >= 1")
+		return model.Blueprint{}, model.BlueprintVersion{}, model.Invalid("base_version must be >= 1")
 	}
 	if baseVersion != b.CurrentVersion {
-		return entity.Blueprint{}, entity.BlueprintVersion{}, staleVersion(b)
+		return model.Blueprint{}, model.BlueprintVersion{}, staleVersion(b)
 	}
 	v, err := blueprints.GetVersion(ctx, id, b.CurrentVersion)
 	return b, v, err
 }
 
 // isImported reports whether a version came from a CAD file (no brief).
-func isImported(v entity.BlueprintVersion) bool { return requireBrief(v) != nil }
+func isImported(v model.BlueprintVersion) bool { return requireBrief(v) != nil }
 
 // planOutcomeVersion is outcomeVersion for an imported plan: the brief stays null.
-func planOutcomeVersion(blueprintID, kind, message, actor string, o entity.BlueprintOutcome) entity.BlueprintVersion {
+func planOutcomeVersion(blueprintID, kind, message, actor string, o model.BlueprintOutcome) model.BlueprintVersion {
 	o.Brief = json.RawMessage("null")
 	return outcomeVersion(blueprintID, kind, message, actor, o)
 }
 
 // requireBrief refuses the brief-based operations (AI review, form edit) on an imported plan,
 // whose version has no brief: its geometry came from a file and is not regenerated.
-func requireBrief(v entity.BlueprintVersion) error {
+func requireBrief(v model.BlueprintVersion) error {
 	if t := strings.TrimSpace(string(v.Brief)); t == "" || t == "null" {
-		return entity.Invalid("this blueprint was imported from a DXF and has no brief; the AI review and the brief form are not available for it (use chat)")
+		return model.Invalid("this blueprint was imported from a DXF and has no brief; the AI review and the brief form are not available for it (use chat)")
 	}
 	return nil
 }
 
-func staleVersion(b entity.Blueprint) error {
-	return entity.Conflict("blueprint is at version %d; reload and try again", b.CurrentVersion)
+func staleVersion(b model.Blueprint) error {
+	return model.Conflict("blueprint is at version %d; reload and try again", b.CurrentVersion)
 }
 
 // prepareRevision is what a chat revision needs before the engine runs: the
 // trimmed message, the blueprint, its current version, and the chat history.
 // It does the can_edit Check and the base_version test, so a refused request
 // never reaches the LLM.
-func prepareRevision(ctx context.Context, blueprints gateway.BlueprintGateway, authz usecase.Authorizer, actor, tenantID, id, message string, baseVersion int) (string, entity.Blueprint, entity.BlueprintVersion, []string, error) {
+func prepareRevision(ctx context.Context, blueprints gateway.BlueprintGateway, authz usecase.Authorizer, actor, tenantID, id, message string, baseVersion int) (string, model.Blueprint, model.BlueprintVersion, []string, error) {
 	message = strings.TrimSpace(message)
 	if n := len([]rune(message)); n < 1 || n > 2000 {
-		return "", entity.Blueprint{}, entity.BlueprintVersion{}, nil, entity.Invalid("message length must be 1 to 2000")
+		return "", model.Blueprint{}, model.BlueprintVersion{}, nil, model.Invalid("message length must be 1 to 2000")
 	}
 	b, cur, err := loadBlueprintForEdit(ctx, blueprints, authz, actor, tenantID, id, baseVersion)
 	if err != nil {
-		return "", entity.Blueprint{}, entity.BlueprintVersion{}, nil, err
+		return "", model.Blueprint{}, model.BlueprintVersion{}, nil, err
 	}
 	history, err := chatHistory(ctx, blueprints, id)
 	return message, b, cur, history, err
@@ -107,24 +107,24 @@ func prepareRevision(ctx context.Context, blueprints gateway.BlueprintGateway, a
 
 // requireBuilt turns an engine outcome without a model into a 400 carrying
 // the engine's reasons. Nothing is stored for it.
-func requireBuilt(o entity.BlueprintOutcome) error {
+func requireBuilt(o model.BlueprintOutcome) error {
 	if o.Built() {
 		return nil
 	}
 	if len(o.Issues) == 0 {
-		return entity.Invalid("the brief cannot be built")
+		return model.Invalid("the brief cannot be built")
 	}
-	return entity.Invalid("%s", strings.Join(o.Issues, "; "))
+	return model.Invalid("%s", strings.Join(o.Issues, "; "))
 }
 
 // outcomeVersion is the version row for an engine outcome.
-func outcomeVersion(blueprintID, kind, message, actor string, o entity.BlueprintOutcome) entity.BlueprintVersion {
-	return entity.BlueprintVersion{BlueprintID: blueprintID, Kind: kind, Message: message,
+func outcomeVersion(blueprintID, kind, message, actor string, o model.BlueprintOutcome) model.BlueprintVersion {
+	return model.BlueprintVersion{BlueprintID: blueprintID, Kind: kind, Message: message,
 		Brief: o.Brief, Model: o.Model, Checks: o.Checks, Notes: append(o.Notes[:0:0], o.Notes...), OK: o.OK, CreatedBy: actor}
 }
 
 // appendBlueprintVersion stores v on top of base and returns the new detail.
-func appendBlueprintVersion(ctx context.Context, blueprints gateway.BlueprintGateway, b entity.Blueprint, v entity.BlueprintVersion, base int) (usecase.BlueprintDetail, error) {
+func appendBlueprintVersion(ctx context.Context, blueprints gateway.BlueprintGateway, b model.Blueprint, v model.BlueprintVersion, base int) (usecase.BlueprintDetail, error) {
 	if err := blueprints.AppendVersion(ctx, v, base); err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
@@ -136,7 +136,7 @@ func appendBlueprintVersion(ctx context.Context, blueprints gateway.BlueprintGat
 	return usecase.BlueprintDetail{Blueprint: b, Version: v}, err
 }
 
-func blueprintID(b entity.Blueprint) string { return b.ID }
+func blueprintID(b model.Blueprint) string { return b.ID }
 
 // sameJSON reports whether two JSON documents hold the same value
 // (key order and spacing aside).
@@ -163,7 +163,7 @@ func chatHistory(ctx context.Context, blueprints gateway.BlueprintGateway, id st
 		if len(out) == maxChatHistory {
 			break
 		}
-		if (v.Kind == entity.BlueprintVersionCreate || v.Kind == entity.BlueprintVersionRevise) && strings.TrimSpace(v.Message) != "" {
+		if (v.Kind == model.BlueprintVersionCreate || v.Kind == model.BlueprintVersionRevise) && strings.TrimSpace(v.Message) != "" {
 			out = append(out, v.Message)
 		}
 	}
