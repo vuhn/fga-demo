@@ -2,22 +2,22 @@
 
 | Baseline node ID | Destination | Status |
 | --- | --- | --- |
-| `tests/test_app.py::test_from_text_cleans_draft` | | pending |
-| `tests/test_app.py::test_revise_applies_ops_and_regenerates` | | pending |
-| `tests/test_app.py::test_revise_unknown_room_is_422` | | pending |
-| `tests/test_app.py::test_unsupported_request_is_422` | | pending |
+| `tests/test_app.py::test_from_text_cleans_draft` | agent/tests/test_brief_services.py::test_drafting_hands_the_model_output_to_the_engine_and_returns_its_brief_and_notes (the cleaning itself is the Engine's NormalizeDraft, covered by its tests) | mapped (T11a) |
+| `tests/test_app.py::test_revise_applies_ops_and_regenerates` | agent/tests/test_brief_services.py::test_revising_applies_the_ops_through_the_engine_and_reports_what_was_done | mapped (T11a) |
+| `tests/test_app.py::test_revise_unknown_room_is_422` | agent/tests/test_blueprint_handler.py::test_operations_the_engine_refuses_three_times_end_the_stream_with_an_in_band_422 | mapped (T11a) |
+| `tests/test_app.py::test_unsupported_request_is_422` | agent/tests/test_brief_services.py::test_an_unsupported_request_is_not_retried | mapped (T11a) |
 | `tests/test_app.py::test_repair_only_when_requested_and_never_uses_the_llm` | | pending |
 | `tests/test_app.py::test_render_formats` | | pending |
 | `tests/test_app.py::test_harness_page_served` | | pending |
 | `tests/test_app.py::test_schemas_are_json_schema_ready` | | pending |
-| `tests/test_app.py::test_from_text_drops_sides_the_user_never_named` | | pending |
+| `tests/test_app.py::test_from_text_drops_sides_the_user_never_named` | agent/tests/test_brief_services.py::test_drafting_drops_sides_the_person_never_named | mapped (T11a) |
 | `tests/test_app.py::test_from_text_nests_rooms_and_merges_fixtures` | | pending |
-| `tests/test_app.py::test_enhancer_requirements_feed_the_draft_and_assumptions_become_notes` | | pending |
-| `tests/test_app.py::test_enhancer_is_off_by_default` | | pending |
-| `tests/test_app.py::test_revise_retries_with_the_error_and_succeeds` | | pending |
-| `tests/test_app.py::test_revise_gives_up_after_three_attempts` | | pending |
-| `tests/test_app.py::test_unsupported_is_not_retried` | | pending |
-| `tests/test_app.py::test_history_reaches_the_revise_prompt` | | pending |
+| `tests/test_app.py::test_enhancer_requirements_feed_the_draft_and_assumptions_become_notes` | agent/tests/test_brief_services.py::test_enhancer_requirements_feed_the_draft_and_assumptions_become_notes | mapped (T11a) |
+| `tests/test_app.py::test_enhancer_is_off_by_default` | agent/tests/test_brief_services.py::test_the_enhancer_is_off_by_default | mapped (T11a) |
+| `tests/test_app.py::test_revise_retries_with_the_error_and_succeeds` | agent/tests/test_brief_services.py::test_revising_retries_with_the_error_and_says_so | mapped (T11a) |
+| `tests/test_app.py::test_revise_gives_up_after_three_attempts` | agent/tests/test_brief_services.py::test_revising_gives_up_after_three_attempts | mapped (T11a) |
+| `tests/test_app.py::test_unsupported_is_not_retried` | agent/tests/test_brief_services.py::test_an_unsupported_request_is_not_retried | mapped (T11a) |
+| `tests/test_app.py::test_history_reaches_the_revise_prompt` | agent/tests/test_brief_services.py::test_the_history_and_the_current_brief_reach_the_prompt | mapped (T11a) |
 | `tests/test_app.py::test_reviewer_keeps_an_improving_round` | | pending |
 | `tests/test_app.py::test_reviewer_refuses_forbidden_ops_and_never_returns_a_worse_plan` | | pending |
 | `tests/test_app.py::test_reviewer_caps_total_area_change` | | pending |
@@ -25,9 +25,9 @@
 | `tests/test_app.py::test_reviewer_retries_an_answer_that_changes_nothing` | | pending |
 | `tests/test_app.py::test_removing_the_hall_is_steered_to_open_plan` | | pending |
 | `tests/test_app.py::test_draft_can_ask_for_open_plan` | | pending |
-| `tests/test_app.py::test_revise_stream_emits_progress_then_result` | | pending |
-| `tests/test_app.py::test_revise_stream_reports_retry_and_error` | | pending |
-| `tests/test_app.py::test_revise_stream_empty_message_is_plain_422` | | pending |
+| `tests/test_app.py::test_revise_stream_emits_progress_then_result` | agent/tests/test_blueprint_handler.py::test_revise_streams_progress_then_one_result | mapped (T11a) |
+| `tests/test_app.py::test_revise_stream_reports_retry_and_error` | agent/tests/test_blueprint_handler.py::test_operations_the_engine_refuses_three_times_end_the_stream_with_an_in_band_422 | mapped (T11a) |
+| `tests/test_app.py::test_revise_stream_empty_message_is_plain_422` | agent/tests/test_blueprint_handler.py::test_an_empty_message_is_a_plain_status_before_any_event | mapped (T11a) |
 | `tests/test_app.py::test_thinking_is_streamed_only_while_a_sink_listens` | | pending |
 | `tests/test_convert.py::test_pdf_vector_areas[family_3br]` | | pending |
 | `tests/test_convert.py::test_pdf_vector_areas[studio]` | | pending |

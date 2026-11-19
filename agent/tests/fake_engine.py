@@ -16,6 +16,7 @@ class FakeEngine(rpc.EngineServiceServicer):
         self.calls: list[str] = []
         self.down = False  # answer UNAVAILABLE while True
         self.refuse: tuple[int, str] | None = None  # (ErrorCode, message): INVALID_ARGUMENT with a detail
+        self.refuse_only: str | None = None  # limit `refuse` to this one RPC
         self.request_ids: list[str] = []
 
     def _enter(self, name: str, context) -> None:
@@ -23,7 +24,7 @@ class FakeEngine(rpc.EngineServiceServicer):
         self.request_ids += [v for k, v in context.invocation_metadata() if k == "x-request-id"]
         if self.down:
             context.abort(grpc.StatusCode.UNAVAILABLE, "engine is down")
-        if self.refuse:
+        if self.refuse and self.refuse_only in (None, name):
             code, msg = self.refuse
             context.set_trailing_metadata((("error-detail-bin", c.ErrorDetail(code=code, message=msg).SerializeToString()),))
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, msg)
