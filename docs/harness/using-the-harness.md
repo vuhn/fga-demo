@@ -75,7 +75,7 @@ Small simple tasks (typo, one-line fix, tiny bug) skip the chain entirely: ask n
 - For parallel work, use one git worktree per planned task (tasks that do not depend on each other), each with its own session running `/build-task Tn`.
 - When Claude repeats a mistake, tell it to add a lesson (`docs/harness/lessons.md`) and, if mechanical, a check to `make check`. Skills, hooks and CLAUDE.md are code: change them through a reviewed PR.
 - Safe-by-default guards you will meet: committed migrations cannot be edited (add a new one); breaking migration statements fail `make check` unless marked `-- breaking-ok: <reason>` and justified in `db-design.md`; `make verify-live` RESETS local data.
-- Claude does not commit or push unless you ask.
+- Claude does not commit or push unless you ask. When it does: you are the sole author, nothing goes to `main`, PR bodies follow `.github/pull_request_template.md`, temp `wt-*` branches are never pushed and are removed with `scripts/clean-temp-branches.sh` after the PR. `scripts/sync-base.sh` pulls the integration branch at clock-in; a PreToolUse hook enforces the git rules.
 
 ## Example
 

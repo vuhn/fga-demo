@@ -85,10 +85,18 @@ Restart `cmd/api` after every reseed (the store id changes). Seed accounts: ada,
 
 ## Session protocol
 
-- Clock-in: read `docs/harness/progress.md`, run `make check`.
+- Clock-in: first `scripts/sync-base.sh [integration-branch]` (fetch and fast-forward the branch the task's PR targets, e.g. `feat/re-architecture` or `main`; on a task branch, rebase or merge the updated base before starting), then read `docs/harness/progress.md`, run `make check`.
 - One task at a time; call it done only after `make check` (and `make verify-live` for authorization changes) pass.
 - After touching `service/`, `fga/`, or `model.fga`, run the `authz-reviewer` subagent (rubric: `docs/harness/evaluator-rubric.md`).
 - Clock-out: walk `docs/harness/clean-state-checklist.md`, update `progress.md`.
+
+## Git rules (`scripts/hook-git-guard.sh` enforces these)
+
+- Commit and push only when asked. Commits are authored by the user only: no Co-Authored-By or "Generated with Claude" lines, in commits or PR bodies.
+- PR descriptions follow `.github/pull_request_template.md`: Summary, Changes, Impact, Test.
+- Never commit or push to `main`. Branch from the integration branch (e.g. `feat/re-architecture`) and open the PR against it.
+- Temp branches (`wt-*`, `worktree-agent-*`, `working-tree-*`) and their worktrees under `.claude/worktrees/` are local only: never push them (push work as `git push origin HEAD:<task-branch>`). After the PR is created run `scripts/clean-temp-branches.sh`.
+- The hook reads the command text: run commit and push as separate commands.
 
 ## Verifying a change
 
