@@ -110,7 +110,8 @@ For Blueprints (optional; requires [uv](https://docs.astral.sh/uv/) and [Ollama]
 
 ```bash
 ollama pull qwen3           # text model (8B, installed as qwen3:latest)
-make engine                 # blueprint-engine on :8090
+make engine                 # the deterministic Engine (gRPC :8092)
+make agent                  # the LLM Agent (gRPC :8091)
 ```
 
 Without the engine, every other step works and blueprint actions return 502 `engine_unavailable`.

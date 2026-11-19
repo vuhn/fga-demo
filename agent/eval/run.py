@@ -1,6 +1,6 @@
 """Golden-prompt eval against the live model and the live Engine. Run whenever the model or a prompt changes.
 
-    uv run python eval/run.py [--model qwen3:latest] [--limit N] [--enhance]      (needs `make engine-grpc` and Ollama)
+    uv run python eval/run.py [--model qwen3:latest] [--limit N] [--enhance]      (needs `make engine` and Ollama)
 
 Reports, per prompt: brief latency, whether a plan was built, the error checks and the Engine's notes; then the overall pass rate.
 Expectations in golden.json are loose (room counts by type, lot, entrance) because the model's job is extraction only. Compare with

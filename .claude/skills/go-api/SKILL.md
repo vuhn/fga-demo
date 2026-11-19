@@ -8,7 +8,7 @@ description: Implement or change Go API code in api/ (Gin, pgx, OpenFGA, goose) 
 Source of truth: `api/ARCHITECTURE.md` (layers, lifecycle, consistency) and CLAUDE.md "Architecture rules" + "Authorization invariants". Read them when unsure; this skill is the working checklist.
 
 ## Layers (dependencies point inward)
-`domain/model` (stdlib only) and `domain/gateway` (interfaces) -> `usecase` (one interface per operation, e.g. `FolderCreator`) + `usecase/helper` -> `service` (one file per operation, `folder_creator.go`) -> `infrastructure/{postgres,fga,blueprintengine,auth,idgen,config}` implements gateways -> `handler/http`.
+`domain/model` (stdlib only) and `domain/gateway` (interfaces) -> `usecase` (one interface per operation, e.g. `FolderCreator`) + `usecase/helper` -> `service` (one file per operation, `folder_creator.go`) -> `infrastructure/{postgres,fga,engine,agent,grpcutil,auth,idgen,config}` implements gateways -> `handler/http`.
 `domain`, `usecase`, `service` never import Gin, pgx, or the OpenFGA SDK (`scripts/check-architecture.sh` enforces).
 
 ## Adding an operation: touch exactly these

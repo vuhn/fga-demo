@@ -17,8 +17,8 @@ browser :5173  (Vite dev server)
 Go API :8088
     |                    \
     v                     v
-Postgres :5432          OpenFGA :8080  (gRPC :8081, Playground :3000)     blueprint-engine :8090 --> Ollama :11434
-  db fgademo              store "fga-demo"                                  (stateless, host)        (host)
+Postgres :5432          OpenFGA :8080  (gRPC :8081, Playground :3000)     Engine :8092 (gRPC, host)
+  db fgademo              store "fga-demo"                                  Agent :8091 (gRPC, host) --> Ollama :11434
   db openfga  <-----------'  (OpenFGA's own datastore)
 ```
 
@@ -28,8 +28,9 @@ Postgres :5432          OpenFGA :8080  (gRPC :8081, Playground :3000)     bluepr
 | API (`api/`) | The only authenticated edge. Validates, asks OpenFGA, reads and writes Postgres. |
 | Postgres `fgademo` | Display record: names, membership labels, file metadata, grant rows. Never decides access. |
 | OpenFGA | Relationship tuples. Answers Check, BatchCheck, ListObjects. Allow-only model. |
-| `blueprint-engine/` | Python FastAPI sidecar for the Blueprints product. A local LLM (Ollama) turns a prompt into a JSON brief and a chat message into plan edit operations, and runs the cost-estimation agent (an interview, LLM web price research and deterministic quantity takeoff and pricing); deterministic code makes the floor plan, the DXF/SVG/PDF sheets, and an IFC4 BIM model; an LLM reviewer can propose brief fixes for failed checks. No auth, no storage: only the API calls it, after its Checks. See [blueprint-engine/README.md](blueprint-engine/README.md). |
-| `deploy/` | Docker Compose for Postgres and OpenFGA. The API, engine, and Vite run on the host. |
+| `agent/` | Python gRPC service (:8091) that owns every LLM call: a prompt becomes a JSON brief, a chat message becomes edit operations on a brief or a plan, a reviewer proposes fixes for failed checks, and the cost-estimation chat runs an interview, web price research and a reply. The model only proposes; the Agent calls the Engine's tools to validate and build. Stateless, no auth, never sees a tenant or user id: only the API calls it, after its Checks. See [agent/README.md](agent/README.md). |
+| `blueprint-engine/` | Python gRPC service (:8092), deterministic, no LLM and no network: floor plans (layout, walls, openings, fixtures, rule checks), DXF import and patch, PDF and picture conversion, the DXF/SVG/PDF sheets and the IFC4 model, plan and brief operations, and the cost-estimation takeoff and pricing. Stateless, no auth: the API and the Agent call it. See [blueprint-engine/README.md](blueprint-engine/README.md). |
+| `deploy/` | Docker Compose for Postgres and OpenFGA. The API, Engine, Agent, and Vite run on the host. |
 
 ## Core principles
 
