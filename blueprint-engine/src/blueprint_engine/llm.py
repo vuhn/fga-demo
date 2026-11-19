@@ -20,6 +20,10 @@ class LLMError(RuntimeError):
     pass
 
 
+class _ThinkingBudget(Exception):
+    """The reasoning stream ran past its budget; the caller redoes the call without thinking."""
+
+
 class LLMClient(Protocol):
     def structured(self, system: str, user: str, schema: type[T], max_tokens: int | None = None) -> T: ...
 
@@ -40,10 +44,21 @@ class OllamaClient:
         self.http = httpx.Client(timeout=timeout)
         # show the model's reasoning on the streaming endpoints; BLUEPRINT_STREAM_THINKING=0 turns it off
         self.stream_thinking = os.getenv("BLUEPRINT_STREAM_THINKING", "1") != "0"
+        # A thinking stream that exceeds either budget is cut and the call is redone without thinking. Greedy
+        # decoding (temperature 0) lets qwen3 fall into a repetition loop in its reasoning, and the read timeout
+        # never fires while chunks keep arriving, so without a budget a revise can think forever.
+        self.thinking_max_chars = int(os.getenv("BLUEPRINT_THINKING_MAX_CHARS", "6000"))
+        self.thinking_max_seconds = float(os.getenv("BLUEPRINT_THINKING_MAX_SECONDS", "90"))
 
     def _chat(self, model: str, messages: list[dict], schema: dict, max_tokens: int | None = None) -> str:
         if self.stream_thinking and progress.thinking_wanted():
-            return self._chat_streaming(model, messages, schema, max_tokens)
+            try:
+                return self._chat_streaming(model, messages, schema, max_tokens)
+            except _ThinkingBudget as e:
+                progress.emit("retry", f"the model thought too long ({e}); answering without thinking")
+        return self._chat_plain(model, messages, schema, max_tokens)
+
+    def _chat_plain(self, model: str, messages: list[dict], schema: dict, max_tokens: int | None = None) -> str:
         try:
             resp = self.http.post(
                 f"{self.base_url}/api/chat",
@@ -73,7 +88,8 @@ class OllamaClient:
                 "options": {"temperature": 0, "num_ctx": 8192, **({"num_predict": max_tokens} if max_tokens else {})}}
         content: list[str] = []
         pending: list[str] = []
-        last = time.monotonic()
+        started = last = time.monotonic()
+        thought = 0
         try:
             with self.http.stream("POST", f"{self.base_url}/api/chat", json=body) as resp:
                 if resp.status_code != 200:
@@ -85,6 +101,10 @@ class OllamaClient:
                     msg = json.loads(line).get("message", {})
                     if msg.get("thinking"):
                         pending.append(msg["thinking"])
+                        thought += len(msg["thinking"])
+                        if thought > self.thinking_max_chars or time.monotonic() - started > self.thinking_max_seconds:
+                            progress.emit_thinking("".join(pending))
+                            raise _ThinkingBudget(f"{thought} characters, {time.monotonic() - started:.0f}s")
                         if time.monotonic() - last >= 0.15:
                             progress.emit_thinking("".join(pending))
                             pending, last = [], time.monotonic()
