@@ -28,6 +28,7 @@ type fake struct {
 	revise func(*agentv1.ReviseRequest, agentv1.AgentService_ReviseServer) error
 	plan   func(*agentv1.RevisePlanRequest, agentv1.AgentService_RevisePlanServer) error
 	review func(*agentv1.ReviewRequest, agentv1.AgentService_ReviewServer) error
+	turn   func(*agentv1.EstimateTurnRequest, agentv1.AgentService_EstimateTurnServer) error
 }
 
 func (f *fake) BriefFromText(ctx context.Context, r *agentv1.BriefFromTextRequest) (*agentv1.BriefFromTextResponse, error) {
@@ -41,6 +42,10 @@ func (f *fake) RevisePlan(r *agentv1.RevisePlanRequest, s agentv1.AgentService_R
 }
 func (f *fake) Review(r *agentv1.ReviewRequest, s agentv1.AgentService_ReviewServer) error {
 	return f.review(r, s)
+}
+
+func (f *fake) EstimateTurn(r *agentv1.EstimateTurnRequest, s agentv1.AgentService_EstimateTurnServer) error {
+	return f.turn(r, s)
 }
 
 func serve(t *testing.T, f *fake) *Client {
@@ -209,7 +214,9 @@ func TestAnErrorEventAfterTheFirstMessageIsMappedLikeAStatus(t *testing.T) {
 }
 
 func TestAStreamThatEndsWithoutAResultIsAnOutage(t *testing.T) {
-	f := &fake{review: func(_ *agentv1.ReviewRequest, s agentv1.AgentService_ReviewServer) error { return s.Send(progress("review")) }}
+	f := &fake{review: func(_ *agentv1.ReviewRequest, s agentv1.AgentService_ReviewServer) error {
+		return s.Send(progress("review"))
+	}}
 	_, err := serve(t, f).Review(context.Background(), nil, nil, nil)
 	if !errors.Is(err, model.ErrEngineUnavailable) {
 		t.Errorf("err = %v", err)
@@ -256,4 +263,9 @@ func TestACallerThatLeavesCancelsTheAgentsRun(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("the Agent was not told the caller left")
 	}
+}
+
+func mdOf(ctx context.Context) []string {
+	md, _ := metadata.FromIncomingContext(ctx)
+	return md.Get(grpcutil.RequestIDKey)
 }

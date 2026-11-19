@@ -144,3 +144,6 @@ func raw(b []byte) []byte {
 	}
 	return b
 }
+
+// grpcTrailer collects the trailing metadata (the ErrorDetail of a refusal) of a call.
+func grpcTrailer(tr *metadata.MD) grpc.CallOption { return grpc.Trailer(tr) }
