@@ -84,12 +84,12 @@
 | `tests/test_estimate.py::test_a_drawing_with_no_rooms_is_unsupported_not_zero` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
 | `tests/test_estimate.py::test_cascade_to_the_dong` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
 | `tests/test_estimate.py::test_contingency_rises_with_assumed_share_and_unpriced_lines_stay_out` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
-| `tests/test_estimate.py::test_quote_must_be_on_the_page_and_carry_the_number` | | pending |
-| `tests/test_estimate.py::test_units_and_currency_convert_or_are_rejected` | | pending |
-| `tests/test_estimate.py::test_aggregation_drops_outliers_and_flags_thin_evidence` | | pending |
-| `tests/test_estimate.py::test_web_source_accepts_real_quotes_rejects_fakes_and_caches` | | pending |
-| `tests/test_estimate.py::test_web_source_with_nothing_usable_is_unpriced_and_queries_hold_no_project_data` | | pending |
-| `tests/test_estimate.py::test_research_requests_carry_only_material_region_and_quality` | | pending |
+| `tests/test_estimate.py::test_quote_must_be_on_the_page_and_carry_the_number` | agent/tests/test_price_checks.py::test_quote_must_be_on_the_page_and_carry_the_number | mapped (T13a) |
+| `tests/test_estimate.py::test_units_and_currency_convert_or_are_rejected` | agent/tests/test_price_checks.py::test_units_and_currency_convert_or_are_rejected | mapped (T13a) |
+| `tests/test_estimate.py::test_aggregation_drops_outliers_and_flags_thin_evidence` | agent/tests/test_price_checks.py::test_aggregation_drops_outliers_and_flags_thin_evidence | mapped (T13a) |
+| `tests/test_estimate.py::test_web_source_accepts_real_quotes_rejects_fakes_and_caches` | agent/tests/test_price_researcher.py::test_a_real_quote_is_accepted_a_fake_is_rejected_and_the_rate_is_cached | mapped (T13a) |
+| `tests/test_estimate.py::test_web_source_with_nothing_usable_is_unpriced_and_queries_hold_no_project_data` | agent/tests/test_price_researcher.py::test_nothing_usable_is_unpriced_and_queries_hold_no_project_data | mapped (T13a) |
+| `tests/test_estimate.py::test_research_requests_carry_only_material_region_and_quality` | agent/tests/test_price_researcher.py::test_research_requests_carry_only_material_region_and_quality | mapped (T13a) |
 | `tests/test_estimate.py::test_the_example_conversation_asks_before_it_assumes` | | pending |
 | `tests/test_estimate.py::test_a_place_answer_is_split_by_code_and_an_empty_shell_is_a_fit_out` | agent/tests/test_estimate_reading.py::test_a_place_answer_is_split_by_code_and_an_empty_shell_is_a_fit_out | mapped (T12) |
 | `tests/test_estimate.py::test_i_dont_know_is_recorded_as_assumed_and_shown_in_the_result` | agent/tests/test_estimate_interview.py::test_i_dont_know_is_recorded_as_assumed (listing it in the result is the turn, T13b) | mapped (T12) |
@@ -98,7 +98,7 @@
 | `tests/test_estimate.py::test_changing_an_answer_reprices_only_what_changed` | | pending |
 | `tests/test_estimate.py::test_scope_changes_the_total` | | pending |
 | `tests/test_estimate.py::test_unpriced_codes_are_flagged_and_a_user_rate_fills_them` | | pending |
-| `tests/test_estimate.py::test_no_search_provider_means_unpriced_with_a_reason` | | pending |
+| `tests/test_estimate.py::test_no_search_provider_means_unpriced_with_a_reason` | agent/tests/test_price_researcher.py::test_no_search_provider_means_unpriced_with_a_reason (the unpriced estimate that follows is the turn, T13b) | mapped (T13a) |
 | `tests/test_estimate.py::test_explaining_a_line` | | pending |
 | `tests/test_estimate.py::test_drawing_without_rooms_fails_cleanly` | | pending |
 | `tests/test_estimate.py::test_a_question_turn_streams_progress_tokens_question_then_done` | | pending |
@@ -121,7 +121,7 @@
 | `tests/test_estimate.py::test_the_agent_asks_which_fixtures_exist_before_it_prices` | agent/tests/test_estimate_interview.py::test_the_fixtures_question_comes_only_when_the_plan_has_pending_priced_fixtures (+ ::test_the_chips_for_the_fixtures_question_are_understood; pricing after it is the turn, T13b) | mapped (T12) |
 | `tests/test_estimate.py::test_some_fixtures_exist_only_those_the_message_refers_to` | agent/tests/test_estimate_interview.py::test_some_fixtures_exist_only_those_the_message_refers_to | mapped (T12) |
 | `tests/test_estimate.py::test_i_dont_know_assumes_no_fixture_exists_and_says_so` | agent/tests/test_estimate_interview.py::test_i_dont_know_assumes_no_fixture_exists_and_says_so (saying so in the result is the turn, T13b) | mapped (T12) |
-| `tests/test_estimate.py::test_demo_search_prices_every_code_through_the_real_pipeline_and_labels_it` | | pending |
+| `tests/test_estimate.py::test_demo_search_prices_every_code_through_the_real_pipeline_and_labels_it` | agent/tests/test_price_researcher.py::test_demo_search_prices_every_code_through_the_real_pipeline_and_labels_it | mapped (T13a) |
 | `tests/test_estimate.py::test_an_estimate_on_demo_prices_says_it_is_demo_data` | | pending |
 | `tests/test_estimate.py::test_a_named_city_and_an_explicit_floor_height_never_depend_on_the_llm` | agent/tests/test_estimate_reading.py::test_a_named_city_and_an_explicit_floor_height_never_depend_on_the_model | mapped (T12) |
 | `tests/test_estimate.py::test_include_or_exclude_mep_is_read_by_code` | agent/tests/test_estimate_reading.py::test_include_or_exclude_mep_is_read_by_code | mapped (T12) |

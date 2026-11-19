@@ -21,5 +21,6 @@ def catalog_to_pb(cat: Catalog) -> e.GetCatalogResponse:
         min_area=cat.min_area, min_width=cat.min_width, nestable_types=cat.nestable_types, max_nested=cat.max_nested,
         default_fixtures=cat.default_fixtures, fixture_kinds=cat.fixture_kinds, default_markups=cat.default_markups,
         priced_fixtures=cat.priced_fixtures,
-        rate_catalog=[e.RateSpec(code=r.code, package=r.package, description=r.description, unit=r.unit)
+        rate_catalog=[e.RateSpec(code=r.code, package=r.package, description=r.description, unit=r.unit,
+                                  quality_sensitive=r.quality_sensitive)
                       for r in cat.rate_catalog])

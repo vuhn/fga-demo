@@ -60,7 +60,7 @@ def test_the_catalog_calls_map_to_domain_types(eng):
     ops = eng.gateway.operations(CTX)
     assert ops.operations[0].name == "set_area" and ops.operations[0].schema == {} and ops.brief_ops_schema == {}
     limits = eng.gateway.design_limits(CTX)
-    assert limits.min_area == {"bedroom": 9.0} and limits.rate_catalog[0].code == "R1"
+    assert limits.min_area == {"bedroom": 9.0} and limits.rate_catalog[0].code == "R1" and limits.rate_catalog[0].quality_sensitive
 
 
 def test_an_absent_room_id_is_none(eng):

@@ -11,6 +11,7 @@ class RateSpec:
     package: str
     description: str
     unit: str
+    quality_sensitive: bool = False
 
 
 @dataclass(frozen=True)

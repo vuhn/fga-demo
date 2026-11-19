@@ -39,7 +39,7 @@ class FakeEngine(rpc.EngineServiceServicer):
     def GetCatalog(self, request, context):
         self._enter("GetCatalog", context)
         return e.GetCatalogResponse(min_area={"bedroom": 9.0}, max_nested=2, fixture_kinds=["sink"],
-                                    rate_catalog=[e.RateSpec(code="R1", package="p", description="d", unit="m2")])
+                                    rate_catalog=[e.RateSpec(code="R1", package="p", description="d", unit="m2", quality_sensitive=True)])
 
     def NormalizeDraft(self, request, context):
         self._enter("NormalizeDraft", context)
