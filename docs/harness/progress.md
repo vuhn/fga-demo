@@ -9,7 +9,11 @@ Single place for "where are we". Read at session start, update at session end.
 - HTTP smoke (API + engine + qwen3:latest, 2026-11-13): draft 403 for Dan and for Globex (product off); Cara draft 19s, create 201, list, Dan get 404 and list [], SVG/PDF drawing, revise ("add a study") 201 v2 with rooms kept, stale base 409, form edit, restore, versions, viewer share to Dan, editor share 400 `cannot_upload`, Dan revise 403. Sketch draft reaches the engine; 502 because `qwen2.5vl:7b` is not pulled locally.
 - Engine golden eval (qwen3:latest, 2026-11-13, after Text2BIM Phase 1, Enhancer off): extraction 15/15, end-to-end 14/15, avg 28s (was 14/15, 13/15, 37s). With `--enhance`: 13/15, 8/15, 112s. Known failure: narrow lots (10 m wide) need a front-to-back hall layout.
 
-## Active task: Text2Blueprint POC (`prds/plans/text2blueprint-poc.md`)
+## Active task (2026-11-19): re-architecture-system (`specs/re-architecture-system/`)
+
+Split the sidecar into Agent (LLM, gRPC) and Engine (deterministic, gRPC). Spec approved; building per `plan.md`, one PR per task on the integration branch `feat/re-architecture`. Done: T0 (baselines in `baseline/`, test map of 210 node IDs, `scripts/smoke-replay.sh`, `scripts/smoke-failures.sh`), T1 (`proto/` contracts, stubs, `make proto`, `docs/service-contracts.md`), T2 (Python layer rules with a ratchet allow-list). Next: T3 (engine package rename and domain move), T8 in parallel.
+
+## Earlier task: Text2Blueprint POC (`prds/plans/text2blueprint-poc.md`)
 
 - Part A engine: done (`blueprint-engine/`).
 - Part B Go `blueprint` domain: done (model, migration 00006, all layers, wiring, seed: Acme only, integration tests, docs). authz-reviewer: Accept (10/12); its fixes applied: the external-admin-creates-blueprint exception is documented, the "externals via share or custom-role grant" wording is corrected, a custom-role row was added to TestBlueprintAccess, and the plan's route list was updated.

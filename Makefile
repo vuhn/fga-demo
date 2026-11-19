@@ -28,8 +28,20 @@ test:
 test-integration:
 	cd api && OPENFGA_API_URL=http://localhost:8080 go test -tags=integration ./internal/infrastructure/fga/
 
+proto:
+	cd proto && buf lint
+	@if git cat-file -e main:proto/buf.yaml 2>/dev/null; then cd proto && buf breaking --against '../.git#branch=main,subdir=proto'; else echo "proto: no baseline on main yet, skipping buf breaking"; fi
+	python3 scripts/check-proto-identity.py proto
+	@python3 scripts/check-proto-identity.py scripts/testdata/proto-identity-bad >/dev/null 2>&1 && { echo "proto identity check did not flag its planted violation"; exit 1; } || true
+	bash scripts/gen-proto.sh --check
+
+proto-gen:
+	bash scripts/gen-proto.sh
+
 check:
+	$(MAKE) proto
 	cd api && go vet ./... && go vet -tags=integration ./... && go test ./...
+	bash scripts/test-architecture-python.sh
 	bash scripts/check-architecture.sh
 	bash scripts/check-migrations.sh
 	bash scripts/check-specs.sh
@@ -41,4 +53,4 @@ verify-live: compose-up seed test-integration
 init:
 	bash scripts/init.sh
 
-.PHONY: compose-up seed api web engine engine-test engine-eval engine-eval-estimate test test-integration check verify-live init
+.PHONY: proto proto-gen compose-up seed api web engine engine-test engine-eval engine-eval-estimate test test-integration check verify-live init

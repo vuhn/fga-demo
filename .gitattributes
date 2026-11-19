@@ -1,0 +1,3 @@
+api/internal/infrastructure/grpcgen/** linguist-generated=true
+blueprint-engine/src/*/gen/** linguist-generated=true
+agent/src/*/gen/** linguist-generated=true

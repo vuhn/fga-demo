@@ -66,6 +66,9 @@ $hits" \
   "add a rule to FEATURES or ACTIONS and use useCan / useAllows / <Can> / canAct in the component"
 fi
 
+# 7. Layer rules of the Python services (their own script; known violations are ratcheted down).
+bash scripts/check-architecture-python.sh || fail=1
+
 if [ "$fail" -ne 0 ]; then
   printf '\narchitecture check failed\n'
   exit 1

@@ -1,0 +1,303 @@
+syntax = "proto3";
+
+package fga.demo.engine.v1;
+
+import "fga/demo/common/v1/common.proto";
+
+option go_package = "github.com/vuhn/fga-demo/api/internal/infrastructure/grpcgen/fga/demo/engine/v1;enginev1";
+
+// Deterministic blueprint tools. No LLM, no database, no network egress. Plans, briefs and edit operations
+// cross as JSON bytes in the schema the Engine publishes through ListTools; typed messages are used where a
+// caller must interpret the data. Refusals are INVALID_ARGUMENT with an ErrorDetail; an Engine that cannot
+// serve is UNAVAILABLE.
+service EngineService {
+  // --- catalog -----------------------------------------------------------------------------------------
+  rpc ListTools(ListToolsRequest) returns (ListToolsResponse);
+  rpc GetCatalog(GetCatalogRequest) returns (GetCatalogResponse);
+
+  // --- brief and plan operations -----------------------------------------------------------------------
+  rpc NormalizeDraft(NormalizeDraftRequest) returns (NormalizeDraftResponse);
+  rpc Generate(GenerateRequest) returns (BriefResult);
+  rpc ApplyBriefOps(ApplyBriefOpsRequest) returns (BriefResult);
+  rpc CreatePlan(CreatePlanRequest) returns (PlanOutcome);
+  rpc DrawPlan(DrawPlanRequest) returns (PlanOutcome);
+  rpc ApplyPlanOps(ApplyPlanOpsRequest) returns (PlanStep);
+  rpc RunChecks(RunChecksRequest) returns (RunChecksResponse);
+  rpc SummarizePlan(SummarizePlanRequest) returns (PlanSummary);
+
+  // --- estimate ----------------------------------------------------------------------------------------
+  rpc Takeoff(TakeoffRequest) returns (TakeoffResponse);
+  rpc PriceEstimate(PriceEstimateRequest) returns (PriceEstimateResponse);
+
+  // --- files -------------------------------------------------------------------------------------------
+  rpc ConvertToDXF(ConvertToDXFRequest) returns (ConvertToDXFResponse);
+  rpc ImportDXF(ImportDXFRequest) returns (ImportDXFResponse);
+  rpc PatchDXF(PatchDXFRequest) returns (PatchDXFResponse);
+  rpc Render(RenderRequest) returns (RenderResponse);
+}
+
+// --- catalog ----------------------------------------------------------------------------------------------
+
+message ListToolsRequest {}
+
+// One entry per operation the LLM may produce. The Agent builds prompts and structured-output schemas from
+// these and never duplicates them.
+message Tool {
+  string name = 1;         // e.g. "set_area", "move_fixture"
+  string kind = 2;         // brief_op | plan_op | draft
+  string description = 3;
+  string json_schema = 4;  // JSON Schema of the operation / draft
+  string signature = 5;    // field-signature text used in prompts
+}
+
+message ListToolsResponse {
+  repeated Tool tools = 1;
+  string ops_json_schema = 2;    // the schema of the whole brief-ops document
+  string plan_ops_json_schema = 3;
+  string draft_json_schema = 4;  // DraftBrief
+}
+
+message GetCatalogRequest {}
+
+message RateSpec {
+  string code = 1;
+  string package = 2;
+  string description = 3;
+  string unit = 4;
+}
+
+message GetCatalogResponse {
+  map<string, double> min_area = 1;  // MIN_AREA by room type
+  map<string, double> min_width = 2;
+  repeated string nestable_types = 3;
+  int32 max_nested = 4;
+  map<string, string> default_fixtures = 5;  // room type -> comma-separated fixture kinds
+  repeated string fixture_kinds = 6;
+  map<string, double> default_markups = 7;   // percent
+  repeated RateSpec rate_catalog = 8;
+  repeated string priced_fixtures = 9;
+}
+
+// --- brief and plan operations ----------------------------------------------------------------------------
+
+message NormalizeDraftRequest {
+  bytes draft_json = 1;  // DraftBrief as the LLM produced it
+}
+
+message NormalizeDraftResponse {
+  bytes brief_json = 1;
+  repeated string notes = 2;
+}
+
+message GenerateRequest {
+  bytes brief_json = 1;
+  bytes previous_model_json = 2;  // optional: keeps unchanged rooms in place
+  bool repair = 3;                // shrink rooms toward their minimums when the brief is too big
+}
+
+message ApplyBriefOpsRequest {
+  bytes brief_json = 1;
+  bytes ops_json = 2;
+  bytes previous_model_json = 3;
+}
+
+message RoomTarget {
+  string room_id = 1;
+  double target_area = 2;
+}
+
+// The result of building a brief, with everything an LLM retry or review loop needs.
+message BriefResult {
+  bytes brief_json = 1;  // normalized, as applied
+  bytes model_json = 2;  // empty when the brief cannot be built
+  repeated fga.demo.common.v1.Check checks = 3;
+  repeated string issues = 4;  // brief-level problems (no model when non-empty)
+  bool ok = 5;
+  repeated string notes = 6;
+  int32 attempts = 7;
+  int32 issue_score = 8;
+  repeated string error_rules = 9;
+  string checks_line = 10;
+  double total_target_area = 11;
+  repeated RoomTarget room_targets = 12;
+  bool changed = 13;  // the ops changed the brief
+}
+
+message CreatePlanRequest {
+  bytes brief_json = 1;
+}
+
+message DrawPlanRequest {
+  bytes model_json = 1;
+  string title = 2;
+}
+
+// A plan the way an import does: the model as read back from the DXF drawn for it.
+message PlanOutcome {
+  bytes model_json = 1;  // empty when the brief cannot be built
+  repeated fga.demo.common.v1.Check checks = 2;
+  repeated string issues = 3;
+  bool ok = 4;
+  repeated string notes = 5;
+  bytes dxf = 6;
+}
+
+message ApplyPlanOpsRequest {
+  bytes model_json = 1;
+  bytes ops_json = 2;
+}
+
+message PlanStep {
+  bytes model_json = 1;
+  repeated fga.demo.common.v1.Check checks = 2;
+  bool ok = 3;
+  repeated string notes = 4;
+  string summary = 5;               // what the plan holds, for prompts
+  repeated string descriptions = 6; // one line per applied op
+  bool changed = 7;
+}
+
+message RunChecksRequest {
+  bytes model_json = 1;
+  bytes brief_json = 2;  // optional: brief-level rules run only with a brief
+}
+
+message RunChecksResponse {
+  repeated fga.demo.common.v1.Check checks = 1;
+  bool ok = 2;
+  int32 issue_score = 3;
+}
+
+message SummarizePlanRequest {
+  bytes model_json = 1;
+  fga.demo.common.v1.EstimateFacts facts = 2;
+}
+
+message PlanSummary {
+  message Room {
+    string id = 1;
+    string name = 2;
+    string type = 3;
+    double area_m2 = 4;
+  }
+  message Fixture {
+    string id = 1;
+    string kind = 2;
+    string room_id = 3;
+  }
+  message Opening {
+    string id = 1;
+    string kind = 2;  // door | window | open
+    repeated string room_ids = 3;
+    double width = 4;
+  }
+  repeated Room rooms = 1;
+  repeated Fixture fixtures = 2;
+  repeated Opening openings = 3;
+  repeated string pending_fixtures = 4;  // priced fixtures whose installed state is still unknown
+  bool structure_in_scope = 5;
+}
+
+// --- estimate ---------------------------------------------------------------------------------------------
+
+message TakeoffRequest {
+  bytes model_json = 1;
+  fga.demo.common.v1.EstimateFacts facts = 2;
+}
+
+message TakeoffLine {
+  string code = 1;
+  string package = 2;
+  string description = 3;
+  double quantity = 4;
+  string unit = 5;
+  string basis = 6;
+  string confidence = 7;  // measured | derived | assumed
+  repeated string deps = 8;
+  string room_id = 9;
+}
+
+message TakeoffResponse {
+  string status = 1;  // ok | unsupported
+  repeated TakeoffLine lines = 2;
+  repeated string warnings = 3;
+}
+
+message PriceEstimateRequest {
+  TakeoffResponse takeoff = 1;
+  repeated fga.demo.common.v1.RateResult rates = 2;
+  fga.demo.common.v1.EstimateFacts facts = 3;
+}
+
+message PriceEstimateResponse {
+  bytes estimate_json = 1;  // the priced estimate (lines, packages, markups, totals, rates)
+  double total_low = 2;
+  double total_base = 3;
+  double total_high = 4;
+  repeated string warnings = 5;
+}
+
+// --- files ------------------------------------------------------------------------------------------------
+
+message ConvertOptions {
+  int32 scale = 1;      // 1:N, 0 = not given
+  double dpi = 2;       // 0 = not given
+  double longest_m = 3; // 0 = not given; beats scale
+}
+
+message ConvertToDXFRequest {
+  fga.demo.common.v1.Upload file = 1;
+  ConvertOptions options = 2;
+}
+
+message ConvertToDXFResponse {
+  bytes dxf = 1;
+  bytes report_json = 2;
+}
+
+message ImportDXFRequest {
+  fga.demo.common.v1.Upload file = 1;
+  string unit = 2;  // mm | cm | m | in | ft; empty = from the file
+}
+
+message ImportDXFResponse {
+  bytes plans_json = 1;   // [{index, name, model, checks, ok, svg, ...}] as today
+  bytes report_json = 2;
+}
+
+message PatchDXFRequest {
+  fga.demo.common.v1.Upload original = 1;
+  bytes base_model_json = 2;
+  bytes current_model_json = 3;
+}
+
+message PatchDXFResponse {
+  bytes dxf = 1;
+  bytes report_json = 2;  // {applied, added, skipped}
+}
+
+enum RenderFormat {
+  RENDER_FORMAT_UNSPECIFIED = 0;
+  RENDER_FORMAT_SVG = 1;
+  RENDER_FORMAT_PDF = 2;
+  RENDER_FORMAT_DXF = 3;
+  RENDER_FORMAT_IFC = 4;
+}
+
+message TitleBlock {
+  string title = 1;  // the blueprint name as printed on the sheet
+  int32 version = 2;
+  string issued = 3;
+  string author = 4;
+}
+
+message RenderRequest {
+  bytes model_json = 1;
+  RenderFormat format = 2;
+  TitleBlock title_block = 3;
+}
+
+message RenderResponse {
+  bytes data = 1;
+  string media_type = 2;
+}
