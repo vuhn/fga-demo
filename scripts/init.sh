@@ -28,7 +28,7 @@ cat <<'MSG'
 ready. Live stack, in order:
   make compose-up && make seed && make api    # restart api after every reseed
   make web
-  ollama serve && make engine                 # blueprints: native Ollama + engine on :8090
-  make engine-grpc && make agent             # gRPC engine :8092 and agent :8091 (re-architecture; nothing calls the agent yet)
+  ollama serve && make engine                 # blueprints: native Ollama + the Engine (gRPC :8092)
+  make agent                                  # the Agent (gRPC :8091)
   make verify-live                            # integration tests (RESETS data)
 MSG

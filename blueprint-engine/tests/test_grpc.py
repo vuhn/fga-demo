@@ -11,23 +11,7 @@ from fga.demo.common.v1 import common_pb2 as c
 from fga.demo.engine.v1 import engine_pb2 as e
 from fga.demo.engine.v1 import engine_pb2_grpc as rpc
 from fga_engine.handler.grpc.common.error_helper import DETAIL_KEY
-from fga_engine.handler.grpc.server import SERVICE, build_server
-from fga_engine.wire import build_servicer
-
-
-@pytest.fixture(scope="module")
-def channel():
-    server = build_server(build_servicer())
-    port = server.add_insecure_port("127.0.0.1:0")
-    server.start()
-    with grpc.insecure_channel(f"127.0.0.1:{port}") as ch:
-        yield ch
-    server.stop(0)
-
-
-@pytest.fixture(scope="module")
-def stub(channel):
-    return rpc.EngineServiceStub(channel)
+from fga_engine.handler.grpc.server import SERVICE
 
 
 def brief_json() -> bytes:
@@ -136,10 +120,7 @@ def test_message_larger_than_default_is_accepted(stub):
 # --- file RPCs (T7b) ---------------------------------------------------------------------------------------------
 import base64
 
-from fastapi.testclient import TestClient
-
 import sample_dxf
-from fga_engine.app import create_app
 from fga_engine.domain.schemas import BuildingModel
 
 
@@ -152,13 +133,11 @@ def _upload(data: bytes, name="p.dxf") -> c.Upload:
     return c.Upload(name=name, mime="image/vnd.dxf", data=data)
 
 
-def test_import_dxf_matches_the_http_endpoint(stub, sheet_bytes):
+def test_import_dxf_returns_the_plans_with_checks_and_svg(stub, sheet_bytes):
     got = stub.ImportDXF(e.ImportDXFRequest(file=_upload(sheet_bytes)))
-    http = TestClient(create_app(llm=object())).post("/v1/import/dxf", files={"file": ("s.dxf", sheet_bytes, "image/vnd.dxf")})
-    assert http.status_code == 200
-    assert json.loads(got.plans_json) == http.json()["plans"]  # identical plans, checks and svg
-    assert json.loads(got.report_json) == http.json()["report"]
-    assert len(json.loads(got.plans_json)) == 3
+    plans = json.loads(got.plans_json)
+    assert len(plans) == 3 and all(p["ok"] and "<svg" in p["svg"] for p in plans)
+    assert json.loads(got.report_json) is not None
 
 
 def test_import_dxf_refuses_junk_and_oversize(stub):
@@ -179,7 +158,7 @@ def test_a_20_mb_dxf_goes_through(stub, sheet_bytes):
     assert len(json.loads(got.plans_json)) == 3
 
 
-def test_patch_dxf_matches_the_http_endpoint(stub):
+def test_patch_dxf_writes_the_change_into_the_file(stub):
     from briefs import FEASIBLE
     from fga_engine.infrastructure.draw import build_dxf, to_dxf_bytes
     from fga_engine.infrastructure.dxf_plan import import_dxf
@@ -193,14 +172,7 @@ def test_patch_dxf_matches_the_http_endpoint(stub):
     cur.rooms[0].name = "Den"
     got = stub.PatchDXF(e.PatchDXFRequest(original=_upload(data), base_model_json=base.model_dump_json().encode(),
                                           current_model_json=cur.model_dump_json().encode()))
-    http = TestClient(create_app(llm=object())).post(
-        "/v1/export/dxf-patch", files={"file": ("p.dxf", data, "image/vnd.dxf")},
-        data={"base": base.model_dump_json(), "current": cur.model_dump_json()})
-    assert http.status_code == 200
-    # bytes differ per write (ezdxf stamps a GUID and times), so compare what the files mean
-    assert import_dxf(got.dxf).plans[0].model == import_dxf(base64.b64decode(http.json()["dxf"])).plans[0].model
     assert import_dxf(got.dxf).plans[0].model.rooms[0].name == "Den"
-    assert json.loads(got.report_json) == http.json()["report"]
     assert any("renamed to 'Den'" in s for s in json.loads(got.report_json)["applied"])
     code, _ = refusal(lambda: stub.PatchDXF(e.PatchDXFRequest(original=_upload(data), base_model_json=b"{}", current_model_json=b"{}")))
     assert code == grpc.StatusCode.INVALID_ARGUMENT
@@ -208,19 +180,15 @@ def test_patch_dxf_matches_the_http_endpoint(stub):
 
 @pytest.mark.parametrize("fmt,media", [(e.RENDER_FORMAT_SVG, "image/svg+xml"), (e.RENDER_FORMAT_DXF, "image/vnd.dxf"),
                                        (e.RENDER_FORMAT_PDF, "application/pdf"), (e.RENDER_FORMAT_IFC, "application/x-step")])
-def test_render_each_format_matches_http(stub, fmt, media):
+def test_render_each_format(stub, fmt, media):
     plan = stub.CreatePlan(e.CreatePlanRequest(brief_json=brief_json()))
     model = BuildingModel.model_validate_json(plan.model_json)
-    names = {e.RENDER_FORMAT_SVG: "svg", e.RENDER_FORMAT_DXF: "dxf", e.RENDER_FORMAT_PDF: "pdf", e.RENDER_FORMAT_IFC: "ifc"}
     got = stub.Render(e.RenderRequest(model_json=plan.model_json, format=fmt,
                                       title_block=e.TitleBlock(title="Flat", version=2, issued="2026-01-01", author="ada")))
     assert got.media_type == media and got.data
-    http = TestClient(create_app(llm=object())).post("/v1/render", json={
-        "model": model.model_dump(mode="json"), "format": names[fmt],
-        "title_block": {"project": "Flat", "version": 2, "issued": "2026-01-01", "author": "ada"}})
-    assert http.status_code == 200 and http.headers["content-type"].startswith(media)
-    if fmt == e.RENDER_FORMAT_SVG:
-        assert got.data == http.content
+    prefix = {e.RENDER_FORMAT_SVG: b"<?xml", e.RENDER_FORMAT_PDF: b"%PDF", e.RENDER_FORMAT_DXF: b"0", e.RENDER_FORMAT_IFC: b"ISO-10303-21"}[fmt]
+    assert got.data.lstrip().startswith(prefix)
+    assert model.rooms  # the model the render drew from
 
 
 def test_render_unspecified_format_is_refused(stub):

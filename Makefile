@@ -11,9 +11,6 @@ web:
 	cd web && npm install && npm run dev
 
 engine:
-	cd blueprint-engine && uv run uvicorn fga_engine.app:app --port 8090 --reload
-
-engine-grpc:
 	cd blueprint-engine && uv run watchfiles --filter python fga_engine.serve.main src
 
 agent:
@@ -24,12 +21,6 @@ agent-test:
 
 engine-test:
 	cd blueprint-engine && uv run pytest -q
-
-engine-eval:
-	cd blueprint-engine && uv run python eval/run.py
-
-engine-eval-estimate:
-	cd blueprint-engine && uv run python eval/estimate_run.py
 
 agent-eval:
 	cd agent && uv run python eval/run.py
@@ -70,4 +61,4 @@ verify-live: compose-up seed test-integration
 init:
 	bash scripts/init.sh
 
-.PHONY: proto proto-gen compose-up seed api web engine engine-grpc agent agent-test engine-test engine-eval engine-eval-estimate agent-eval agent-eval-estimate test test-integration check verify-live init
+.PHONY: proto proto-gen compose-up seed api web engine agent agent-test engine-test agent-eval agent-eval-estimate test test-integration check verify-live init

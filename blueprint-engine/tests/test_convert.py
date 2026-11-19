@@ -1,12 +1,11 @@
 """PDF / PNG -> DXF -> import, against the sample plans' known areas (our own exports, so the answer is known)."""
 
+import json
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from fga_engine.infrastructure import convert, dxf_plan
-from fga_engine.app import create_app
 from fga_engine.domain.edits import EditError
 
 OUT = Path(__file__).parent.parent / "out"
@@ -48,13 +47,18 @@ def test_bad_input():
         convert.to_dxf((OUT / "studio.png").read_bytes(), "image/png", longest_m=0.5)
 
 
-def test_endpoint():
-    c = TestClient(create_app(llm=object()))
-    r = c.post("/v1/convert/dxf", files={"file": ("studio.pdf", (OUT / "studio.pdf").read_bytes(), "application/pdf")},
-               data={"scale": "100"})
-    assert r.status_code == 200 and r.json()["report"]["method"] == "pdf-vector"
-    r = c.post("/v1/convert/dxf", files={"file": ("x.png", b"zzz", "image/png")})
-    assert r.status_code == 422
+def test_convert_over_grpc(stub):
+    import grpc
+
+    from fga.demo.common.v1 import common_pb2 as c
+    from fga.demo.engine.v1 import engine_pb2 as e
+
+    got = stub.ConvertToDXF(e.ConvertToDXFRequest(file=c.Upload(name="studio.pdf", mime="application/pdf", data=(OUT / "studio.pdf").read_bytes()),
+                                                  options=e.ConvertOptions(scale=100)))
+    assert json.loads(got.report_json)["method"] == "pdf-vector"
+    with pytest.raises(grpc.RpcError) as ei:
+        stub.ConvertToDXF(e.ConvertToDXFRequest(file=c.Upload(name="x.png", mime="image/png", data=b"zzz")))
+    assert ei.value.code() == grpc.StatusCode.INVALID_ARGUMENT
 
 
 def test_raster_reads_its_own_scale_and_room_names():

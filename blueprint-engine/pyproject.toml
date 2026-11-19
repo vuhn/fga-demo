@@ -6,20 +6,16 @@ requires-python = ">=3.13"
 dependencies = [
     "fga-proto",
     "ezdxf==1.4.5",
-    "fastapi==0.162.5",
     "grpcio==1.80.0",
     "grpcio-health-checking==1.80.0",
-    "httpx==0.28.1",
     "ifcopenshell==0.9.0.post1",
     "matplotlib==3.11.2",
     "opencv-python-headless==5.0.0.93",
     "protobuf==6.33.6",
     "pydantic==2.14.3",
     "pypdfium2==5.15.2",
-    "python-multipart==0.0.33",
     "rapidocr-onnxruntime>=1.4.4",
     "shapely==2.2.0",
-    "uvicorn[standard]==0.54.0",
 ]
 
 [tool.uv.sources]
