@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..domain.results import StepResult
+from ..domain.results import BriefResult, StepResult, brief_result
 from ..domain.schemas import Brief, BuildingModel
 from ..pipeline import generate, generate_fitted
 
@@ -16,3 +16,7 @@ class GeneratorService:
         if repair:
             return fitted_step(brief, previous)
         return StepResult(result=generate(brief, previous))
+
+    def generate_brief(self, brief: Brief, previous: BuildingModel | None = None, *, repair: bool = False) -> BriefResult:
+        step = self.generate(brief, previous, repair=repair)
+        return brief_result(step.result, notes=step.notes, attempts=step.attempts)
