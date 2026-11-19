@@ -19,17 +19,12 @@ from pydantic import BaseModel, Field
 from shapely.geometry import Polygon
 
 from .dxf_plan import _layer_role, read_doc
-from .domain.schemas import BuildingModel, Opening, PlacedFixture, PlacedRoom
+from ..domain.files import PatchReport
+from ..domain.schemas import BuildingModel, Opening, PlacedFixture, PlacedRoom
 
 ADDED_LAYER = "FGA-ADDED"
 EPS = 0.005  # metres: smaller changes are rounding noise
 _ANGLE = {"east": 0.0, "north": 90.0, "west": 180.0, "south": 270.0}
-
-
-class PatchReport(BaseModel):
-    applied: list[str] = Field(default_factory=list)  # changes written into existing entities
-    added: list[str] = Field(default_factory=list)  # new entities drawn on FGA-ADDED (or copied from a template)
-    skipped: list[str] = Field(default_factory=list)  # changes the file cannot take, with the reason
 
 
 class _Ctx:

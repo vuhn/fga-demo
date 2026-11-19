@@ -12,10 +12,10 @@ from shapely.geometry import Polygon
 import sample_dxf
 from fga_engine.app import create_app
 from fga_engine.domain.checks import failed, run_imported_checks
-from fga_engine.draw import build_dxf, to_dxf_bytes, to_svg
-from fga_engine.dxf_plan import import_dxf
+from fga_engine.infrastructure.draw import build_dxf, to_dxf_bytes, to_svg
+from fga_engine.infrastructure.dxf_plan import import_dxf
 from fga_engine.domain.edits import EditError
-from fga_engine.ifc import to_ifc
+from fga_engine.infrastructure.ifc import to_ifc
 
 EXPECT = {  # plan -> (rooms, doors, windows, entrance side)
     1: (6, 6, 4, "west"),

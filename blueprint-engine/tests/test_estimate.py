@@ -16,7 +16,7 @@ from fga_engine import estimate_agent as ag
 from fga_engine import estimate_reading as rd
 from fga_engine import price_research as pr
 from fga_engine.app import create_app
-from fga_engine.dxf_plan import import_dxf
+from fga_engine.infrastructure.dxf_plan import import_dxf
 from fga_engine.estimate import price
 from fga_engine.estimate_models import Fact, RateRequest, RateResult, RoomScope, SessionState
 from fga_engine.price_source import NoPriceSource, requests_for

@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 from briefs import FEASIBLE
 
-from fga_engine.dxf_patch import ADDED_LAYER, patch_dxf
-from fga_engine.dxf_plan import import_dxf, read_doc
-from fga_engine.draw import build_dxf, to_dxf_bytes
+from fga_engine.infrastructure.dxf_patch import ADDED_LAYER, patch_dxf
+from fga_engine.infrastructure.dxf_plan import import_dxf, read_doc
+from fga_engine.infrastructure.draw import build_dxf, to_dxf_bytes
 from fga_engine.pipeline import generate
 from fga_engine.domain.schemas import BuildingModel
 
