@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 
 from ..domain.errors import InvalidEdit, LlmUnavailable, SearchUnavailable
-from ..domain.gateway import LanguageModel, RateCache, WebPages, WebSearch
+from ..domain.gateway import LanguageModel, WebPages, WebSearch
 from ..domain.model.call_context import CallContext
 from ..domain.model.progress import Progress
 from ..domain.model.rate import RateRequest, RateResult, RateSource
@@ -22,10 +22,10 @@ MAX_SOURCES = 6
 class PriceResearcherService:
     """`search=None` means no provider is configured: every rate comes back unpriced and the interview asks the person."""
 
-    def __init__(self, llm: LanguageModel, search: WebSearch | None, pages: WebPages, cache: RateCache, checker: PriceChecker,
+    def __init__(self, llm: LanguageModel, search: WebSearch | None, pages: WebPages, checker: PriceChecker,
                  pinner: RegionPinner, catalog: DesignCatalogLoader, parallel: int = 3, max_pages: int = 4,
                  today: Callable[[], str] | None = None) -> None:
-        self._llm, self._search, self._pages, self._cache = llm, search, pages, cache
+        self._llm, self._search, self._pages = llm, search, pages
         self._checker, self._pinner, self._catalog = checker, pinner, catalog
         self._parallel, self._max_pages = max(1, parallel), max_pages
         self._today = today or (lambda: date.today().isoformat())
@@ -44,14 +44,7 @@ class PriceResearcherService:
     def research(self, ctx: CallContext, requests: list[RateRequest], on_progress: Callable[[Progress], None],
                  on_rate: Callable[[RateResult], None] | None = None) -> list[RateResult]:
         results: dict[str, RateResult] = {}
-        todo: list[RateRequest] = []
-        for r in requests:
-            cached = self._cache.get(r.code, r.region, r.quality)
-            if cached is not None:
-                results[r.code] = cached
-                self._heard(on_rate, cached)
-            else:
-                todo.append(r)
+        todo = list(requests)  # no cache: every estimate researches its prices afresh
         if self._search is None:
             for r in todo:
                 results[r.code] = self._unpriced(r, NO_PROVIDER)
@@ -71,8 +64,6 @@ class PriceResearcherService:
                 except (LlmUnavailable, SearchUnavailable) as e:
                     res = self._unpriced(r, f"research failed: {str(e)[:120]}")
                 results[r.code] = res
-                if res.confidence != "none":
-                    self._cache.put(res)
                 self._heard(on_rate, res)
 
     @staticmethod

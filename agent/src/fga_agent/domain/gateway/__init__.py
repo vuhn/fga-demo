@@ -6,8 +6,7 @@ a new gateway is a new file plus one line here."""
 
 from .blueprint_engine_gateway import BlueprintEngine
 from .language_model_gateway import LanguageModel
-from .rate_cache_gateway import RateCache
 from .web_page_gateway import WebPages
 from .web_search_gateway import WebSearch
 
-__all__ = ["BlueprintEngine", "LanguageModel", "RateCache", "WebPages", "WebSearch"]
+__all__ = ["BlueprintEngine", "LanguageModel", "WebPages", "WebSearch"]

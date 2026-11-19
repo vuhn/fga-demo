@@ -13,7 +13,6 @@ from .handler.grpc.estimate_handler import EstimateHandler, EstimateUsecases
 from .handler.grpc.servicer import AgentServicer
 from .infrastructure.engine_grpc.blueprint_engine import GrpcBlueprintEngine, open_channel
 from .infrastructure.demo import DemoWebPages, DemoWebSearch
-from .infrastructure.memory import InMemoryRateCache
 from .infrastructure.ollama import OllamaLanguageModel
 from .infrastructure.web_page import HttpWebPages
 from .infrastructure.web_search import BraveWebSearch, SerperWebSearch
@@ -46,21 +45,20 @@ class App:
 
 
 def _web(env: Mapping[str, str]) -> tuple[WebSearch | None, WebPages]:
-    """The price source the environment names: `demo` (an invented list, labelled), `brave` or `serper` (need a key), else none."""
-    name, key = env.get("ESTIMATE_SEARCH_PROVIDER", "none").lower(), env.get("ESTIMATE_SEARCH_API_KEY", "")
-    if name == "demo":
-        return DemoWebSearch(), DemoWebPages()
+    """The price source the environment names: `brave` or `serper` with a key; anything else (no key, `demo`, `none`) falls
+    back to `demo`, an invented and labelled price list, so searching prices always works."""
+    name, key = env.get("ESTIMATE_SEARCH_PROVIDER", "demo").lower(), env.get("ESTIMATE_SEARCH_API_KEY", "")
     if name == "brave" and key:
         return BraveWebSearch(key), HttpWebPages()
     if name == "serper" and key:
         return SerperWebSearch(key), HttpWebPages()
-    return None, HttpWebPages()
+    return DemoWebSearch(), DemoWebPages()
 
 
 def _estimate(env: Mapping[str, str], engine, llm, design_catalog) -> EstimateHandler:
     search, pages = _web(env)
     researcher = PriceResearcherService(
-        llm, search, pages, InMemoryRateCache(), PriceCheckerService(float(env.get("ESTIMATE_USD_VND", "25000"))), RegionPinnerService(),
+        llm, search, pages, PriceCheckerService(float(env.get("ESTIMATE_USD_VND", "25000"))), RegionPinnerService(),
         design_catalog, parallel=int(env.get("ESTIMATE_SEARCH_PARALLEL", "3")))
     keywords, rules = KeywordReaderService(), env.get("ESTIMATE_RULES", "on") != "off"
     return EstimateHandler(EstimateUsecases(estimate_turner=EstimateTurnerService(

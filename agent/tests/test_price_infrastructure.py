@@ -1,4 +1,4 @@
-"""The adapters behind the price research: search providers, the page reader, the demo price list and the rate cache (no network:
+"""The adapters behind the price research: search providers, the page reader, the demo price list (no network:
 httpx's mock transport answers)."""
 
 import httpx
@@ -7,7 +7,6 @@ import pytest
 from fga_agent.domain.errors import SearchUnavailable
 from fga_agent.domain.model.rate import RateRequest, RateResult
 from fga_agent.infrastructure.demo import DemoWebPages, DemoWebSearch
-from fga_agent.infrastructure.memory import InMemoryRateCache
 from fga_agent.infrastructure.web_page import HttpWebPages
 from fga_agent.infrastructure.web_search import BraveWebSearch, SerperWebSearch
 
@@ -105,22 +104,3 @@ def test_the_demo_list_is_three_pages_per_code_on_an_invalid_host_and_says_it_is
     assert page.startswith("[DEMO DATA, not a real price list]") and "Hanoi" in page and "đ/m2" in page
     assert DemoWebSearch().search("q", RateRequest("nothing", "x", "m2", "", "")) == []
     assert DemoWebPages().text("https://example.com/floor_tile/0") is None and DemoWebPages().text("https://demo.invalid/bad") is None
-
-
-def test_a_cached_rate_is_served_while_fresh_and_per_code_region_and_quality():
-    now = [1000.0]
-    cache = InMemoryRateCache(ttl_seconds=100, clock=lambda: now[0])
-    rate = RateResult(code="floor_tile", unit="m2", base=5, confidence="ok", region="Hanoi", quality="good")
-    cache.put(rate)
-    assert cache.get("floor_tile", "Hanoi", "good") is rate
-    assert cache.get("floor_tile", "Hanoi", "normal") is None and cache.get("floor_tile", "Da Nang", "good") is None
-    now[0] = 1099.0
-    assert cache.get("floor_tile", "Hanoi", "good") is rate
-    now[0] = 1100.0
-    assert cache.get("floor_tile", "Hanoi", "good") is None  # the seven days are over
-
-
-def test_the_default_cache_keeps_a_rate_for_seven_days():
-    from fga_agent.infrastructure.memory.rate_cache import SEVEN_DAYS
-
-    assert SEVEN_DAYS == 7 * 24 * 3600
