@@ -40,7 +40,7 @@ if [ "$MODE" = "--check" ]; then
   gen_into "$tmp"
   bad=0
   for d in api/internal/infrastructure/grpcgen "${PY[@]/%//gen}"; do
-    diff -r "$tmp/$d" "$d" >/dev/null 2>&1 || { echo "stub drift in $d: run scripts/gen-proto.sh and commit" >&2; bad=1; }
+    diff -r -x __pycache__ "$tmp/$d" "$d" >/dev/null 2>&1 || { echo "stub drift in $d: run scripts/gen-proto.sh and commit" >&2; bad=1; }
   done
   exit $bad
 fi
