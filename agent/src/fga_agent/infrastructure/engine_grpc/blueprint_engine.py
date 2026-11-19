@@ -14,10 +14,8 @@ from ...domain.model.design_limits import DesignLimits
 from ...domain.model.operation_catalog import OperationCatalog
 from ...domain.model.plan import PlanRevision
 from ...domain.model.plan_check import PlanCheckReport
-from ...gen.fga.demo.engine.v1 import engine_pb2 as e
 from ...gen.fga.demo.engine.v1 import engine_pb2_grpc as stubs
-from .mapper import brief_mapper, design_limits_mapper, operation_catalog_mapper, plan_check_mapper, plan_mapper
-from .errors import map_error
+from .mapper import brief_mapper, design_limits_mapper, error_mapper, operation_catalog_mapper, plan_check_mapper, plan_mapper
 
 MAX_MESSAGE = 32 << 20
 REQUEST_ID = "x-request-id"
@@ -57,34 +55,35 @@ class GrpcBlueprintEngine:
         try:
             return getattr(self._stub, name)(request, timeout=self._timeout, metadata=md)
         except grpc.RpcError as err:
-            raise map_error(name, err) from err
+            raise error_mapper.to_domain(name, err) from err
 
     @rpc("ListTools")
     def operations(self, ctx: CallContext) -> OperationCatalog:
-        return operation_catalog_mapper.operation_catalog(self._call(ctx, "ListTools", e.ListToolsRequest()))
+        return operation_catalog_mapper.to_domain(self._call(ctx, "ListTools", operation_catalog_mapper.request()))
 
     @rpc("GetCatalog")
     def design_limits(self, ctx: CallContext) -> DesignLimits:
-        return design_limits_mapper.design_limits(self._call(ctx, "GetCatalog", e.GetCatalogRequest()))
+        return design_limits_mapper.to_domain(self._call(ctx, "GetCatalog", design_limits_mapper.request()))
 
     @rpc("NormalizeDraft")
     def normalize_draft(self, ctx: CallContext, draft: bytes) -> BriefDraft:
-        return brief_mapper.brief_draft(self._call(ctx, "NormalizeDraft", e.NormalizeDraftRequest(draft_json=draft)))
+        return brief_mapper.draft_to_domain(self._call(ctx, "NormalizeDraft", brief_mapper.normalize_request(draft)))
 
     @rpc("Generate")
     def generate(self, ctx: CallContext, brief: bytes, previous_model: bytes = b"", repair: bool = False) -> BriefBuild:
-        return brief_mapper.brief_build(self._call(ctx, "Generate", e.GenerateRequest(
-            brief_json=brief, previous_model_json=previous_model, repair=repair)))
+        return brief_mapper.build_to_domain(
+            self._call(ctx, "Generate", brief_mapper.generate_request(brief, previous_model, repair)))
 
     @rpc("ApplyBriefOps")
     def apply_brief_ops(self, ctx: CallContext, brief: bytes, ops: bytes, previous_model: bytes = b"") -> BriefBuild:
-        return brief_mapper.brief_build(self._call(ctx, "ApplyBriefOps", e.ApplyBriefOpsRequest(
-            brief_json=brief, ops_json=ops, previous_model_json=previous_model)))
+        return brief_mapper.build_to_domain(
+            self._call(ctx, "ApplyBriefOps", brief_mapper.apply_ops_request(brief, ops, previous_model)))
 
     @rpc("ApplyPlanOps")
     def apply_plan_ops(self, ctx: CallContext, model: bytes, ops: bytes) -> PlanRevision:
-        return plan_mapper.plan_revision(self._call(ctx, "ApplyPlanOps", e.ApplyPlanOpsRequest(model_json=model, ops_json=ops)))
+        return plan_mapper.to_domain(self._call(ctx, "ApplyPlanOps", plan_mapper.apply_ops_request(model, ops)))
 
     @rpc("RunChecks")
     def run_checks(self, ctx: CallContext, model: bytes, brief: bytes = b"") -> PlanCheckReport:
-        return plan_check_mapper.plan_check_report(self._call(ctx, "RunChecks", e.RunChecksRequest(model_json=model, brief_json=brief)))
+        return plan_check_mapper.report_to_domain(
+            self._call(ctx, "RunChecks", plan_check_mapper.run_checks_request(model, brief)))

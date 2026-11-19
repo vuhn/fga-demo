@@ -1,11 +1,11 @@
-"""Engine gRPC status -> the Agent's domain errors."""
+"""Engine gRPC failure -> the Agent's domain errors (the ErrorDetail DTO in the trailer is read here)."""
 
 from __future__ import annotations
 
 import grpc
 
-from ...domain.errors import EngineUnavailable, InvalidEdit, UnsupportedEdit
-from ...gen.fga.demo.common.v1 import common_pb2 as c
+from ....domain.errors import EngineUnavailable, InvalidEdit, UnsupportedEdit
+from ....gen.fga.demo.common.v1 import common_pb2 as c
 
 DETAIL_KEY = "error-detail-bin"
 
@@ -22,7 +22,7 @@ def detail_of(err: grpc.RpcError) -> c.ErrorDetail | None:
     return None
 
 
-def map_error(rpc: str, err: grpc.RpcError) -> Exception:
+def to_domain(rpc: str, err: grpc.RpcError) -> Exception:
     code = err.code()
     detail = detail_of(err)
     message = (detail.message if detail and detail.message else err.details()) or code.name

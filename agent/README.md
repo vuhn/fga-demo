@@ -9,6 +9,14 @@ make agent        # serve on :8091 with reload (needs the Engine on :8092 and Ol
 make agent-test   # pytest, no LLM
 ```
 
+## Layers
+
+```text
+request -> handler -> usecase (interface) -> service -> gateway (interface) -> infrastructure -> Ollama, Engine, ...
+```
+
+`handler/grpc/` is the delivery layer: the `<domain>_handler.py` endpoint classes plus the delivery plumbing around them (`servicer.py`, `server.py` with health, `errors.py`, `mapper/`, and `common/*_helper.py` for what the handlers share, e.g. `streaming_helper.py`). It decodes, calls one use case and encodes; it never holds business rules and never imports a service or an adapter (`wire.py` injects them).
+
 ## Where things go
 
 | Need | Put it in |
@@ -20,9 +28,9 @@ make agent-test   # pytest, no LLM
 | A business operation | `usecase/<operation>.py` (interface, verb methods) + `service/<operation>.py` (`<Operation>Service`, the logic), wired in `wire.py` |
 | A prompt | `service/prompts/<operation>.py`, pure functions; model-specific tuning stays in `infrastructure/ollama` |
 | A new Engine operation | a method in `engine.proto`, a typed method on `gateway.BlueprintEngine`, and its `@rpc` adapter in `infrastructure/engine_grpc/blueprint_engine.py` (a test fails until every `EngineService` method is used or deliberately left out) |
-| An RPC | a method of `handler/grpc/<domain>_handler.py` (with its own `<Domain>Usecases`): decode, call one use case with a `CallContext`, encode through `mapper/`; `servicer.py` only delegates; errors through `errors.py`, streams through `streaming.py` |
+| An RPC | a method of `handler/grpc/<domain>_handler.py` (with its own `<Domain>Usecases`): decode, call one use case with a `CallContext`, encode through `mapper/`; `servicer.py` only delegates; errors through `errors.py`, streams through `common/streaming_helper.py` |
 
 Calls carry a `CallContext` (request id) and a `ProgressReporter` explicitly; there are no ambient `ContextVar`s.
-`scripts/check-architecture-python.sh` enforces the layer imports, one gateway per file, usecase/service pairs, no ambient state, prompts only in `service/`, dataclasses only in `domain/model/` and `infrastructure/entity/`, and protobuf DTOs only in `mapper/`.
+Mappers convert both ways (build/decode the request, encode/read the response). `scripts/check-architecture-python.sh` (with `scripts/check-python-shape.py`: thin handlers, small mappers, small functions) enforces the layer imports, one gateway per file, usecase/service pairs, no ambient state, prompts only in `service/`, dataclasses only in `domain/model/` and `infrastructure/entity/`, and protobuf DTOs only in `mapper/`.
 
 Health (`grpc.health.v1`) is NOT_SERVING until the Engine's tool list and catalog have loaded.

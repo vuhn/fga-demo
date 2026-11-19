@@ -14,6 +14,12 @@ def test_plan_check_to_pb_turns_an_absent_room_into_an_empty_string():
     assert plan_check_mapper.to_pb(PlanCheck("r", "warning", True, "m", "room1")).room_id == "room1"
 
 
+def test_plan_check_survives_a_round_trip_through_the_dto():
+    for room in ("room1", None):
+        check = PlanCheck("r", "error", False, "m", room, "geometry", "r:x", ["a", "b"], "h")
+        assert plan_check_mapper.to_domain(plan_check_mapper.to_pb(check)) == check
+
+
 def test_progress_reports_become_blueprint_events():
     ev = progress_mapper.to_blueprint_event({"event": "progress", "kind": "thinking", "stage": "thinking", "message": "hm"})
     assert ev.WhichOneof("event") == "progress" and ev.progress.kind == "thinking" and ev.progress.message == "hm"

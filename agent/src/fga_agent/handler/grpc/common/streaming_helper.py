@@ -1,4 +1,4 @@
-"""Server-streaming over a worker thread: the run reports into a queue through a ProgressReporter, the RPC yields what
+"""Handler helper for server-streaming RPCs (used by the `<domain>_handler.py` classes): a worker thread runs the use case; the run reports into a queue through a ProgressReporter, the RPC yields what
 arrives; when the client leaves, the CancelToken is set and the run stops at its next report."""
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ from typing import Any
 
 import grpc
 
-from ...domain.model.cancel import Cancelled, CancelToken
-from ...domain.gateway import ProgressReporter
+from ....domain.model.cancel import Cancelled, CancelToken
+from ....domain.gateway import ProgressReporter
 
 _DONE = object()
 

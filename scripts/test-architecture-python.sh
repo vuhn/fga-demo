@@ -25,8 +25,17 @@ echo 'x = 1' >"$t/agent/src/fga_agent/handler/grpc/mapper/helpers.py"
 mkdir -p "$t/agent/src/fga_agent/handler/grpc"
 echo 'x = 1' >"$t/agent/src/fga_agent/handler/grpc/brief.py"
 echo 'from ...service import brief_drafter' >"$t/agent/src/fga_agent/handler/grpc/estimate_handler.py"
+mkdir -p "$t/agent/src/fga_agent/handler/grpc/common"
+echo 'x = 1' >"$t/agent/src/fga_agent/handler/grpc/common/streaming.py"
+mkdir -p "$t/agent/src/fga_agent/handler/grpc/mapper"
+python3 - "$t/agent/src/fga_agent/handler/grpc" <<'PY'
+import sys
+d = sys.argv[1]
+open(d + "/blueprint_handler.py", "w").write("class H:\n    def revise(self, r, c):\n        self._uc.a.go(r)\n        self._uc.b.go(r)\n        for x in r:\n            pass\n" + "        y = 1\n" * 16)
+open(d + "/mapper/big_mapper.py", "w").write("def to_pb(x):\n" + "    y = 1\n" * 26)
+PY
 out=$(ROOT="$t" ALLOW=/dev/null bash scripts/check-architecture-python.sh || true)
-for rule in inner-sdk inner-infra engine-no-network engine-no-llm agent-no-engine gateway-per-kind usecase-service-pair agent-no-ambient-state agent-prompts-in-service agent-model-folder agent-entity-folder agent-dto-in-mapper agent-handler-shape; do
+for rule in inner-sdk inner-infra engine-no-network engine-no-llm agent-no-engine gateway-per-kind usecase-service-pair agent-no-ambient-state agent-prompts-in-service agent-model-folder agent-entity-folder agent-dto-in-mapper agent-handler-shape agent-thin-handler agent-pure-mapper; do
   echo "$out" | grep -q "\[$rule\]" || { echo "planted violation not flagged: $rule"; exit 1; }
 done
 echo "python architecture rules flag every planted violation"

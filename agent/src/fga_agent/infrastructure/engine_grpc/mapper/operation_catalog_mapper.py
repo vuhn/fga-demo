@@ -1,4 +1,4 @@
-"""Engine `ListToolsResponse` -> domain (JSON schema text becomes a dict)."""
+"""Engine DTOs <-> domain for the edit operations: the ListTools request out, the catalog in (schema text becomes a dict)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,11 @@ from ....domain.model.operation_catalog import EditOperation, OperationCatalog
 from ....gen.fga.demo.engine.v1 import engine_pb2 as e
 
 
-def operation_catalog(r: e.ListToolsResponse) -> OperationCatalog:
+def request() -> e.ListToolsRequest:
+    return e.ListToolsRequest()
+
+
+def to_domain(r: e.ListToolsResponse) -> OperationCatalog:
     return OperationCatalog(
         operations=[EditOperation(t.name, t.kind, t.description, json.loads(t.json_schema or "{}"), t.signature)
                     for t in r.tools],

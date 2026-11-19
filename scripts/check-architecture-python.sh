@@ -94,12 +94,12 @@ for svc in "$ROOT"/agent/src/*; do
   while IFS= read -r f; do
     case "$f" in */infrastructure/entity/*) ;; *) report agent-entity-folder "${f#$ROOT/}" "a technology's wire shapes are infrastructure entities, kept out of the adapter logic" "move the dataclass to infrastructure/entity/<technology>_<shape>.py";; esac
   done < <(grep -rlE '^@dataclass' --include='*.py' "$svc/infrastructure" 2>/dev/null | grep -v '/gen/')
-  # protobuf message modules are touched only by mapper/ (handler: nowhere else; Engine adapter: its request builder and error reader)
+  # protobuf message modules (requests, responses, details) are touched only by mapper/, which converts both ways
   for dir in handler/grpc infrastructure/engine_grpc; do
     [ -d "$svc/$dir" ] || continue
     while IFS= read -r f; do
       case "$f" in
-        */mapper/*|*/infrastructure/engine_grpc/blueprint_engine.py|*/infrastructure/engine_grpc/errors.py) ;;
+        */mapper/*) ;;
         *) report agent-dto-in-mapper "${f#$ROOT/}" "converting protobuf DTOs to and from domain models is the mappers' job" "move the conversion to $dir/mapper/<model>_mapper.py";;
       esac
     done < <(grep -rlE '^[[:space:]]*from[[:space:]]+[A-Za-z_.]*gen\.fga[A-Za-z_.]*[[:space:]]+import[[:space:]]+[a-z]+_pb2([[:space:]]|$)' --include='*.py' "$svc/$dir" 2>/dev/null)
@@ -110,20 +110,28 @@ for svc in "$ROOT"/agent/src/*; do
   done
 done
 
-# 9. Agent handlers mirror the Go HTTP handlers: one `<domain>_handler.py` per domain with its own use cases, thin
-# (decode, call one use case, encode through mapper/), importing no domain logic (only models, errors and gateway types).
+# 9. handler/ is the delivery layer, like Go's handler/http: `<domain>_handler.py` endpoint classes (one per domain, own
+# use cases, thin: decode, call one use case, encode through mapper/) plus delivery plumbing (servicer, server, errors, mapper/, and common/<kind>_helper.py for what the handlers share,
+# errors, mapper/). Delivery code imports no service, adapter or domain logic (only models, errors and gateway types).
 for svc in "$ROOT"/agent/src/*; do
   dir="$svc/handler/grpc"
   [ -d "$dir" ] || continue
   for f in "$dir"/*.py; do
     n=$(basename "$f")
-    case "$n" in __init__.py|errors.py|server.py|servicer.py|streaming.py|*_handler.py) ;; *) report agent-handler-shape "${f#$ROOT/}" "a handler file is named after its domain, like Go's <domain>_handler.go" "name it <domain>_handler.py";; esac
+    case "$n" in __init__.py|errors.py|server.py|servicer.py|*_handler.py) ;; *) report agent-handler-shape "${f#$ROOT/}" "an endpoint file is named after its domain, like Go's <domain>_handler.go; the only other files are the delivery plumbing (servicer, server, errors) and common/" "name it <domain>_handler.py";; esac
+  done
+  for f in "$dir"/common/*.py; do
+    [ -f "$f" ] || continue
+    n=$(basename "$f"); case "$n" in __init__.py|*_helper.py) ;; *) report agent-handler-shape "${f#$ROOT/}" "helpers shared by the handlers are named <kind>_helper.py" "rename to <kind>_helper.py";; esac
   done
   while IFS= read -r f; do
-    report agent-handler-shape "${f#$ROOT/}" "handlers decode, call one use case and encode; business logic belongs in service/" \
+    report agent-handler-shape "${f#$ROOT/}" "the delivery layer decodes, calls one use case and encodes; business logic belongs in service/" \
       "move the logic to a service and call it through its use case"
   done < <(grep -rlE '^[[:space:]]*from[[:space:]]+\.\.\.domain\.(progress|cancel|call_context)|^[[:space:]]*from[[:space:]]+\.\.\.(service|infrastructure)' --include='*.py' "$dir" 2>/dev/null)
 done
+
+# 10. Shape rules that need the syntax tree: thin handlers, small mappers, small functions (scripts/check-python-shape.py).
+ROOT="$ROOT" python3 "$(cd "$(dirname "$0")" && pwd)/check-python-shape.py" || fail=1
 
 [ $fail = 0 ] && echo "python architecture: ok"
 exit $fail
