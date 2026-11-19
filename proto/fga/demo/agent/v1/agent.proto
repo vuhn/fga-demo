@@ -71,8 +71,8 @@ message BlueprintOutcome {
 }
 
 message Error {
-  int32 status = 1;       // HTTP status the API relays: 422, 502, 500
-  string error = 2;       // invalid_edit | llm_unavailable | engine_unavailable | internal
+  int32 status = 1;       // HTTP status the API relays: 422, 502, 504, 500
+  string error = 2;       // invalid_edit | llm_unavailable | engine_unavailable | timeout | internal
   string message = 3;
 }
 

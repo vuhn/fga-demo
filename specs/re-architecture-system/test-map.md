@@ -90,22 +90,22 @@
 | `tests/test_estimate.py::test_web_source_accepts_real_quotes_rejects_fakes_and_caches` | agent/tests/test_price_researcher.py::test_a_real_quote_is_accepted_a_fake_is_rejected_and_the_rate_is_cached | mapped (T13a) |
 | `tests/test_estimate.py::test_web_source_with_nothing_usable_is_unpriced_and_queries_hold_no_project_data` | agent/tests/test_price_researcher.py::test_nothing_usable_is_unpriced_and_queries_hold_no_project_data | mapped (T13a) |
 | `tests/test_estimate.py::test_research_requests_carry_only_material_region_and_quality` | agent/tests/test_price_researcher.py::test_research_requests_carry_only_material_region_and_quality | mapped (T13a) |
-| `tests/test_estimate.py::test_the_example_conversation_asks_before_it_assumes` | | pending |
+| `tests/test_estimate.py::test_the_example_conversation_asks_before_it_assumes` | agent/tests/test_estimate_turn.py::test_the_example_conversation_asks_before_it_assumes | mapped (T13b) |
 | `tests/test_estimate.py::test_a_place_answer_is_split_by_code_and_an_empty_shell_is_a_fit_out` | agent/tests/test_estimate_reading.py::test_a_place_answer_is_split_by_code_and_an_empty_shell_is_a_fit_out | mapped (T12) |
-| `tests/test_estimate.py::test_i_dont_know_is_recorded_as_assumed_and_shown_in_the_result` | agent/tests/test_estimate_interview.py::test_i_dont_know_is_recorded_as_assumed (listing it in the result is the turn, T13b) | mapped (T12) |
-| `tests/test_estimate.py::test_several_slots_in_one_message_and_typical_markups` | | pending |
+| `tests/test_estimate.py::test_i_dont_know_is_recorded_as_assumed_and_shown_in_the_result` | agent/tests/test_estimate_turn.py::test_i_dont_know_is_recorded_as_assumed_and_shown_in_the_result (the part before the estimate is agent/tests/test_estimate_interview.py::test_i_dont_know_is_recorded_as_assumed) | mapped (T13b) |
+| `tests/test_estimate.py::test_several_slots_in_one_message_and_typical_markups` | agent/tests/test_estimate_turn.py::test_several_slots_in_one_message_and_typical_markups | mapped (T13b) |
 | `tests/test_estimate.py::test_missing_slots_come_from_code_not_the_llm` | agent/tests/test_estimate_interview.py::test_missing_slots_come_from_code_not_the_model | mapped (T12) |
-| `tests/test_estimate.py::test_changing_an_answer_reprices_only_what_changed` | | pending |
-| `tests/test_estimate.py::test_scope_changes_the_total` | | pending |
-| `tests/test_estimate.py::test_unpriced_codes_are_flagged_and_a_user_rate_fills_them` | | pending |
-| `tests/test_estimate.py::test_no_search_provider_means_unpriced_with_a_reason` | agent/tests/test_price_researcher.py::test_no_search_provider_means_unpriced_with_a_reason (the unpriced estimate that follows is the turn, T13b) | mapped (T13a) |
-| `tests/test_estimate.py::test_explaining_a_line` | | pending |
-| `tests/test_estimate.py::test_drawing_without_rooms_fails_cleanly` | | pending |
-| `tests/test_estimate.py::test_a_question_turn_streams_progress_tokens_question_then_done` | | pending |
-| `tests/test_estimate.py::test_an_estimate_turn_streams_rates_then_the_estimate_then_the_closing_reply` | | pending |
-| `tests/test_estimate.py::test_llm_failure_mid_stream_is_an_error_event` | | pending |
-| `tests/test_estimate.py::test_a_dead_llm_before_any_text_falls_back_to_the_question_text` | | pending |
-| `tests/test_estimate.py::test_chips_match_the_slot_asked_and_always_offer_you_decide` | | pending |
+| `tests/test_estimate.py::test_changing_an_answer_reprices_only_what_changed` | agent/tests/test_estimate_turn.py::test_changing_an_answer_prices_again_only_what_changed | mapped (T13b) |
+| `tests/test_estimate.py::test_scope_changes_the_total` | agent/tests/test_estimate_turn.py::test_the_scope_changes_the_total | mapped (T13b) |
+| `tests/test_estimate.py::test_unpriced_codes_are_flagged_and_a_user_rate_fills_them` | agent/tests/test_estimate_turn.py::test_unpriced_codes_are_flagged_and_a_user_rate_fills_them | mapped (T13b) |
+| `tests/test_estimate.py::test_no_search_provider_means_unpriced_with_a_reason` | agent/tests/test_price_researcher.py::test_no_search_provider_means_unpriced_with_a_reason (+ agent/tests/test_estimate_turn.py::test_no_search_provider_means_unpriced_lines_with_a_reason_in_the_estimate) | mapped (T13b) |
+| `tests/test_estimate.py::test_explaining_a_line` | agent/tests/test_estimate_turn.py::test_explaining_a_line | mapped (T13b) |
+| `tests/test_estimate.py::test_drawing_without_rooms_fails_cleanly` | agent/tests/test_estimate_turn.py::test_a_drawing_without_rooms_fails_cleanly | mapped (T13b) |
+| `tests/test_estimate.py::test_a_question_turn_streams_progress_tokens_question_then_done` | agent/tests/test_estimate_handler.py::test_a_question_turn_streams_progress_fact_tokens_question_then_done (+ agent/tests/test_estimate_turn.py::test_a_question_turn_streams_progress_facts_tokens_then_the_question) | mapped (T13b) |
+| `tests/test_estimate.py::test_an_estimate_turn_streams_rates_then_the_estimate_then_the_closing_reply` | agent/tests/test_estimate_handler.py::test_an_estimate_turn_streams_rates_then_the_estimate_then_the_closing_reply | mapped (T13b) |
+| `tests/test_estimate.py::test_llm_failure_mid_stream_is_an_error_event` | agent/tests/test_estimate_handler.py::test_a_model_that_dies_mid_reply_is_an_in_band_502_after_its_first_text | mapped (T13b) |
+| `tests/test_estimate.py::test_a_dead_llm_before_any_text_falls_back_to_the_question_text` | agent/tests/test_estimate_handler.py::test_a_dead_model_before_any_text_falls_back_to_the_question_text | mapped (T13b) |
+| `tests/test_estimate.py::test_chips_match_the_slot_asked_and_always_offer_you_decide` | agent/tests/test_estimate_turn.py::test_chips_match_the_slot_asked_and_always_offer_you_decide (+ agent/tests/test_estimate_interview.py::test_every_slot_has_a_question_and_the_slot_names_are_the_questions_ids) | mapped (T13b) |
 | `tests/test_estimate.py::test_flags_the_model_sets_unprompted_do_not_assume_anything` | agent/tests/test_estimate_interview.py::test_flags_the_model_sets_unprompted_do_not_assume_anything | mapped (T12) |
 | `tests/test_estimate.py::test_typical_and_give_up_phrases_still_work_when_said` | agent/tests/test_estimate_interview.py::test_typical_and_give_up_phrases_still_work_when_said (the priced estimate after it is the turn, T13b) | mapped (T12) |
 | `tests/test_estimate.py::test_the_same_scope_twice_is_one_fact_event` | agent/tests/test_estimate_interview.py::test_the_same_scope_twice_is_one_change_per_room | mapped (T12) |
@@ -114,23 +114,23 @@
 | `tests/test_estimate.py::test_the_agents_own_chips_are_understood_without_the_llm` | agent/tests/test_estimate_reading.py::test_the_agents_own_chips_are_understood_without_the_model | mapped (T12) |
 | `tests/test_estimate.py::test_exist_alone_never_sets_every_room` | agent/tests/test_estimate_reading.py::test_exist_alone_never_sets_every_room | mapped (T12) |
 | `tests/test_estimate.py::test_a_room_can_be_marked_only_when_the_message_refers_to_it` | agent/tests/test_estimate_reading.py::test_a_room_can_be_marked_only_when_the_message_refers_to_it | mapped (T12) |
-| `tests/test_estimate.py::test_the_region_is_pinned_by_code_not_the_model` | | pending |
-| `tests/test_estimate.py::test_a_query_naming_the_wrong_city_never_reaches_the_search_provider` | | pending |
-| `tests/test_estimate.py::test_the_cited_sources_are_only_those_the_rate_rests_on` | | pending |
+| `tests/test_estimate.py::test_the_region_is_pinned_by_code_not_the_model` | agent/tests/test_price_checks.py::test_the_region_is_pinned_by_code | mapped (T13b) |
+| `tests/test_estimate.py::test_a_query_naming_the_wrong_city_never_reaches_the_search_provider` | agent/tests/test_price_researcher.py::test_a_query_naming_another_city_falls_back_to_a_query_for_the_region | mapped (T13b) |
+| `tests/test_estimate.py::test_the_cited_sources_are_only_those_the_rate_rests_on` | agent/tests/test_price_researcher.py::test_an_injected_price_far_from_the_others_is_dropped_with_its_source | mapped (T13b) |
 | `tests/test_estimate.py::test_fixtures_are_assumed_absent_and_priced_unless_they_exist` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
-| `tests/test_estimate.py::test_the_agent_asks_which_fixtures_exist_before_it_prices` | agent/tests/test_estimate_interview.py::test_the_fixtures_question_comes_only_when_the_plan_has_pending_priced_fixtures (+ ::test_the_chips_for_the_fixtures_question_are_understood; pricing after it is the turn, T13b) | mapped (T12) |
-| `tests/test_estimate.py::test_some_fixtures_exist_only_those_the_message_refers_to` | agent/tests/test_estimate_interview.py::test_some_fixtures_exist_only_those_the_message_refers_to | mapped (T12) |
-| `tests/test_estimate.py::test_i_dont_know_assumes_no_fixture_exists_and_says_so` | agent/tests/test_estimate_interview.py::test_i_dont_know_assumes_no_fixture_exists_and_says_so (saying so in the result is the turn, T13b) | mapped (T12) |
+| `tests/test_estimate.py::test_the_agent_asks_which_fixtures_exist_before_it_prices` | agent/tests/test_estimate_turn.py::test_the_agent_asks_which_fixtures_exist_before_it_prices | mapped (T13b) |
+| `tests/test_estimate.py::test_some_fixtures_exist_only_those_the_message_refers_to` | agent/tests/test_estimate_turn.py::test_some_fixtures_exist_only_those_the_message_refers_to | mapped (T13b) |
+| `tests/test_estimate.py::test_i_dont_know_assumes_no_fixture_exists_and_says_so` | agent/tests/test_estimate_turn.py::test_i_dont_know_assumes_no_fixture_exists_and_says_so | mapped (T13b) |
 | `tests/test_estimate.py::test_demo_search_prices_every_code_through_the_real_pipeline_and_labels_it` | agent/tests/test_price_researcher.py::test_demo_search_prices_every_code_through_the_real_pipeline_and_labels_it | mapped (T13a) |
-| `tests/test_estimate.py::test_an_estimate_on_demo_prices_says_it_is_demo_data` | | pending |
+| `tests/test_estimate.py::test_an_estimate_on_demo_prices_says_it_is_demo_data` | `blueprint-engine/tests/test_estimate.py` (same ID; the DEMO DATA warning is the Engine's PriceEstimate and stays in the Engine; the turn passes it through) | mapped (T13b) |
 | `tests/test_estimate.py::test_a_named_city_and_an_explicit_floor_height_never_depend_on_the_llm` | agent/tests/test_estimate_reading.py::test_a_named_city_and_an_explicit_floor_height_never_depend_on_the_model | mapped (T12) |
 | `tests/test_estimate.py::test_include_or_exclude_mep_is_read_by_code` | agent/tests/test_estimate_reading.py::test_include_or_exclude_mep_is_read_by_code | mapped (T12) |
 | `tests/test_estimate.py::test_work_type_and_structure_keywords_are_read_by_code` | agent/tests/test_estimate_reading.py::test_work_type_and_structure_keywords_are_read_by_code | mapped (T12) |
-| `tests/test_estimate.py::test_removing_an_item_from_a_finished_estimate_really_removes_it` | agent/tests/test_estimate_reading.py::test_removing_and_putting_back_an_item_is_read_by_code (the re-priced total is the Engine's Takeoff/PriceEstimate, turn T13b) | mapped (T12) |
+| `tests/test_estimate.py::test_removing_an_item_from_a_finished_estimate_really_removes_it` | agent/tests/test_estimate_turn.py::test_removing_an_item_from_a_finished_estimate_really_removes_it | mapped (T13b) |
 | `tests/test_estimate.py::test_the_model_cannot_remove_items_the_message_never_mentions` | agent/tests/test_estimate_reading.py::test_the_model_cannot_remove_items_the_message_never_mentions | mapped (T12) |
 | `tests/test_estimate.py::test_an_item_can_be_put_back` | agent/tests/test_estimate_reading.py::test_removing_and_putting_back_an_item_is_read_by_code | mapped (T12) |
-| `tests/test_estimate.py::test_a_message_that_changes_nothing_never_claims_a_change` | agent/tests/test_estimate_interview.py::test_a_message_that_changes_nothing_reports_no_change_and_the_given_state_is_untouched (the reply wording is the turn, T13b) | mapped (T12) |
-| `tests/test_estimate.py::test_the_reply_after_a_real_change_is_given_exactly_what_changed` | | pending |
+| `tests/test_estimate.py::test_a_message_that_changes_nothing_never_claims_a_change` | agent/tests/test_estimate_turn.py::test_a_message_that_changes_nothing_never_claims_a_change | mapped (T13b) |
+| `tests/test_estimate.py::test_the_reply_after_a_real_change_is_given_exactly_what_changed` | agent/tests/test_estimate_turn.py::test_the_reply_after_a_real_change_is_given_exactly_what_changed | mapped (T13b) |
 | `tests/test_estimate.py::test_an_exception_in_the_first_message_takes_that_opening_out` | agent/tests/test_estimate_reading.py::test_an_exception_in_the_first_message_takes_that_opening_out | mapped (T12) |
 | `tests/test_estimate.py::test_exception_and_only_phrases_name_openings_only` | agent/tests/test_estimate_reading.py::test_exception_and_only_phrases_name_openings_only | mapped (T12) |
 | `tests/test_estimate.py::test_a_quote_counts_only_when_it_is_in_the_message[except entrance door-Fixtures are almost empty, except entrance door.-True]` | agent/tests/test_estimate_reading.py::test_a_quote_counts_only_when_it_is_in_the_message[except entrance door-Fixtures are almost empty, except entrance door.-True] | mapped (T12) |

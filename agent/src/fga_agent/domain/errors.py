@@ -23,6 +23,10 @@ class LlmUnavailable(RuntimeError):
     """The language model cannot serve (Ollama down, invalid output twice)."""
 
 
+class TurnTimedOut(RuntimeError):
+    """An estimate turn ran past its ceiling."""
+
+
 class SearchUnavailable(RuntimeError):
     """The web search provider cannot serve (down, quota, bad key)."""
 

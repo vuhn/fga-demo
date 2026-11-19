@@ -69,6 +69,27 @@ class FakeEngine(rpc.EngineServiceServicer):
                              openings=[e.PlanSummary.Opening(id="d1", kind="door", room_ids=["r1", "outside"], width=0.9)],
                              pending_fixtures=["f1"], structure_in_scope=True)
 
+    def Takeoff(self, request, context):
+        self._enter("Takeoff", context)
+        self.takeoff_seen = request
+        return e.TakeoffResponse(status="ok", warnings=["w"], lines=[
+            e.TakeoffLine(code="floor_tile", package="Finishes", description="floor tile", quantity=40.5, unit="m2", basis="net area",
+                          confidence="measured", deps=["floor_height"], room_id="r1")])
+
+    def PriceEstimate(self, request, context):
+        self._enter("PriceEstimate", context)
+        self.price_seen = request
+        doc = {"currency": "VND", "total": {"low": 8.0, "base": 10.0, "high": 12.0}, "packages": {"Finishes": {"low": 8, "base": 10, "high": 12}},
+               "assumptions": ["floor_height = 3.0 (assumed)"], "warnings": ["No price for paint"],
+               "lines": [{"code": "floor_tile", "package": "Finishes", "description": "floor tile", "quantity": 40.5, "unit": "m2",
+                          "basis": "net area", "confidence": "measured", "priced": True, "rate_base": 250000.0, "rate_confidence": "ok",
+                          "low": 8, "base": 10, "high": 12}],
+               "rates": [{"code": "floor_tile", "low": 200000.0, "base": 250000.0, "high": 300000.0, "unit": "m2", "currency": "VND",
+                          "confidence": "ok", "region": "Hanoi", "quality": "good", "note": "n",
+                          "sources": [{"url": "https://x.test", "quote": "q", "retrieved_at": "2026-11-16"}]}]}
+        import json
+        return e.PriceEstimateResponse(estimate_json=json.dumps(doc).encode(), total_low=8, total_base=10, total_high=12)
+
     def RunChecks(self, request, context):
         self._enter("RunChecks", context)
         return e.RunChecksResponse(ok=True, issue_score=0)

@@ -12,7 +12,6 @@ from typing import Any
 import grpc
 
 from ....domain.errors import Cancelled
-from ....domain.model.progress import Progress
 
 _DONE = object()
 
@@ -24,7 +23,7 @@ class _Failed:
         self.error = error
 
 
-def ignore_progress(_: Progress) -> None:
+def ignore_progress(_: Any) -> None:
     """The progress callback of a unary RPC: nobody is listening."""
 
 
@@ -46,8 +45,8 @@ class CancelToken:
             raise Cancelled()
 
 
-def stream_run(context: grpc.ServicerContext, run: Callable[[Callable[[Progress], None]], Any],
-               to_event: Callable[[Progress], Any], on_error: Callable[[Exception], Any],
+def stream_run(context: grpc.ServicerContext, run: Callable[[Callable[[Any], None]], Any],
+               to_event: Callable[[Any], Any], on_error: Callable[[Exception], Any],
                refuse: Callable[[Exception], None] | None = None) -> Iterator[Any]:
     """Run `run(on_progress)` in a worker. Each progress step goes through `to_event`; the return value of `run` is
     the final event (already a proto message). An exception after the first event becomes `on_error(exc)` (an in-band
@@ -58,7 +57,7 @@ def stream_run(context: grpc.ServicerContext, run: Callable[[Callable[[Progress]
     token = CancelToken()
     context.add_callback(token.cancel)
 
-    def on_progress(p: Progress) -> None:
+    def on_progress(p: Any) -> None:  # a `Progress`, or any event of the stream the caller's `to_event` knows
         token.check()
         q.put(to_event(p))
 

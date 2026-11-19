@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .estimate import Estimate
+from .rate import RateResult
+
 
 @dataclass(frozen=True)
 class EstimateFact:
@@ -47,8 +50,9 @@ class SessionState:
     fixtures_existing: list[str] = field(default_factory=list)  # every other priced fixture is assumed NOT installed
     excluded: list[str] = field(default_factory=list)  # rate codes left out of the estimate
     rate_overrides: dict[str, float] = field(default_factory=dict)
+    rates: list[RateResult] = field(default_factory=list)  # researched rates, kept to price again without searching
     status: str = "interviewing"  # interviewing | researching | ready | failed
     pending: list[str] = field(default_factory=list)  # open slot names, the first is the question just asked
     fingerprint: str = ""  # of the inputs the stored estimate was computed from
-    estimate: dict | None = None  # the Engine's priced estimate as returned; typed with the turn (T13b)
+    estimate: Estimate | None = None
     turns: int = 0

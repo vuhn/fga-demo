@@ -1,5 +1,5 @@
 """gRPC adapter of gateway.BlueprintEngine. Each method is exactly one Engine RPC, declared with @rpc so a test can
-check that every `EngineService` method is either used here or deliberately left out (`NOT_USED`, `LATER`)."""
+check that every `EngineService` method is either used here or deliberately left out (`NOT_USED`)."""
 
 from __future__ import annotations
 
@@ -11,22 +11,23 @@ import grpc
 from ...domain.model.brief import BriefBuild, BriefDraft
 from ...domain.model.call_context import CallContext
 from ...domain.model.design_limits import DesignLimits
+from ...domain.model.estimate import Estimate
 from ...domain.model.estimate_facts import EstimateFacts
 from ...domain.model.operation_catalog import OperationCatalog
 from ...domain.model.plan import PlanRevision
 from ...domain.model.plan_check import PlanCheckReport
 from ...domain.model.plan_summary import PlanSummary
+from ...domain.model.rate import RateResult
+from ...domain.model.takeoff import Takeoff
 from fga.demo.engine.v1 import engine_pb2_grpc as stubs
-from .mapper import brief_mapper, design_limits_mapper, error_mapper, operation_catalog_mapper, plan_check_mapper, plan_mapper, \
-    plan_summary_mapper
+from .mapper import brief_mapper, design_limits_mapper, error_mapper, estimate_mapper, operation_catalog_mapper, plan_check_mapper, \
+    plan_mapper, plan_summary_mapper, takeoff_mapper
 
 MAX_MESSAGE = 32 << 20
 REQUEST_ID = "x-request-id"
 
 # Engine RPCs the Agent never calls: the API calls them (plans, files).
 NOT_USED = frozenset({"CreatePlan", "DrawPlan", "ConvertToDXF", "ImportDXF", "PatchDXF", "Render"})
-# Engine RPCs the estimate turn (T13b) will use.
-LATER = frozenset({"Takeoff", "PriceEstimate"})
 
 
 def open_channel(addr: str) -> grpc.Channel:
@@ -94,3 +95,11 @@ class GrpcBlueprintEngine:
     @rpc("SummarizePlan")
     def summarize_plan(self, ctx: CallContext, model: bytes, facts: EstimateFacts) -> PlanSummary:
         return plan_summary_mapper.to_domain(self._call(ctx, "SummarizePlan", plan_summary_mapper.request(model, facts)))
+
+    @rpc("Takeoff")
+    def takeoff(self, ctx: CallContext, model: bytes, facts: EstimateFacts) -> Takeoff:
+        return takeoff_mapper.to_domain(self._call(ctx, "Takeoff", takeoff_mapper.request(model, facts)))
+
+    @rpc("PriceEstimate")
+    def price_estimate(self, ctx: CallContext, takeoff: Takeoff, rates: list[RateResult], facts: EstimateFacts) -> Estimate:
+        return estimate_mapper.to_domain(self._call(ctx, "PriceEstimate", estimate_mapper.request(takeoff, rates, facts)))
