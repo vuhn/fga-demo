@@ -26,15 +26,15 @@ from shapely.geometry.polygon import orient
 from shapely.ops import polygonize, unary_union
 
 from . import dxf_drawing
-from .domain.edits import EditError
-from .domain.schemas import FIXTURE_KINDS, BuildingModel, DrawItem, Opening, Origin, PlacedFixture, PlacedRoom, Side, Wall
+from ..domain.edits import EditError
+from ..domain.files import MAX_BYTES, ImportedPlan, ImportReport, ImportResult
+from ..domain.schemas import FIXTURE_KINDS, BuildingModel, DrawItem, Opening, Origin, PlacedFixture, PlacedRoom, Side, Wall
 
 # $INSUNITS code -> metres per unit
 INSUNITS = {1: 0.0254, 2: 0.3048, 4: 0.001, 5: 0.01, 6: 1.0, 9: 2.54e-8, 10: 0.9144}
 GUESS_ORDER = (("mm", 0.001), ("m", 1.0), ("cm", 0.01), ("in", 0.0254), ("ft", 0.3048))
 UNIT_FACTORS = {"mm": 0.001, "cm": 0.01, "m": 1.0, "in": 0.0254, "ft": 0.3048}
 
-MAX_BYTES = 20 << 20
 MAX_ENTITIES = 400_000
 MIN_ROOM_AREA = 1.2  # m²
 ROOM_INSCRIBED = 0.6  # a face narrower than this (m) is a wall, not a room
@@ -94,34 +94,6 @@ NUMERIC_TEXT = re.compile(r"^[\d\s.,'\"x×*+\-–/mMcCfFtTinN²³%°()]*$")
 
 class NoFloorPlan(EditError):
     """The file holds no floor plan (no wall linework, or walls that enclose no room): it is imported as a drawing."""
-
-
-class ImportReport(BaseModel):
-    units: str  # "mm", "m", ...
-    unit_source: str  # how the unit was decided
-    layers_used: list[str] = Field(default_factory=list)
-    layers_ignored: list[str] = Field(default_factory=list)
-    plans_found: int = 0
-    doors: int = 0
-    windows: int = 0
-    unlabeled_rooms: int = 0
-    unmapped_texts: list[str] = Field(default_factory=list)
-    fixtures: int = 0  # furniture and sanitary items kept
-    skipped: list[str] = Field(default_factory=list)  # what the model cannot hold, with counts
-    warnings: list[str] = Field(default_factory=list)
-
-
-class ImportedPlan(BaseModel):
-    index: int
-    name: str
-    model: BuildingModel
-    room_count: int
-    net_area: float
-
-
-class ImportResult(BaseModel):
-    plans: list[ImportedPlan]
-    report: ImportReport
 
 
 # ---------------------------------------------------------------- reading

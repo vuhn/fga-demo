@@ -16,12 +16,10 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import convert, dxf_patch, dxf_plan, estimate_agent, llm_steps, progress
+from . import estimate_agent, llm_steps, progress
 from .domain import plan_edits
-from .domain.checks import failed, run_imported_checks
-from .draw import TitleBlock, build_dxf, to_dxf_bytes, to_pdf, to_svg
 from .domain.edits import EditError
-from .ifc import to_ifc
+from .domain.files import MAX_BYTES, ConvertOut, ImportOut, PatchOut, TitleBlock
 from .estimate_models import Message, SessionState
 from .llm import LLMClient, LLMError, OllamaClient
 from .price_research import LLMWebPriceSource
@@ -100,27 +98,6 @@ class PlanEditIn(BaseModel):
     ops: plan_edits.PlanOps
 
 
-class PatchOut(BaseModel):
-    dxf: str  # base64 of the patched file
-    report: dxf_patch.PatchReport
-
-
-class ImportPlanOut(dxf_plan.ImportedPlan):
-    checks: list[CheckResult]
-    ok: bool
-    svg: str  # the plan as the engine draws it, for the review step
-
-
-class ConvertOut(BaseModel):
-    dxf: str  # base64 of the DXF (metres)
-    report: convert.ConvertReport
-
-
-class ImportOut(BaseModel):
-    plans: list[ImportPlanOut]
-    report: dxf_plan.ImportReport
-
-
 MEDIA = {"svg": "image/svg+xml", "dxf": "image/vnd.dxf", "pdf": "application/pdf", "ifc": "application/x-step"}
 
 
@@ -155,24 +132,14 @@ def create_app(llm: LLMClient | None = None, prices: PriceSource | None = None) 
         """PDF / PNG / JPEG floor plan -> DXF, no LLM. The caller then imports the DXF like any CAD file.
         Zero means 'not given'; `longest_m` (real length of the drawing's longest side) beats `scale`."""
         data = await file.read(20 * 1024 * 1024 + 1)
-        if len(data) > 20 * 1024 * 1024:
-            raise EditError("the file is larger than 20 MB")
-        mime = file.content_type or ""
-        out, rep = convert.to_dxf(data, mime, scale=scale or None, dpi=dpi or None, longest_m=longest_m or None)
-        return ConvertOut(dxf=base64.b64encode(out).decode("ascii"), report=rep)
+        return engine.plan_converter.convert(data, file.content_type or "", scale, dpi, longest_m)
 
     @app.post("/v1/import/dxf", response_model=ImportOut)
     async def import_dxf(file: UploadFile = File(...), unit: str = Form("")) -> ImportOut:
         """Read a CAD floor plan: no LLM, no storage. One plan per cluster of walls found in the file;
         the caller picks which to keep. Deterministic, so a second call returns the same plans."""
-        data = await file.read(dxf_plan.MAX_BYTES + 1)
-        result = dxf_plan.import_dxf(data, unit or None)
-        plans = []
-        for p in result.plans:
-            checks = run_imported_checks(p.model)
-            doc, sheet = build_dxf(p.model, TitleBlock(project=p.name))
-            plans.append(ImportPlanOut(**p.model_dump(), checks=checks, ok=not failed(checks), svg=to_svg(doc, sheet)))
-        return ImportOut(plans=plans, report=result.report)
+        data = await file.read(MAX_BYTES + 1)
+        return engine.dxf_importer.import_dxf(data, unit or None)
 
     @app.post("/v1/generate", response_model=StepResult)
     def generate(body: GenerateIn) -> StepResult:
@@ -264,15 +231,8 @@ def create_app(llm: LLMClient | None = None, prices: PriceSource | None = None) 
     @app.post("/v1/export/dxf-patch", response_model=PatchOut)
     async def export_dxf_patch(file: UploadFile = File(...), base: str = Form(...), current: str = Form(...)) -> PatchOut:
         """The original CAD file with the changes between the imported plan (`base`) and now applied to it."""
-        data = await file.read(dxf_plan.MAX_BYTES + 1)
-        if len(data) > dxf_plan.MAX_BYTES:
-            raise EditError("the original file is too large")
-        try:
-            b, c = BuildingModel.model_validate_json(base), BuildingModel.model_validate_json(current)
-            out, report = dxf_patch.patch_dxf(data, b, c)
-        except ValueError as e:  # includes pydantic's ValidationError
-            raise EditError(str(e)) from e
-        return PatchOut(dxf=base64.b64encode(out).decode("ascii"), report=report)
+        data = await file.read(MAX_BYTES + 1)
+        return engine.dxf_patcher.patch(data, base, current)
 
     @app.post("/v1/plan/revise/stream")
     def plan_revise_stream(body: PlanReviseIn) -> StreamingResponse:
@@ -288,18 +248,9 @@ def create_app(llm: LLMClient | None = None, prices: PriceSource | None = None) 
 
     @app.post("/v1/render")
     def render(body: RenderIn) -> Response:
-        if body.format == "ifc":
-            return Response(content=to_ifc(body.model, body.title_block.project), media_type=MEDIA["ifc"])
-        tb = TitleBlock(project=body.title_block.project, version=body.title_block.version,
-                        issued=body.title_block.issued, author=body.title_block.author)
-        doc, sheet = build_dxf(body.model, tb)
-        if body.format == "dxf":
-            content: bytes | str = to_dxf_bytes(doc)
-        elif body.format == "pdf":
-            content = to_pdf(doc, sheet)
-        else:
-            content = to_svg(doc, sheet)
-        return Response(content=content, media_type=MEDIA[body.format])
+        t = body.title_block
+        tb = TitleBlock(project=t.project, version=t.version, issued=t.issued, author=t.author)
+        return Response(content=engine.plan_renderer.render(body.model, body.format, tb), media_type=MEDIA[body.format])
 
     @app.get("/")
     def harness() -> FileResponse:

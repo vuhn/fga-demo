@@ -21,7 +21,8 @@ from ezdxf.document import Drawing
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 from shapely.ops import unary_union
 
-from .domain.schemas import BuildingModel, DrawItem, Opening, PlacedFixture, Wall
+from ..domain.files import TitleBlock
+from ..domain.schemas import BuildingModel, DrawItem, Opening, PlacedFixture, Wall
 
 PAPERS: dict[str, tuple[float, float]] = {  # landscape, metres of paper
     "A3": (0.420, 0.297),
@@ -66,16 +67,6 @@ FIXTURE_LAYERS = {
     "toilet": "P-FIXT-WC", "basin": "P-FIXT-BASN", "sink": "P-FIXT-BASN",
     "shower": "P-FIXT-BATH", "bathtub": "P-FIXT-BATH",
 }
-
-
-@dataclass
-class TitleBlock:
-    project: str = "Single-storey house"
-    sheet: str = "A-101"
-    sheet_title: str = "Ground floor plan"
-    version: int = 1
-    issued: str = ""
-    author: str = ""
 
 
 @dataclass(frozen=True)

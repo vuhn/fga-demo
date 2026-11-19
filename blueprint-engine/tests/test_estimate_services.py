@@ -6,7 +6,7 @@ import sample_dxf
 from fga_engine.domain.estimate import EstimateFacts, Fact, RateResult, RoomScope
 from fga_engine.domain.rate_catalog import RATE_CATALOG
 from fga_engine.domain.schemas import PlacedFixture
-from fga_engine.dxf_plan import import_dxf
+from fga_engine.infrastructure.dxf_plan import import_dxf
 from fga_engine.estimate_models import SessionState, facts_of
 from fga_engine.wire import build_engine
 
