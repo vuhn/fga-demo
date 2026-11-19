@@ -11,10 +11,8 @@ Repair of an infeasible brief stays deterministic first (pipeline.generate_fitte
 
 from __future__ import annotations
 
-import io
 import json
 import re
-import base64
 from collections.abc import Callable
 from typing import TypeVar
 
@@ -23,11 +21,11 @@ from pydantic import BaseModel, Field, ValidationError
 from . import progress, prompts
 from .domain import plan_edits
 from .domain.checks import failed, run_imported_checks
-from .draw import TitleBlock, build_dxf, to_dxf_bytes
-from .dxf_plan import import_dxf
 from .domain.edits import EditError, UnsupportedEdit, apply_ops, resolve_room
 from .llm import LLMClient
-from .pipeline import GenerateResult, generate, generate_fitted
+from .domain.results import GenerateResult, PlanResult, PlanStep, StepResult
+from .pipeline import generate, generate_fitted
+from .service.generator import fitted_step
 from .domain.schemas import (
     CheckResult,
     DEFAULT_FIXTURES,
@@ -65,15 +63,6 @@ class DraftBrief(BaseModel):
     rooms: list[DraftRoom] = Field(min_length=1, max_length=16)
     open_plan: bool = Field(default=False, description="true only when the user asks for open-plan living "
                                                        "(no walls between hall, living, kitchen and dining)")
-
-
-class StepResult(BaseModel):
-    result: GenerateResult
-    notes: list[str] = []
-    ops: EditOps | None = None
-    attempts: int = 1  # layout runs (generate_fitted)
-    llm_attempts: int = 0  # LLM calls, including retries with error feedback
-    review_rounds: list[dict] = []  # reviewer trace: round, ops, issues before/after, accepted
 
 
 class Requirements(BaseModel):
@@ -235,9 +224,7 @@ def _describe(op) -> str:
 
 def create(llm: LLMClient, brief: Brief, notes: list[str] | None = None,
            previous: BuildingModel | None = None) -> StepResult:
-    notes = list(notes or [])
-    result, fit_notes, runs = generate_fitted(brief, previous)
-    return StepResult(result=result, notes=notes + fit_notes, attempts=runs)
+    return fitted_step(brief, previous, notes)
 
 
 def _issue_lines(checks) -> list[str]:
@@ -291,24 +278,6 @@ def revise(llm: LLMClient, brief: Brief, previous: BuildingModel | None, message
     return step
 
 
-class PlanResult(BaseModel):
-    model: BuildingModel
-    checks: list[CheckResult]
-    ok: bool
-    issues: list[str] = []
-    notes: list[str] = []
-
-
-class PlanStep(BaseModel):
-    """Result of a chat edit on an imported plan (no brief). Shaped like StepResult (result, notes) so the
-    API reads both the same way; `result.brief` is absent."""
-
-    result: PlanResult
-    notes: list[str] = []
-    ops: plan_edits.PlanOps
-    llm_attempts: int = 1
-
-
 def revise_plan(llm: LLMClient, model: BuildingModel, message: str, history: list[str] | None = None) -> PlanStep:
     """Chat edit of an imported plan: the LLM names operations, code applies them to the model as drawn."""
     system = ("You turn a revision request for an existing floor plan, imported from a CAD file, into edit "
@@ -326,66 +295,6 @@ def revise_plan(llm: LLMClient, model: BuildingModel, message: str, history: lis
         notes.append(f"the first {tries - 1} answer(s) could not be applied; corrected with the error")
     return PlanStep(result=PlanResult(model=new_model, checks=checks, ok=not failed(checks)), notes=notes, ops=ops,
                     llm_attempts=tries)
-
-
-class PlanBuild(BaseModel):
-    """What creating a plan gave: the drawn model (None when the brief cannot be built) and why."""
-
-    model: BuildingModel | None
-    checks: list[CheckResult] = []
-    ok: bool = False
-    issues: list[str] = []
-    notes: list[str] = []
-
-
-class PlanCreated(BaseModel):
-    result: PlanBuild
-    notes: list[str] = []
-    dxf: str | None = None  # base64 of the CAD file the plan was drawn into: its original from now on
-
-
-def draw_plan(model: BuildingModel, title: str) -> PlanCreated:
-    """Draw a model into our own DXF and read it back as a plan with provenance: the file becomes the plan's
-    original. Used for a plan made from a brief and for converting a plan made before DXF plans existed."""
-    data = to_dxf_bytes(build_dxf(model, TitleBlock(project=title[:80] or "Floor plan"))[0])
-    plans = import_dxf(data).plans
-    if len(plans) != 1:  # our own drawing must read back as one plan; anything else is a bug, not a bad input
-        raise EditError("the drawn plan could not be read back as one plan")
-    plan = plans[0].model
-    before, after = sum(r.net_area for r in model.rooms), sum(r.net_area for r in plan.rooms)
-    if abs(after - before) > 0.03 * before or len(plan.fixtures) != len(model.fixtures):
-        raise EditError(f"the drawing reads back as {after:.0f} m² and {len(plan.fixtures)} fixtures, but the plan has "
-                        f"{before:.0f} m² and {len(model.fixtures)}; it cannot be converted without losing parts of it")
-    notes = []
-    if len(plan.rooms) != len(model.rooms):  # an open plan has no walls between its rooms: a CAD file shows one space
-        notes.append(f"{len(model.rooms)} rooms became {len(plan.rooms)} spaces: rooms with no wall between them "
-                     "(an open plan) are one space in the drawing")
-    checks = run_imported_checks(plan)
-    return PlanCreated(result=PlanBuild(model=plan, checks=checks, ok=not failed(checks), notes=notes), notes=[],
-                       dxf=base64.b64encode(data).decode("ascii"))
-
-
-def create_plan(llm: LLMClient, brief: Brief, notes: list[str] | None = None) -> PlanCreated:
-    """Create a plan the way an import does. The brief is only the input: the layout is drawn into our own
-    DXF, and that file is read back like any CAD file, so the plan has no brief afterwards, keeps the file
-    as its original, and is edited, chatted about and exported like an imported one."""
-    step = create(llm, brief, notes)
-    r = step.result
-    if r.model is None:
-        return PlanCreated(result=PlanBuild(model=None, issues=r.issues, notes=r.notes), notes=step.notes)
-    out = draw_plan(r.model, brief.title)
-    out.result.notes = r.notes + out.result.notes
-    out.notes = step.notes
-    return out
-
-
-def edit_plan(model: BuildingModel, ops: plan_edits.PlanOps) -> PlanStep:
-    """Direct edit of an imported plan: the ops come from a person (the viewer), not from the LLM."""
-    new_model = plan_edits.apply_plan_ops(model, ops)
-    checks = run_imported_checks(new_model)
-    desc = "; ".join(plan_edits.describe(o) for o in ops.ops)
-    return PlanStep(result=PlanResult(model=new_model, checks=checks, ok=not failed(checks)),
-                    notes=["edited: " + desc], ops=ops, llm_attempts=0)
 
 
 def review(llm: LLMClient, brief: Brief, previous: BuildingModel | None, history: list[str] | None = None,

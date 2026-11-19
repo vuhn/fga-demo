@@ -20,6 +20,7 @@ This is the stateless engine for the Blueprints product. It turns a JSON **brief
 | Layout → walls, doors, windows, net areas | code | `domain/building.py` |
 | Fixtures (bed, toilet, kitchen run…) placed in each room | code, deterministic | `domain/fixtures.py` |
 | Rule checks | code (Shapely) | `domain/checks.py` |
+| Brief and plan operations (generate, create plan, draw plan, apply plan ops, run checks) | usecase Protocols in `usecase/`, one service per op in `service/`, graph built only in `wire.py`; the legacy FastAPI handlers in `app.py` call them; DXF drawing/reading sits behind `domain/gateway` (`infrastructure/plan_drawing.py`) | `usecase/`, `service/`, `wire.py` |
 | DXF, SVG, PDF from one ezdxf document | code | `draw.py` |
 | IFC4 BIM model (ifcopenshell) | code | `ifc.py` |
 

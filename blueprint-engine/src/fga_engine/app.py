@@ -16,7 +16,7 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import convert, dxf_patch, dxf_plan, estimate_agent, llm_steps, pipeline, progress
+from . import convert, dxf_patch, dxf_plan, estimate_agent, llm_steps, progress
 from .domain import plan_edits
 from .domain.checks import failed, run_imported_checks
 from .draw import TitleBlock, build_dxf, to_dxf_bytes, to_pdf, to_svg
@@ -26,7 +26,9 @@ from .estimate_models import Message, SessionState
 from .llm import LLMClient, LLMError, OllamaClient
 from .price_research import LLMWebPriceSource
 from .price_source import PriceSource
+from .domain.results import PlanCreated, PlanStep, StepResult
 from .domain.schemas import Brief, BuildingModel, CheckResult
+from .wire import build_engine
 
 STATIC = Path(__file__).parent / "static"
 
@@ -126,6 +128,7 @@ def create_app(llm: LLMClient | None = None, prices: PriceSource | None = None) 
     app = FastAPI(title="blueprint-engine", version="0.1.0")
     app.state.llm = llm or OllamaClient()
     app.state.prices = prices or LLMWebPriceSource(app.state.llm)
+    engine = build_engine()
 
     @app.exception_handler(EditError)
     async def _edit_error(_: Request, e: EditError):
@@ -171,30 +174,26 @@ def create_app(llm: LLMClient | None = None, prices: PriceSource | None = None) 
             plans.append(ImportPlanOut(**p.model_dump(), checks=checks, ok=not failed(checks), svg=to_svg(doc, sheet)))
         return ImportOut(plans=plans, report=result.report)
 
-    @app.post("/v1/generate", response_model=llm_steps.StepResult)
-    def generate(body: GenerateIn) -> llm_steps.StepResult:
+    @app.post("/v1/generate", response_model=StepResult)
+    def generate(body: GenerateIn) -> StepResult:
         """repair=true shrinks rooms toward their minimums when the brief cannot fit (create flows);
         form edits send repair=false so the user's own numbers are never changed silently."""
-        if body.repair:
-            return llm_steps.create(app.state.llm, body.brief, previous=body.previous)
-        return llm_steps.StepResult(result=pipeline.generate(body.brief, body.previous))
+        return engine.generator.generate(body.brief, body.previous, repair=body.repair)
 
-    @app.post("/v1/generate/plan", response_model=llm_steps.PlanCreated)
-    def generate_plan(body: GenerateIn) -> llm_steps.PlanCreated:
+    @app.post("/v1/generate/plan", response_model=PlanCreated)
+    def generate_plan(body: GenerateIn) -> PlanCreated:
         """Create from a brief as an editable CAD plan: the model (as read back), its checks and the DXF it was
         drawn into. The brief is not part of the result."""
-        return llm_steps.create_plan(app.state.llm, body.brief)
+        return engine.plan_creator.create_plan(body.brief)
 
-    @app.post("/v1/plan/draw", response_model=llm_steps.PlanCreated)
-    def plan_draw(body: PlanDrawIn) -> llm_steps.PlanCreated:
+    @app.post("/v1/plan/draw", response_model=PlanCreated)
+    def plan_draw(body: PlanDrawIn) -> PlanCreated:
         """Draw a generated plan's model into a DXF and read it back (converting a plan made from a brief into
         an editable CAD plan). No LLM."""
-        if body.model.source != "generated":
-            raise EditError("this plan is already a CAD plan")
-        return llm_steps.draw_plan(body.model, body.title)
+        return engine.plan_drawer.draw_plan(body.model, body.title)
 
-    @app.post("/v1/revise", response_model=llm_steps.StepResult)
-    def revise(body: ReviseIn) -> llm_steps.StepResult:
+    @app.post("/v1/revise", response_model=StepResult)
+    def revise(body: ReviseIn) -> StepResult:
         if not body.message.strip():
             raise EditError("say what to change")
         return llm_steps.revise(app.state.llm, body.brief, body.previous, body.message[:2000], body.history)
@@ -250,17 +249,17 @@ def create_app(llm: LLMClient | None = None, prices: PriceSource | None = None) 
             raise EditError("say what to change")
         return ndjson(lambda: llm_steps.revise(app.state.llm, body.brief, body.previous, body.message[:2000], body.history))
 
-    @app.post("/v1/plan/revise", response_model=llm_steps.PlanStep)
-    def plan_revise(body: PlanReviseIn) -> llm_steps.PlanStep:
+    @app.post("/v1/plan/revise", response_model=PlanStep)
+    def plan_revise(body: PlanReviseIn) -> PlanStep:
         """Chat edit of an imported plan (no brief): ops on the model as drawn."""
         if not body.message.strip():
             raise EditError("say what to change")
         return llm_steps.revise_plan(app.state.llm, body.model, body.message[:2000], body.history)
 
-    @app.post("/v1/plan/edit", response_model=llm_steps.PlanStep)
-    def plan_edit(body: PlanEditIn) -> llm_steps.PlanStep:
+    @app.post("/v1/plan/edit", response_model=PlanStep)
+    def plan_edit(body: PlanEditIn) -> PlanStep:
         """Direct edit of an imported plan: explicit ops, no LLM. Deterministic and checked like a chat edit."""
-        return llm_steps.edit_plan(body.model, body.ops)
+        return engine.plan_ops_applier.apply_plan_ops(body.model, body.ops)
 
     @app.post("/v1/export/dxf-patch", response_model=PatchOut)
     async def export_dxf_patch(file: UploadFile = File(...), base: str = Form(...), current: str = Form(...)) -> PatchOut:
@@ -281,8 +280,8 @@ def create_app(llm: LLMClient | None = None, prices: PriceSource | None = None) 
             raise EditError("say what to change")
         return ndjson(lambda: llm_steps.revise_plan(app.state.llm, body.model, body.message[:2000], body.history))
 
-    @app.post("/v1/review", response_model=llm_steps.StepResult)
-    def review(body: ReviewIn) -> llm_steps.StepResult:
+    @app.post("/v1/review", response_model=StepResult)
+    def review(body: ReviewIn) -> StepResult:
         """Reviewer agent: up to max_rounds of LLM fixes for the failed checks, each kept only
         when it lowers the issue score. The result is the best plan found, never a worse one."""
         return llm_steps.review(app.state.llm, body.brief, body.previous, body.history, max_rounds=body.max_rounds)
