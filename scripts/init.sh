@@ -19,6 +19,7 @@ need protoc-gen-go-grpc "GOBIN=$HOME/go/bin go install google.golang.org/grpc/cm
 # ~/.npm may hold root-owned files; use a throwaway cache instead of sudo.
 (cd web && npm_config_cache="$(mktemp -d)" npm ci)
 (cd blueprint-engine && uv sync --frozen)
+(cd agent && uv sync --frozen)
 
 make check
 
@@ -28,5 +29,6 @@ ready. Live stack, in order:
   make compose-up && make seed && make api    # restart api after every reseed
   make web
   ollama serve && make engine                 # blueprints: native Ollama + engine on :8090
+  make engine-grpc && make agent             # gRPC engine :8092 and agent :8091 (re-architecture; nothing calls the agent yet)
   make verify-live                            # integration tests (RESETS data)
 MSG
