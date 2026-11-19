@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import grpc
 
-from ...domain.errors import EditError, EngineUnavailable, UnsupportedEdit
+from ...domain.errors import EngineUnavailable, InvalidEdit, UnsupportedEdit
 from ...gen.fga.demo.common.v1 import common_pb2 as c
 
 DETAIL_KEY = "error-detail-bin"
@@ -29,5 +29,5 @@ def map_error(rpc: str, err: grpc.RpcError) -> Exception:
     if code == grpc.StatusCode.INVALID_ARGUMENT:
         if detail and detail.code == c.ERROR_CODE_UNSUPPORTED:
             return UnsupportedEdit(message)
-        return EditError(message)
+        return InvalidEdit(message)
     return EngineUnavailable(f"engine {rpc}: {code.name}: {message}")

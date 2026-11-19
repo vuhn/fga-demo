@@ -1,5 +1,5 @@
-"""Server-streaming over a worker thread: the run emits events into a queue, the RPC yields them; when the client
-leaves, the CancelToken is set and the run stops at its next progress step."""
+"""Server-streaming over a worker thread: the run reports into a queue through a ProgressReporter, the RPC yields what
+arrives; when the client leaves, the CancelToken is set and the run stops at its next report."""
 
 from __future__ import annotations
 
@@ -10,30 +10,46 @@ from typing import Any
 
 import grpc
 
-from ...domain import progress, request
-from ...domain.cancel import CancelToken
+from ...domain.cancel import Cancelled, CancelToken
+from ...domain.gateway import ProgressReporter
 
 _DONE = object()
 
 
-def stream_run(context: grpc.ServicerContext, run: Callable[[CancelToken], Any],
-               to_event: Callable[[dict], Any], on_error: Callable[[Exception], Any], rid: str = "") -> Iterator[Any]:
-    """Run `run(token)` in a worker with a progress sink installed. Each progress/other event dict goes through
-    `to_event`; the return value of `run` is the final event (already a proto message); an exception becomes
-    `on_error(exc)` (an in-band error event) because the stream is open. Cancelled ends the stream silently."""
+class QueueReporter:
+    """Implements gateway.ProgressReporter: each report becomes a proto event on the queue, after a cancel check."""
+
+    def __init__(self, q: queue.Queue, token: CancelToken, to_event: Callable[[dict], Any]) -> None:
+        self._q, self._token, self._to_event = q, token, to_event
+
+    def _put(self, ev: dict) -> None:
+        self._token.check()
+        self._q.put(self._to_event(ev))
+
+    def step(self, stage: str, message: str) -> None:
+        self._put({"event": "progress", "kind": "step", "stage": stage, "message": message})
+
+    def thinking(self, text: str) -> None:
+        if text:
+            self._put({"event": "progress", "kind": "thinking", "stage": "thinking", "message": text})
+
+    def event(self, name: str, data: dict) -> None:
+        self._put({"event": name, "data": data})
+
+
+def stream_run(context: grpc.ServicerContext, run: Callable[[ProgressReporter], Any],
+               to_event: Callable[[dict], Any], on_error: Callable[[Exception], Any]) -> Iterator[Any]:
+    """Run `run(reporter)` in a worker. Reports go through `to_event`; the return value of `run` is the final event
+    (already a proto message); an exception becomes `on_error(exc)` (an in-band error event, because the stream is
+    open). Cancelled ends the stream silently."""
     q: queue.Queue = queue.Queue()
     token = CancelToken()
     context.add_callback(token.cancel)
 
-    def sink(ev: dict) -> None:
-        token.check()
-        q.put(to_event(ev))
-
     def work() -> None:
         try:
-            with request.bind(rid), progress.sink(sink):
-                q.put(run(token))
-        except progress.Cancelled:
+            q.put(run(QueueReporter(q, token, to_event)))
+        except Cancelled:
             pass
         except Exception as e:  # noqa: BLE001 - reported in-band
             q.put(on_error(e))

@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 
-class EditError(ValueError):
+class InvalidEdit(ValueError):
     """The input or the model's output is wrong in a way a retry with this feedback can fix."""
 
-    code = "edit_error"
+    code = "invalid_edit"
 
 
-class UnsupportedEdit(EditError):
+class UnsupportedEdit(InvalidEdit):
     """A valid request the Engine does not support; retrying cannot help."""
 
     code = "unsupported"
@@ -19,5 +19,5 @@ class EngineUnavailable(RuntimeError):
     """The Engine cannot serve (down, deadline)."""
 
 
-class LLMError(RuntimeError):
+class LlmUnavailable(RuntimeError):
     """The language model cannot serve (Ollama down, invalid output twice)."""

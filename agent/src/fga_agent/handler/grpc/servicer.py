@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from ...gen.fga.demo.agent.v1 import agent_pb2_grpc as rpc
-from ...wire import Agent
+from ...wire import Usecases
 
 
 class AgentServicer(rpc.AgentServiceServicer):
-    def __init__(self, agent: Agent):
-        self._a = agent
+    def __init__(self, usecases: Usecases):
+        self._uc = usecases

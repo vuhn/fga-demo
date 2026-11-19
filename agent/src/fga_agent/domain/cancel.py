@@ -1,11 +1,13 @@
-"""Cancellation of a streaming call: the handler sets the token when the client leaves; the progress sink raises
+"""Cancellation of a streaming call: the handler sets the token when the client leaves; the progress reporter raises
 Cancelled at the next step so the run stops without finishing."""
 
 from __future__ import annotations
 
 import threading
 
-from .progress import Cancelled
+
+class Cancelled(Exception):
+    """The client left; stop quietly (nothing is written, nothing is reported)."""
 
 
 class CancelToken:

@@ -5,21 +5,19 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from .domain.gateway import CatalogSource, LLM, PlanTools, ToolRegistry
-from .infrastructure.engine_grpc.catalog import CatalogLoader
-from .infrastructure.engine_grpc.client import EngineTools, open_channel
-from .infrastructure.ollama import OllamaClient
+from .infrastructure.engine_grpc.blueprint_engine import GrpcBlueprintEngine, open_channel
+from .service.design_catalog_loader import DesignCatalogLoaderService
+from .usecase.design_catalog_loader import DesignCatalogLoader
 
 
 @dataclass(frozen=True)
-class Agent:
-    llm: LLM
-    plan_tools: PlanTools
-    registry: ToolRegistry
-    catalog: CatalogSource
+class Usecases:
+    """What the handlers call. Each field is a use case interface; the brief, plan and estimate use cases join it
+    in T11a onward."""
+
+    design_catalog: DesignCatalogLoader
 
 
-def build_agent(engine_addr: str | None = None) -> Agent:
-    addr = engine_addr or os.environ.get("ENGINE_ADDR", "localhost:8092")
-    tools = EngineTools(open_channel(addr))
-    return Agent(llm=OllamaClient(), plan_tools=tools, registry=tools, catalog=CatalogLoader(tools))
+def build_usecases(engine_addr: str | None = None) -> Usecases:
+    engine = GrpcBlueprintEngine(open_channel(engine_addr or os.environ.get("ENGINE_ADDR", "localhost:8092")))
+    return Usecases(design_catalog=DesignCatalogLoaderService(engine))

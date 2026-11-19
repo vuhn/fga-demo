@@ -8,13 +8,12 @@ import pytest
 from fake_engine import Running
 from grpc_health.v1 import health_pb2, health_pb2_grpc
 
-from fga_agent.domain import progress
-from fga_agent.domain.cancel import CancelToken
+from fga_agent.domain.cancel import Cancelled, CancelToken
 from fga_agent.handler.grpc.server import SERVICE, build_server
 from fga_agent.handler.grpc.streaming import stream_run
-from fga_agent.infrastructure.engine_grpc.catalog import CatalogLoader
-from fga_agent.infrastructure.engine_grpc.client import EngineTools, open_channel
-from fga_agent.wire import Agent
+from fga_agent.infrastructure.engine_grpc.blueprint_engine import GrpcBlueprintEngine, open_channel
+from fga_agent.service.design_catalog_loader import DesignCatalogLoaderService
+from fga_agent.wire import Usecases
 
 
 def _status(ch, service=""):
@@ -33,8 +32,8 @@ def _until(pred, timeout=5.0):
 def test_health_is_not_serving_until_the_catalog_loads():
     eng = Running()
     eng.engine.down = True
-    tools = EngineTools(open_channel(eng.addr), timeout=5)
-    built = build_server(Agent(llm=None, plan_tools=tools, registry=tools, catalog=CatalogLoader(tools)), retry_s=0.05)
+    engine = GrpcBlueprintEngine(open_channel(eng.addr), timeout=5)
+    built = build_server(Usecases(design_catalog=DesignCatalogLoaderService(engine)), retry_s=0.05)
     port = built.server.add_insecure_port("127.0.0.1:0")
     built.server.start()
     built.watch_catalog()
@@ -57,20 +56,22 @@ class Ctx:
 
     def __init__(self):
         self.callbacks = []
+        self.left = False
 
     def add_callback(self, cb):
         self.callbacks.append(cb)
         return True
 
     def leave(self):
+        self.left = True
         for cb in self.callbacks:
             cb()
 
 
 def test_stream_run_yields_progress_then_the_result():
-    def run(token: CancelToken):
-        progress.emit("layout", "laying out")
-        progress.emit_thinking("hmm")
+    def run(progress):
+        progress.step("layout", "laying out")
+        progress.thinking("hmm")
         return "RESULT"
 
     out = list(stream_run(Ctx(), run, lambda ev: (ev["kind"], ev["message"]), lambda e: ("error", str(e))))
@@ -78,25 +79,25 @@ def test_stream_run_yields_progress_then_the_result():
 
 
 def test_an_error_after_the_stream_opened_is_an_in_band_event():
-    def run(token):
-        progress.emit("a", "first")
+    def run(progress):
+        progress.step("a", "first")
         raise RuntimeError("boom")
 
     out = list(stream_run(Ctx(), run, lambda ev: ev["stage"], lambda e: f"error:{e}"))
     assert out == ["a", "error:boom"]
 
 
-def test_a_client_that_leaves_cancels_the_run_at_its_next_step():
+def test_a_client_that_leaves_cancels_the_run_at_its_next_report():
     ctx = Ctx()
     started, finished = threading.Event(), threading.Event()
     reached_after_cancel = []
 
-    def run(token):
-        progress.emit("one", "x")
+    def run(progress):
+        progress.step("one", "x")
         started.set()
-        assert _until(lambda: token.cancelled)
+        assert _until(lambda: ctx.left)
         try:
-            progress.emit("two", "y")  # the sink raises Cancelled here
+            progress.step("two", "y")  # the reporter raises Cancelled here
             reached_after_cancel.append(True)
         finally:
             finished.set()
@@ -113,5 +114,5 @@ def test_cancel_token():
     t = CancelToken()
     t.check()
     t.cancel()
-    with pytest.raises(progress.Cancelled):
+    with pytest.raises(Cancelled):
         t.check()

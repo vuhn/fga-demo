@@ -7,13 +7,13 @@ import os
 import signal
 
 from .handler.grpc.server import build_server
-from .wire import build_agent
+from .wire import build_usecases
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     addr = os.environ.get("GRPC_ADDR", "0.0.0.0:8091")
-    built = build_server(build_agent(), workers=int(os.environ.get("GRPC_WORKERS", "8")))
+    built = build_server(build_usecases(), workers=int(os.environ.get("GRPC_WORKERS", "8")))
     if built.server.add_insecure_port(addr) == 0:
         raise SystemExit(f"cannot listen on {addr}")
     built.server.start()

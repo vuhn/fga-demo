@@ -43,5 +43,47 @@ scan engine-no-llm '[a-z_.]*(llm|prompts)(\.|[[:space:]]|$)|\.[[:space:]]+import
 scan agent-no-engine 'fga_engine|blueprint_engine' "the Agent talks to the Engine only over gRPC" \
   "call an Engine tool through infrastructure/engine_grpc" "$ROOT"/agent/src/*
 
+# 4. One gateway per file, like api/internal/domain/gateway/<kind>_gateway.go: `domain/gateway/<kind>_gateway.py`
+# declares exactly one Protocol; `__init__.py` only re-exports.
+for svc in "$ROOT"/blueprint-engine/src/* "$ROOT"/agent/src/*; do
+  gw="$svc/domain/gateway"
+  [ -d "$gw" ] || continue
+  why="a gateway file per kind keeps each interface easy to find and review (same as the Go API)"
+  if grep -qE '^(class|def) ' "$gw/__init__.py" 2>/dev/null; then
+    report gateway-per-kind "${gw#$ROOT/}/__init__.py" "$why" "move each Protocol to <kind>_gateway.py and re-export it from __init__.py"
+  fi
+  for f in "$gw"/*.py; do
+    [ "$(basename "$f")" = "__init__.py" ] && continue
+    case "$f" in *_gateway.py) ;; *) report gateway-per-kind "${f#$ROOT/}" "$why" "name the file <kind>_gateway.py"; continue;; esac
+    [ "$(grep -cE '^class ' "$f")" = 1 ] || report gateway-per-kind "${f#$ROOT/}" "$why" "declare exactly one Protocol per gateway file"
+  done
+done
+
+# 5. One use case = one interface file in usecase/ and one implementation file of the same name in service/.
+for svc in "$ROOT"/blueprint-engine/src/* "$ROOT"/agent/src/*; do
+  for pair in "usecase service" "service usecase"; do
+    set -- $pair
+    [ -d "$svc/$1" ] || continue
+    for f in "$svc/$1"/*.py; do
+      n=$(basename "$f"); [ "$n" = "__init__.py" ] && continue
+      [ -f "$svc/$2/$n" ] || report usecase-service-pair "${f#$ROOT/}" "a business operation is an interface in usecase/ and its implementation in service/, same file name" \
+        "add $2/$n (or remove the orphan)"
+    done
+  done
+done
+# 6. The Agent passes dependencies explicitly (CallContext, ProgressReporter), never through ambient ContextVars.
+scan agent-no-ambient-state 'contextvars' "hidden global state makes a use case's inputs invisible in its signature" \
+  "pass a CallContext or a ProgressReporter as an argument" "$ROOT"/agent/src/*
+# 7. Prompts are business behavior: they live in service/ (service/prompts/), never in infrastructure, handler or domain.
+for svc in "$ROOT"/agent/src/*; do
+  for layer in infrastructure handler domain; do
+    [ -d "$svc/$layer" ] || continue
+    while IFS= read -r f; do
+      report agent-prompts-in-service "${f#$ROOT/}" "prompts encode what the Agent asks the model; infrastructure/ollama only talks to the model" \
+        "move it to service/prompts/"
+    done < <(find "$svc/$layer" \( -iname '*prompt*.py' -o -type d -iname '*prompt*' \) -not -path '*/gen/*' 2>/dev/null)
+  done
+done
+
 [ $fail = 0 ] && echo "python architecture: ok"
 exit $fail
