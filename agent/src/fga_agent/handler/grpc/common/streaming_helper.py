@@ -1,5 +1,6 @@
-"""Handler helper for server-streaming RPCs (used by the `<domain>_handler.py` classes): a worker thread runs the use case; the run reports into a queue through a ProgressReporter, the RPC yields what
-arrives; when the client leaves, the CancelToken is set and the run stops at its next report."""
+"""Handler helper for server-streaming RPCs (used by the `<domain>_handler.py` classes): a worker thread runs the use
+case; its progress callback puts each step on a queue and the RPC yields what arrives. When the client leaves, the
+token is cancelled and the run stops at its next progress step."""
 
 from __future__ import annotations
 
@@ -10,45 +11,46 @@ from typing import Any
 
 import grpc
 
-from ....domain.model.cancel import Cancelled, CancelToken
-from ....domain.gateway import ProgressReporter
+from ....domain.errors import Cancelled
+from ....domain.model.progress import Progress
 
 _DONE = object()
 
 
-class QueueReporter:
-    """Implements gateway.ProgressReporter: each report becomes a proto event on the queue, after a cancel check."""
+class CancelToken:
+    """Set when the client leaves; the progress callback checks it, so a run stops at its next step."""
 
-    def __init__(self, q: queue.Queue, token: CancelToken, to_event: Callable[[dict], Any]) -> None:
-        self._q, self._token, self._to_event = q, token, to_event
+    def __init__(self) -> None:
+        self._ev = threading.Event()
 
-    def _put(self, ev: dict) -> None:
-        self._token.check()
-        self._q.put(self._to_event(ev))
+    def cancel(self) -> None:
+        self._ev.set()
 
-    def step(self, stage: str, message: str) -> None:
-        self._put({"event": "progress", "kind": "step", "stage": stage, "message": message})
+    @property
+    def cancelled(self) -> bool:
+        return self._ev.is_set()
 
-    def thinking(self, text: str) -> None:
-        if text:
-            self._put({"event": "progress", "kind": "thinking", "stage": "thinking", "message": text})
-
-    def event(self, name: str, data: dict) -> None:
-        self._put({"event": name, "data": data})
+    def check(self) -> None:
+        if self._ev.is_set():
+            raise Cancelled()
 
 
-def stream_run(context: grpc.ServicerContext, run: Callable[[ProgressReporter], Any],
-               to_event: Callable[[dict], Any], on_error: Callable[[Exception], Any]) -> Iterator[Any]:
-    """Run `run(reporter)` in a worker. Reports go through `to_event`; the return value of `run` is the final event
-    (already a proto message); an exception becomes `on_error(exc)` (an in-band error event, because the stream is
-    open). Cancelled ends the stream silently."""
+def stream_run(context: grpc.ServicerContext, run: Callable[[Callable[[Progress], None]], Any],
+               to_event: Callable[[Progress], Any], on_error: Callable[[Exception], Any]) -> Iterator[Any]:
+    """Run `run(on_progress)` in a worker. Each progress step goes through `to_event`; the return value of `run` is
+    the final event (already a proto message); an exception becomes `on_error(exc)` (an in-band error event,
+    because the stream is open). Cancelled ends the stream silently."""
     q: queue.Queue = queue.Queue()
     token = CancelToken()
     context.add_callback(token.cancel)
 
+    def on_progress(p: Progress) -> None:
+        token.check()
+        q.put(to_event(p))
+
     def work() -> None:
         try:
-            q.put(run(QueueReporter(q, token, to_event)))
+            q.put(run(on_progress))
         except Cancelled:
             pass
         except Exception as e:  # noqa: BLE001 - reported in-band

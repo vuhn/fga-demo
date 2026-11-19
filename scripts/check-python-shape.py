@@ -5,6 +5,13 @@
                       statements, no loops, and calls at most ONE use case method (`self._uc.<field>.<method>(...)`).
   agent-pure-mapper   a function in a mapper/*_mapper.py (handler or infrastructure) has at most MAX_MAPPER_STMTS
                       statements: mapping is conversion only.
+  agent-model-data-only  domain/model/ holds business data only: every class is a dataclass (or an Enum) with fields and no
+                      methods (dunder methods aside), no module-level functions and no aliases. A token, an exception,
+                      a factory or a callback type is not a model.
+  agent-usecase-interface  a file in usecase/ declares ONLY a Protocol named after the file (`brief_drafter.py` ->
+                      `BriefDrafter`) with method signatures, no implementation.
+  agent-service-implements  a file in service/ (and service/helper/) declares the class `<File>Service` that implements
+                      the use case of the same name; service/prompts/ holds pure functions and no classes.
   agent-small-function  any function in the Agent has at most MAX_FUNCTION_STMTS statements (read it in one screen).
 
 ROOT (env) is the repository root; output matches the shell checks (FAIL / why / fix) and the exit code is 1 on a violation.
@@ -50,6 +57,19 @@ def usecase_calls(fn: ast.AST) -> set[str]:
     return found
 
 
+def camel(stem: str) -> str:
+    return "".join(w.capitalize() for w in stem.split("_"))
+
+
+def is_protocol(c: ast.ClassDef) -> bool:
+    return any("Protocol" in ast.unparse(b) for b in c.bases)
+
+
+def bodiless(fn: ast.AST) -> bool:
+    """A Protocol method: only a docstring, `...` or pass."""
+    return all(isinstance(s, ast.Pass) or (isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant)) for s in fn.body)
+
+
 def functions(tree: ast.AST):
     for n in ast.walk(tree):
         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -64,6 +84,45 @@ for src in sorted((ROOT / "agent" / "src").glob("*")):
             continue
         tree = ast.parse(path.read_text(), str(path))
         rel = path.relative_to(src).as_posix()
+        if rel.startswith("domain/model/") and path.name != "__init__.py":
+            for node in tree.body:
+                data = isinstance(node, ast.ClassDef) and (
+                    any("dataclass" in ast.unparse(d) for d in node.decorator_list)
+                    or any("Enum" in ast.unparse(b) for b in node.bases))
+                if isinstance(node, ast.ClassDef) and not data:
+                    report("agent-model-data-only", path, f"class {node.name} is not a dataclass",
+                           "domain/model/ is business data; behavior belongs in a service, a signal in errors.py, a delivery mechanism in handler/",
+                           "move it to the layer that uses it")
+                if data and isinstance(node, ast.ClassDef):
+                    for m in node.body:
+                        if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) and not m.name.startswith("__"):
+                            report("agent-model-data-only", path, f"{node.name}.{m.name} is a method",
+                                   "a model is data; a factory or rule belongs in a service (or the caller builds the value directly)",
+                                   "remove the method and construct the model with its fields")
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Assign, ast.AnnAssign)):
+                    report("agent-model-data-only", path, "a module-level function or alias",
+                           "domain/model/ is business data only (a callback type is written inline where it is used)",
+                           "move it to a service, or inline the type")
+        if rel.startswith(("usecase/", "usecase/helper/")) and path.name != "__init__.py":
+            want = camel(path.stem)
+            classes = [n for n in tree.body if isinstance(n, ast.ClassDef)]
+            if [c.name for c in classes] != [want] or not is_protocol(classes[0]):
+                report("agent-usecase-interface", path, f"must declare exactly the Protocol {want}",
+                       "a use case is one interface named after its file; the service implements it",
+                       f"declare `class {want}(Protocol)` and nothing else")
+            elif any(isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) and not bodiless(m) for m in classes[0].body) \
+                    or any(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) for n in tree.body):
+                report("agent-usecase-interface", path, f"{want} has an implementation",
+                       "usecase/ holds interfaces only", "move the logic to service/")
+        if rel.startswith("service/") and path.name != "__init__.py":
+            classes = [n.name for n in tree.body if isinstance(n, ast.ClassDef)]
+            if rel.startswith("service/prompts/"):
+                if classes:
+                    report("agent-service-implements", path, f"prompts are pure functions, found class {classes[0]}",
+                           "a prompt is inputs in, text out", "use a function")
+            elif camel(path.stem) + "Service" not in classes:
+                report("agent-service-implements", path, f"must declare the class {camel(path.stem)}Service",
+                       "a service file implements the use case of the same name", f"add `class {camel(path.stem)}Service`")
         for fn in functions(tree):
             n = stmts(fn)
             if n > MAX_FUNCTION_STMTS:

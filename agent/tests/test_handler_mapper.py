@@ -4,6 +4,7 @@ import grpc
 
 from fga_agent.domain.errors import EngineUnavailable, InvalidEdit, LlmUnavailable, UnsupportedEdit
 from fga_agent.domain.model.plan_check import PlanCheck
+from fga_agent.domain.model.progress import Progress
 from fga_agent.gen.fga.demo.common.v1 import common_pb2 as c
 from fga_agent.handler.grpc.mapper import error_mapper, plan_check_mapper, progress_mapper
 
@@ -20,10 +21,11 @@ def test_plan_check_survives_a_round_trip_through_the_dto():
         assert plan_check_mapper.to_domain(plan_check_mapper.to_pb(check)) == check
 
 
-def test_progress_reports_become_blueprint_events():
-    ev = progress_mapper.to_blueprint_event({"event": "progress", "kind": "thinking", "stage": "thinking", "message": "hm"})
+def test_progress_survives_a_round_trip_and_becomes_a_blueprint_event():
+    for p in (Progress("step", "layout", "laying out"), Progress("thinking", "thinking", "hm")):
+        assert progress_mapper.to_domain(progress_mapper.to_pb(p)) == p
+    ev = progress_mapper.to_blueprint_event(Progress("thinking", "thinking", "hm"))
     assert ev.WhichOneof("event") == "progress" and ev.progress.kind == "thinking" and ev.progress.message == "hm"
-    assert progress_mapper.to_progress({"message": "x"}).kind == "step"
 
 
 def test_domain_errors_map_to_a_status_with_detail():

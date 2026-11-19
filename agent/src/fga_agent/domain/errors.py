@@ -21,3 +21,7 @@ class EngineUnavailable(RuntimeError):
 
 class LlmUnavailable(RuntimeError):
     """The language model cannot serve (Ollama down, invalid output twice)."""
+
+
+class Cancelled(Exception):
+    """The caller left while the run was in progress; stop quietly (nothing is written, nothing is reported)."""

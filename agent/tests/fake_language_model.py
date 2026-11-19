@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 from fga_agent.domain.errors import LlmUnavailable
-from fga_agent.domain.gateway import ProgressReporter
-from fga_agent.domain.progress import NO_PROGRESS
+from fga_agent.domain.model.progress import Progress
 
 
 class FakeLanguageModel:
@@ -16,7 +15,7 @@ class FakeLanguageModel:
         self.calls: list[dict] = []
 
     def answer_json(self, system: str, user: str, schema: dict, max_tokens: int | None = None,
-                    progress: ProgressReporter = NO_PROGRESS, think: bool = True) -> dict:
+                    on_progress: Callable[[Progress], None] | None = None, think: bool = True) -> dict:
         self.calls.append({"system": system, "user": user, "schema": schema})
         if not self.answers:
             raise LlmUnavailable("FakeLanguageModel has no answer left")

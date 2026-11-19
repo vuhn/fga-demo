@@ -13,17 +13,13 @@ SCHEMA = {"type": "object", "properties": {"ok": {"type": "boolean"}}}
 
 
 class Recorder:
+    """A progress callback that remembers what it was given."""
+
     def __init__(self):
         self.events = []
 
-    def step(self, stage, message):
-        self.events.append(("step", stage))
-
-    def thinking(self, text):
-        self.events.append(("thinking", text))
-
-    def event(self, name, data):
-        self.events.append((name, data))
+    def __call__(self, p):
+        self.events.append((p.kind, p.stage if p.kind == "step" else p.message))
 
 
 def _client(handler, **env) -> OllamaLanguageModel:
@@ -49,7 +45,7 @@ def test_endless_thinking_is_cut_and_redone_without_thinking():
         return httpx.Response(200, json={"message": {"content": '{"ok": true}'}})
 
     rep = Recorder()
-    out = _client(handler, thinking_max_chars=500).answer_json("sys", "user", SCHEMA, progress=rep)
+    out = _client(handler, thinking_max_chars=500).answer_json("sys", "user", SCHEMA, on_progress=rep)
     assert out == {"ok": True}
     assert [c["think"] for c in calls] == [True, False]
     assert any(e[0] == "step" and e[1] == "retry" for e in rep.events)
@@ -61,7 +57,7 @@ def test_thinking_within_budget_is_used_and_shown():
     def handler(req):
         return _ndjson([{"message": {"thinking": "short plan"}}, {"message": {"content": '{"ok": true}'}}])
 
-    assert _client(handler).answer_json("sys", "user", SCHEMA, progress=rep) == {"ok": True}
+    assert _client(handler).answer_json("sys", "user", SCHEMA, on_progress=rep) == {"ok": True}
     assert any(e[0] == "thinking" and "short plan" in e[1] for e in rep.events)
 
 

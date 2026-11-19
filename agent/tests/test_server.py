@@ -8,9 +8,10 @@ import pytest
 from fake_engine import Running
 from grpc_health.v1 import health_pb2, health_pb2_grpc
 
-from fga_agent.domain.model.cancel import Cancelled, CancelToken
+from fga_agent.domain.errors import Cancelled
 from fga_agent.handler.grpc.server import SERVICE, build_server
-from fga_agent.handler.grpc.common.streaming_helper import stream_run
+from fga_agent.domain.model.progress import Progress
+from fga_agent.handler.grpc.common.streaming_helper import CancelToken, stream_run
 from fga_agent.infrastructure.engine_grpc.blueprint_engine import GrpcBlueprintEngine, open_channel
 from fga_agent.service.design_catalog_loader import DesignCatalogLoaderService
 from fga_agent.wire import Usecases
@@ -69,21 +70,21 @@ class Ctx:
 
 
 def test_stream_run_yields_progress_then_the_result():
-    def run(progress):
-        progress.step("layout", "laying out")
-        progress.thinking("hmm")
+    def run(on_progress):
+        on_progress(Progress("step", "layout", "laying out"))
+        on_progress(Progress("thinking", "thinking", "hmm"))
         return "RESULT"
 
-    out = list(stream_run(Ctx(), run, lambda ev: (ev["kind"], ev["message"]), lambda e: ("error", str(e))))
+    out = list(stream_run(Ctx(), run, lambda p: (p.kind, p.message), lambda e: ("error", str(e))))
     assert out == [("step", "laying out"), ("thinking", "hmm"), "RESULT"]
 
 
 def test_an_error_after_the_stream_opened_is_an_in_band_event():
-    def run(progress):
-        progress.step("a", "first")
+    def run(on_progress):
+        on_progress(Progress("step", "a", "first"))
         raise RuntimeError("boom")
 
-    out = list(stream_run(Ctx(), run, lambda ev: ev["stage"], lambda e: f"error:{e}"))
+    out = list(stream_run(Ctx(), run, lambda p: p.stage, lambda e: f"error:{e}"))
     assert out == ["a", "error:boom"]
 
 
@@ -92,17 +93,17 @@ def test_a_client_that_leaves_cancels_the_run_at_its_next_report():
     started, finished = threading.Event(), threading.Event()
     reached_after_cancel = []
 
-    def run(progress):
-        progress.step("one", "x")
+    def run(on_progress):
+        on_progress(Progress("step", "one", "x"))
         started.set()
         assert _until(lambda: ctx.left)
         try:
-            progress.step("two", "y")  # the reporter raises Cancelled here
+            on_progress(Progress("step", "two", "y"))  # the callback raises Cancelled here
             reached_after_cancel.append(True)
         finally:
             finished.set()
 
-    gen = stream_run(ctx, run, lambda ev: ev["stage"], lambda e: "error")
+    gen = stream_run(ctx, run, lambda p: p.stage, lambda e: "error")
     assert next(gen) == "one"
     assert started.wait(2)
     ctx.leave()

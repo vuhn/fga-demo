@@ -6,13 +6,12 @@ from __future__ import annotations
 import json
 import os
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 import httpx
 
 from ...domain.errors import LlmUnavailable
-from ...domain.gateway import ProgressReporter
-from ...domain.progress import NO_PROGRESS
+from ...domain.model.progress import Progress
 from ..entity.ollama_chat import ChatChunk, ChatMessage, ChatRequest
 
 
@@ -41,12 +40,12 @@ class OllamaLanguageModel:
         self.thinking_max_seconds = float(os.getenv("BLUEPRINT_THINKING_MAX_SECONDS", "90"))
 
     def _chat(self, model: str, messages: list[ChatMessage], schema: dict, max_tokens: int | None,
-              progress: ProgressReporter, think: bool) -> str:
-        if self.stream_thinking and think and progress is not NO_PROGRESS:
+              on_progress: Callable[[Progress], None] | None, think: bool) -> str:
+        if self.stream_thinking and think and on_progress is not None:
             try:
-                return self._chat_streaming(model, messages, schema, max_tokens, progress)
+                return self._chat_streaming(model, messages, schema, max_tokens, on_progress)
             except _ThinkingBudget as e:
-                progress.step("retry", f"the model thought too long ({e}); answering without thinking")
+                on_progress(Progress("step", "retry", f"the model thought too long ({e}); answering without thinking"))
         return self._chat_plain(model, messages, schema, max_tokens)
 
     def _chat_plain(self, model: str, messages: list[ChatMessage], schema: dict, max_tokens: int | None = None) -> str:
@@ -60,9 +59,9 @@ class OllamaLanguageModel:
         return ChatChunk.from_json(resp.json()).content
 
     def _chat_streaming(self, model: str, messages: list[ChatMessage], schema: dict, max_tokens: int | None,
-                        progress: ProgressReporter) -> str:
+                        on_progress: Callable[[Progress], None]) -> str:
         """Same call with thinking on and the answer streamed: the model's reasoning goes to the
-        progress reporter (shown live, never stored); the JSON answer is returned whole. Chunks are
+        progress callback (shown live, never stored); the JSON answer is returned whole. Chunks are
         coalesced to about one event per 150 ms."""
         # qwen3 thinks for minutes unless told otherwise; ask for a short plan (the answer is still validated)
         messages = [ChatMessage(m.role, m.content + "\n\nThink briefly: a few short sentences, then answer.")
@@ -85,23 +84,24 @@ class OllamaLanguageModel:
                         pending.append(chunk.thinking)
                         thought += len(chunk.thinking)
                         if thought > self.thinking_max_chars or time.monotonic() - started > self.thinking_max_seconds:
-                            progress.thinking("".join(pending))
+                            on_progress(Progress("thinking", "thinking", "".join(pending)))
                             raise _ThinkingBudget(f"{thought} characters, {time.monotonic() - started:.0f}s")
                         if time.monotonic() - last >= 0.15:
-                            progress.thinking("".join(pending))
+                            on_progress(Progress("thinking", "thinking", "".join(pending)))
                             pending, last = [], time.monotonic()
                     content.append(chunk.content)
         except httpx.HTTPError as e:
             raise LlmUnavailable(f"cannot reach Ollama at {self.base_url}: {e}") from e
-        progress.thinking("".join(pending))
+        if pending:
+            on_progress(Progress("thinking", "thinking", "".join(pending)))
         return "".join(content)
 
-    def answer_json(self, system, user, schema, max_tokens=None, progress=NO_PROGRESS, think=True):
+    def answer_json(self, system, user, schema, max_tokens=None, on_progress=None, think=True):
         model = self.text_model
         messages = [ChatMessage("system", system), ChatMessage("user", user)]
         last_err = ""
         for _ in range(2):
-            raw = self._chat(model, messages, schema, max_tokens, progress, think)
+            raw = self._chat(model, messages, schema, max_tokens, on_progress, think)
             try:
                 out = json.loads(raw)
                 if not isinstance(out, dict):

@@ -71,9 +71,9 @@ for svc in "$ROOT"/blueprint-engine/src/* "$ROOT"/agent/src/*; do
     done
   done
 done
-# 6. The Agent passes dependencies explicitly (CallContext, ProgressReporter), never through ambient ContextVars.
+# 6. The Agent passes dependencies explicitly (CallContext, a progress callback), never through ambient ContextVars.
 scan agent-no-ambient-state 'contextvars' "hidden global state makes a use case's inputs invisible in its signature" \
-  "pass a CallContext or a ProgressReporter as an argument" "$ROOT"/agent/src/*
+  "pass a CallContext or a progress callback as an argument" "$ROOT"/agent/src/*
 # 7. Prompts are business behavior: they live in service/ (service/prompts/), never in infrastructure, handler or domain.
 for svc in "$ROOT"/agent/src/*; do
   for layer in infrastructure handler domain; do
@@ -132,6 +132,67 @@ done
 
 # 10. Shape rules that need the syntax tree: thin handlers, small mappers, small functions (scripts/check-python-shape.py).
 ROOT="$ROOT" python3 "$(cd "$(dirname "$0")" && pwd)/check-python-shape.py" || fail=1
+
+# 11. Common code stays in the layer that uses it: a handler helper in handler/, a service helper in service/helper/ (its
+# interface in usecase/helper/), an infrastructure helper in infrastructure/. Nowhere else (domain has no helpers).
+for svc in "$ROOT"/agent/src/*; do
+  while IFS= read -r f; do
+    rel=${f#$svc/}
+    case "$rel" in
+      handler/*/common/*_helper.py|usecase/helper/*.py|service/helper/*.py|infrastructure/*) ;;
+      *) report agent-helper-in-layer "${f#$ROOT/}" "common code stays in the layer that uses it (handler/*/common, usecase/helper + service/helper, infrastructure)" \
+           "move it into the layer that calls it";;
+    esac
+  done < <(find "$svc" -type f -name '*.py' \( -name '*helper*' -o -path '*/common/*' -o -name '*util*' \) -not -path '*/gen/*' -not -name '__init__.py' 2>/dev/null)
+done
+# usecase/helper/<x>.py has its implementation in service/helper/<x>.py, like usecase/<x>.py has service/<x>.py.
+for svc in "$ROOT"/agent/src/*; do
+  for f in "$svc"/usecase/helper/*.py; do
+    [ -f "$f" ] || continue
+    n=$(basename "$f"); [ "$n" = "__init__.py" ] && continue
+    [ -f "$svc/service/helper/$n" ] || report usecase-service-pair "${f#$ROOT/}" "a shared business rule is an interface in usecase/helper/ and its implementation in service/helper/, same file name" "add service/helper/$n"
+  done
+done
+
+# 12. The layer layout of the Agent, as in the Go API: domain{model,gateway}, usecase{helper}, service{helper,prompts},
+# infrastructure/<technology>, handler/<transport>; the package root holds only the composition root and the entrypoint.
+layout() { # dir allowed-entry...   (every entry of dir must be one of the names; __pycache__ and gen are ignored)
+  local dir=$1; shift
+  [ -d "$dir" ] || return 0
+  local e n ok a
+  for e in "$dir"/*; do
+    n=$(basename "$e"); [ "$n" = "__pycache__" ] && continue
+    ok=0; for a in "$@"; do [ "$n" = "$a" ] && ok=1; done
+    [ $ok = 1 ] || report agent-layer-layout "${e#$ROOT/}" "the layers have a fixed layout: ${dir#$ROOT/} holds only: $*" "put it in the layer that owns it (domain/model, domain/gateway, usecase, service, infrastructure/<technology>, handler/<transport>)"
+  done
+}
+for svc in "$ROOT"/agent/src/*; do
+  [ -d "$svc" ] || continue
+  layout "$svc" __init__.py py.typed wire.py serve.py gen domain usecase service infrastructure handler
+  layout "$svc/domain" __init__.py errors.py model gateway
+  layout "$svc/handler" __init__.py grpc http
+  # infrastructure holds technology folders only (entity holds their wire shapes)
+  if [ -d "$svc/infrastructure" ]; then
+    for e in "$svc/infrastructure"/*; do
+      n=$(basename "$e"); [ "$n" = "__pycache__" ] && continue
+      [ -d "$e" ] || [ "$n" = "__init__.py" ] || report agent-layer-layout "${e#$ROOT/}" "infrastructure holds one folder per technology (ollama, engine_grpc, entity), no loose modules" "move it into the folder of the technology it adapts"
+    done
+  fi
+  # usecase: one interface file per operation, plus helper/ for shared business rules
+  if [ -d "$svc/usecase" ]; then
+    for e in "$svc/usecase"/*; do
+      n=$(basename "$e"); [ "$n" = "__pycache__" ] && continue
+      [ -f "$e" ] || [ "$n" = helper ] || report agent-layer-layout "${e#$ROOT/}" "usecase holds one interface file per operation, plus helper/" "move it"
+    done
+  fi
+  # service: its use case implementations (files), plus helper/ and prompts/
+  if [ -d "$svc/service" ]; then
+    for e in "$svc/service"/*; do
+      n=$(basename "$e"); [ "$n" = "__pycache__" ] && continue
+      [ -f "$e" ] || [ "$n" = helper ] || [ "$n" = prompts ] || report agent-layer-layout "${e#$ROOT/}" "service holds use case implementations, helper/ and prompts/" "move it"
+    done
+  fi
+done
 
 [ $fail = 0 ] && echo "python architecture: ok"
 exit $fail

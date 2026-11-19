@@ -6,6 +6,5 @@ a new gateway is a new file plus one line here."""
 
 from .blueprint_engine_gateway import BlueprintEngine
 from .language_model_gateway import LanguageModel
-from .progress_reporter_gateway import ProgressReporter
 
-__all__ = ["BlueprintEngine", "LanguageModel", "ProgressReporter"]
+__all__ = ["BlueprintEngine", "LanguageModel"]
