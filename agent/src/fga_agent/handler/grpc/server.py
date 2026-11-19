@@ -12,7 +12,7 @@ from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 from ...domain.errors import EngineUnavailable
 from ...gen.fga.demo.agent.v1 import agent_pb2_grpc as rpc
-from ...domain.call_context import CallContext
+from ...domain.model.call_context import CallContext
 from ...wire import Usecases
 from .servicer import AgentServicer
 

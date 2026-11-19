@@ -8,7 +8,7 @@ import pytest
 from fake_engine import Running
 from grpc_health.v1 import health_pb2, health_pb2_grpc
 
-from fga_agent.domain.cancel import Cancelled, CancelToken
+from fga_agent.domain.model.cancel import Cancelled, CancelToken
 from fga_agent.handler.grpc.server import SERVICE, build_server
 from fga_agent.handler.grpc.streaming import stream_run
 from fga_agent.infrastructure.engine_grpc.blueprint_engine import GrpcBlueprintEngine, open_channel

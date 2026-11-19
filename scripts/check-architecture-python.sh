@@ -85,5 +85,30 @@ for svc in "$ROOT"/agent/src/*; do
   done
 done
 
+# 8. Where data shapes live in the Agent: business models in domain/model/, adapter-internal wire shapes in
+# infrastructure/entity/, protobuf DTO conversion in mapper/ folders (named <model>_mapper.py).
+for svc in "$ROOT"/agent/src/*; do
+  while IFS= read -r f; do
+    case "$f" in */domain/model/*|*/gen/*) ;; *) report agent-model-folder "${f#$ROOT/}" "business data is a domain model, one file per concept" "move the dataclass to domain/model/<concept>.py";; esac
+  done < <(grep -rlE '^@dataclass' --include='*.py' "$svc/domain" 2>/dev/null)
+  while IFS= read -r f; do
+    case "$f" in */infrastructure/entity/*) ;; *) report agent-entity-folder "${f#$ROOT/}" "a technology's wire shapes are infrastructure entities, kept out of the adapter logic" "move the dataclass to infrastructure/entity/<technology>_<shape>.py";; esac
+  done < <(grep -rlE '^@dataclass' --include='*.py' "$svc/infrastructure" 2>/dev/null | grep -v '/gen/')
+  # protobuf message modules are touched only by mapper/ (handler: nowhere else; Engine adapter: its request builder and error reader)
+  for dir in handler/grpc infrastructure/engine_grpc; do
+    [ -d "$svc/$dir" ] || continue
+    while IFS= read -r f; do
+      case "$f" in
+        */mapper/*|*/infrastructure/engine_grpc/blueprint_engine.py|*/infrastructure/engine_grpc/errors.py) ;;
+        *) report agent-dto-in-mapper "${f#$ROOT/}" "converting protobuf DTOs to and from domain models is the mappers' job" "move the conversion to $dir/mapper/<model>_mapper.py";;
+      esac
+    done < <(grep -rlE '^[[:space:]]*from[[:space:]]+[A-Za-z_.]*gen\.fga[A-Za-z_.]*[[:space:]]+import[[:space:]]+[a-z]+_pb2([[:space:]]|$)' --include='*.py' "$svc/$dir" 2>/dev/null)
+    for f in "$svc/$dir"/mapper/*.py; do
+      [ -f "$f" ] || continue
+      n=$(basename "$f"); case "$n" in __init__.py|*_mapper.py) ;; *) report agent-dto-in-mapper "${f#$ROOT/}" "mapper files are named after the model they convert" "rename to <model>_mapper.py";; esac
+    done
+  done
+done
+
 [ $fail = 0 ] && echo "python architecture: ok"
 exit $fail

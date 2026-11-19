@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from ..domain.call_context import CallContext
-from ..domain.design_limits import DesignLimits
-from ..domain.operation_catalog import OperationCatalog
+from ..domain.model.call_context import CallContext
+from ..domain.model.design_limits import DesignLimits
+from ..domain.model.operation_catalog import OperationCatalog
 
 
 class DesignCatalogLoader(Protocol):

@@ -13,6 +13,7 @@ import httpx
 from ...domain.errors import LlmUnavailable
 from ...domain.gateway import ProgressReporter
 from ...domain.progress import NO_PROGRESS
+from ..entity.ollama_chat import ChatChunk, ChatMessage, ChatRequest
 
 
 class _ThinkingBudget(Exception):
@@ -39,7 +40,7 @@ class OllamaLanguageModel:
         self.thinking_max_chars = int(os.getenv("BLUEPRINT_THINKING_MAX_CHARS", "6000"))
         self.thinking_max_seconds = float(os.getenv("BLUEPRINT_THINKING_MAX_SECONDS", "90"))
 
-    def _chat(self, model: str, messages: list[dict], schema: dict, max_tokens: int | None,
+    def _chat(self, model: str, messages: list[ChatMessage], schema: dict, max_tokens: int | None,
               progress: ProgressReporter, think: bool) -> str:
         if self.stream_thinking and think and progress is not NO_PROGRESS:
             try:
@@ -48,35 +49,25 @@ class OllamaLanguageModel:
                 progress.step("retry", f"the model thought too long ({e}); answering without thinking")
         return self._chat_plain(model, messages, schema, max_tokens)
 
-    def _chat_plain(self, model: str, messages: list[dict], schema: dict, max_tokens: int | None = None) -> str:
+    def _chat_plain(self, model: str, messages: list[ChatMessage], schema: dict, max_tokens: int | None = None) -> str:
         try:
-            resp = self.http.post(
-                f"{self.base_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "format": schema,
-                    "stream": False,
-                    "think": False,
-                    "options": {"temperature": 0, "num_ctx": 8192, **({"num_predict": max_tokens} if max_tokens else {})},
-                },
-            )
+            req = ChatRequest(model, messages, stream=False, think=False, schema=schema, max_tokens=max_tokens)
+            resp = self.http.post(f"{self.base_url}/api/chat", json=req.body())
         except httpx.HTTPError as e:
             raise LlmUnavailable(f"cannot reach Ollama at {self.base_url}: {e}") from e
         if resp.status_code != 200:
             raise LlmUnavailable(f"Ollama {resp.status_code}: {resp.text[:300]}")
-        return resp.json()["message"]["content"]
+        return ChatChunk.from_json(resp.json()).content
 
-    def _chat_streaming(self, model: str, messages: list[dict], schema: dict, max_tokens: int | None,
+    def _chat_streaming(self, model: str, messages: list[ChatMessage], schema: dict, max_tokens: int | None,
                         progress: ProgressReporter) -> str:
         """Same call with thinking on and the answer streamed: the model's reasoning goes to the
         progress reporter (shown live, never stored); the JSON answer is returned whole. Chunks are
         coalesced to about one event per 150 ms."""
         # qwen3 thinks for minutes unless told otherwise; ask for a short plan (the answer is still validated)
-        messages = [{**m, "content": m["content"] + "\n\nThink briefly: a few short sentences, then answer."}
-                    if m["role"] == "system" else m for m in messages]
-        body = {"model": model, "messages": messages, "format": schema, "stream": True, "think": True,
-                "options": {"temperature": 0, "num_ctx": 8192, **({"num_predict": max_tokens} if max_tokens else {})}}
+        messages = [ChatMessage(m.role, m.content + "\n\nThink briefly: a few short sentences, then answer.")
+                    if m.role == "system" else m for m in messages]
+        body = ChatRequest(model, messages, stream=True, think=True, schema=schema, max_tokens=max_tokens).body()
         content: list[str] = []
         pending: list[str] = []
         started = last = time.monotonic()
@@ -89,17 +80,17 @@ class OllamaLanguageModel:
                 for line in resp.iter_lines():
                     if not line:
                         continue
-                    msg = json.loads(line).get("message", {})
-                    if msg.get("thinking"):
-                        pending.append(msg["thinking"])
-                        thought += len(msg["thinking"])
+                    chunk = ChatChunk.from_line(line)
+                    if chunk.thinking:
+                        pending.append(chunk.thinking)
+                        thought += len(chunk.thinking)
                         if thought > self.thinking_max_chars or time.monotonic() - started > self.thinking_max_seconds:
                             progress.thinking("".join(pending))
                             raise _ThinkingBudget(f"{thought} characters, {time.monotonic() - started:.0f}s")
                         if time.monotonic() - last >= 0.15:
                             progress.thinking("".join(pending))
                             pending, last = [], time.monotonic()
-                    content.append(msg.get("content", ""))
+                    content.append(chunk.content)
         except httpx.HTTPError as e:
             raise LlmUnavailable(f"cannot reach Ollama at {self.base_url}: {e}") from e
         progress.thinking("".join(pending))
@@ -107,7 +98,7 @@ class OllamaLanguageModel:
 
     def answer_json(self, system, user, schema, max_tokens=None, progress=NO_PROGRESS, think=True):
         model = self.text_model
-        messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+        messages = [ChatMessage("system", system), ChatMessage("user", user)]
         last_err = ""
         for _ in range(2):
             raw = self._chat(model, messages, schema, max_tokens, progress, think)
@@ -119,17 +110,16 @@ class OllamaLanguageModel:
             except ValueError as e:  # includes json.JSONDecodeError
                 last_err = str(e)[:1200]
                 messages = messages + [
-                    {"role": "assistant", "content": raw},
-                    {"role": "user", "content": f"That JSON is invalid:\n{last_err}\nReturn corrected JSON only."},
+                    ChatMessage("assistant", raw),
+                    ChatMessage("user", f"That JSON is invalid:\n{last_err}\nReturn corrected JSON only."),
                 ]
         raise LlmUnavailable(f"model returned invalid JSON twice: {last_err}")
 
     def answer_text(self, system, user):
         """Plain-text reply, yielded as it is generated (no `format`, thinking off). The caller
         stops early by closing the generator."""
-        body = {"model": self.text_model, "stream": True, "think": False,
-                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-                "options": {"temperature": 0.3, "num_ctx": 8192}}
+        body = ChatRequest(self.text_model, [ChatMessage("system", system), ChatMessage("user", user)], stream=True,
+                           think=False, temperature=0.3).body()
         try:
             with self.http.stream("POST", f"{self.base_url}/api/chat", json=body) as resp:
                 if resp.status_code != 200:
@@ -138,7 +128,7 @@ class OllamaLanguageModel:
                 for line in resp.iter_lines():
                     if not line:
                         continue
-                    piece = json.loads(line).get("message", {}).get("content", "")
+                    piece = ChatChunk.from_line(line).content
                     if piece:
                         yield piece
         except httpx.HTTPError as e:

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from ..brief import BriefBuild, BriefDraft
-from ..call_context import CallContext
-from ..design_limits import DesignLimits
-from ..operation_catalog import OperationCatalog
-from ..plan import PlanRevision
-from ..plan_check import PlanCheckReport
+from ..model.brief import BriefBuild, BriefDraft
+from ..model.call_context import CallContext
+from ..model.design_limits import DesignLimits
+from ..model.operation_catalog import OperationCatalog
+from ..model.plan import PlanRevision
+from ..model.plan_check import PlanCheckReport
 
 
 class BlueprintEngine(Protocol):

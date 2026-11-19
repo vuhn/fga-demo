@@ -3,7 +3,7 @@
 import pytest
 from fake_engine import Running
 
-from fga_agent.domain.call_context import CallContext
+from fga_agent.domain.model.call_context import CallContext
 from fga_agent.domain.errors import EngineUnavailable, InvalidEdit, UnsupportedEdit
 from fga_agent.gen.fga.demo.common.v1 import common_pb2 as c
 from fga_agent.gen.fga.demo.engine.v1 import engine_pb2

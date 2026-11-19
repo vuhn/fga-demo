@@ -10,7 +10,7 @@ from typing import Any
 
 import grpc
 
-from ...domain.cancel import Cancelled, CancelToken
+from ...domain.model.cancel import Cancelled, CancelToken
 from ...domain.gateway import ProgressReporter
 
 _DONE = object()
