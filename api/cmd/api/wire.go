@@ -9,6 +9,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	httph "github.com/vuhn/fga-demo/api/internal/handler/http"
+	agentclient "github.com/vuhn/fga-demo/api/internal/infrastructure/agent"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/auth"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/blueprintengine"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/config"
@@ -59,8 +60,10 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		blueprintRels     = fga.BlueprintRelations{}
 
 		legacy = blueprintengine.New(cfg.BlueprintEngine)
-		agent  = legacy // the HTTP sidecar also implements the LLM gateways (BlueprintAgent, EstimateAgent)
-		engine = engineGateway(cfg, legacy, log)
+		// the HTTP sidecar also implements the LLM gateways (BlueprintAgent, EstimateAgent); the estimate stays on it until T15
+		estimateAgent = legacy
+		agent         = blueprintAgent(cfg, legacy, log)
+		engine        = engineGateway(cfg, legacy, log)
 
 		tokens = auth.JWT{Secret: []byte(cfg.JWTSecret), TTL: cfg.JWTTTL}
 		hasher = auth.Bcrypt{}
@@ -185,7 +188,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		}),
 		httph.NewEstimateHandler(httph.EstimateUsecases{
 			SessionCreator: service.NewEstimateSessionCreator(blueprints, estSessions, authz),
-			Messenger:      service.NewEstimateSessionMessenger(blueprints, estSessions, agent, authz, ids),
+			Messenger:      service.NewEstimateSessionMessenger(blueprints, estSessions, estimateAgent, authz, ids),
 			SessionGetter:  service.NewEstimateSessionGetter(blueprints, estSessions, authz),
 			EstimateGetter: service.NewEstimateGetter(blueprints, estimates, authz),
 			EstimateLister: service.NewEstimateLister(blueprints, estimates, authz),
@@ -230,5 +233,19 @@ func engineGateway(cfg config.Config, legacy gateway.BlueprintEngine, log *slog.
 		panic(fmt.Errorf("BLUEPRINT_ENGINE_ADDR %q: %w", cfg.BlueprintEngineAddr, err)) // a malformed address is a config error
 	}
 	log.Info("blueprint engine over gRPC", "addr", cfg.BlueprintEngineAddr)
+	return c
+}
+
+// blueprintAgent is the Agent, which owns every LLM call: the gRPC client when AGENT_ADDR is set (the connection is
+// lazy and lives as long as the process), else the legacy HTTP sidecar.
+func blueprintAgent(cfg config.Config, legacy gateway.BlueprintAgent, log *slog.Logger) gateway.BlueprintAgent {
+	if cfg.AgentAddr == "" {
+		return legacy
+	}
+	c, _, err := agentclient.Dial(cfg.AgentAddr)
+	if err != nil {
+		panic(fmt.Errorf("AGENT_ADDR %q: %w", cfg.AgentAddr, err)) // a malformed address is a config error
+	}
+	log.Info("agent over gRPC", "addr", cfg.AgentAddr)
 	return c
 }
