@@ -1,6 +1,7 @@
 ---
 name: feature
-description: Run the AI-native SDLC for a non-trivial feature (clarify requirements -> system design -> DB design -> plan -> build -> test -> release docs). Use when the user starts a feature with /feature <name> or asks to implement something bigger than a small fix. Not for small simple tasks.
+description: Heavy, user-invoked only. Runs the full AI-native SDLC (requirements, system design, DB design, plan, build, test, release docs) for a BIG feature that spans several deployables or needs design and a plan. The user starts it explicitly with /feature; never start it on your own, never for a small task, bug fix, refactor of one file, doc edit, or question.
+disable-model-invocation: true
 ---
 
 # /feature <name or prds/file.md> [--until <stage>]
@@ -8,6 +9,14 @@ description: Run the AI-native SDLC for a non-trivial feature (clarify requireme
 If the argument is a path (e.g. `prds/new-requirement.md`), read it as the raw ask and derive the feature name (kebab-case) from it; confirm the name with the user in the first message.
 
 Orchestrates the chain in `specs/README.md`. You draft, the user approves; never start a stage before the previous artifact is approved.
+
+## Only for big features (check first, before creating anything)
+
+This skill is heavy: several artifacts, reviewers and approval gates. It runs only because the user typed `/feature`. Never invoke it yourself, and do not suggest it for small work.
+
+A feature is big when at least two hold: it touches two or more deployables (`api/`, `web/`, `agent/`, `blueprint-engine/`, infra); it adds or changes a table, a contract (proto/HTTP), or an authorization decision; it needs more than one PR; its requirement is ambiguous or needs product input.
+
+If the ask is small (one deployable, no schema or contract change, one PR, clear requirement: a bug fix, a field, a text change, a single endpoint tweak), do not run the chain. Say so in one or two sentences, name why, and offer the direct route instead (the matching service skill: `go-api`, `python-agent`, `python-engine`, `db-design` for a lone schema change, or just do it with plan mode), then stop and let the user decide whether to continue with `/feature` anyway. If it is borderline, ask with AskUserQuestion: full chain, or `--until requirements`/`--until plan`, or direct.
 
 ## Stop point (`--until`)
 

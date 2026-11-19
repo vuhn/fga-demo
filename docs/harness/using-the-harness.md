@@ -2,6 +2,10 @@
 
 Short answer: **you do not call the stage skills one by one.** Call `/feature` once; it runs the stages in order, calls the right skill for each, and stops at every gate for your approval. You only answer questions and say "approved" or "change X".
 
+## When to use `/feature` (and when not)
+
+`/feature` is the heavy path: several artifacts, reviewer agents and approval gates. It is configured so Claude never starts it by itself; only you do, by typing `/feature`. Use it for a **big feature**: at least two of (two or more deployables, a new table/contract/authorization decision, more than one PR, an unclear requirement). For anything smaller (a bug fix, a field, one endpoint tweak, a doc edit) just ask normally: Claude loads the service skill (`go-api`, `python-agent`, `python-engine`, `db-design`) and follows CLAUDE.md. If you do type `/feature` for a small ask, it tells you so and offers the direct route.
+
 ## The normal flow
 
 1. Write the raw ask in `prds/new-requirement.md` (rough is fine: problem, who, what you want; `prds/` is gitignored scratch).

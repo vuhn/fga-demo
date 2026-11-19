@@ -97,7 +97,7 @@ Restart `cmd/api` after every reseed (the store id changes). Seed accounts: ada,
 
 ## AI-native SDLC (features, not small fixes)
 
-`/feature <name>` runs clarify requirements -> system design -> DB design -> plan -> build -> test -> release docs. Each stage has a skill in `.claude/skills/` and writes a committed artifact in `specs/<feature>/`; a person approves each artifact before the next stage. `design-reviewer` checks artifacts, `authz-reviewer` checks code. DB changes follow the `db-design` skill (never breaking the running system; `scripts/check-migrations.sh` and a hook enforce it; committed migrations are never edited). Go work follows the `go-api` skill, Agent work the `python-agent` skill, Engine work the `python-engine` skill. How to use it: `docs/harness/using-the-harness.md`. Full map: `docs/harness/sdlc.md`.
+`/feature <name>` is heavy and user-invoked only (never start it yourself; small tasks use the service skills directly). It runs clarify requirements -> system design -> DB design -> plan -> build -> test -> release docs. Each stage has a skill in `.claude/skills/` and writes a committed artifact in `specs/<feature>/`; a person approves each artifact before the next stage. `design-reviewer` checks artifacts, `authz-reviewer` checks code. DB changes follow the `db-design` skill (never breaking the running system; `scripts/check-migrations.sh` and a hook enforce it; committed migrations are never edited). Go work follows the `go-api` skill, Agent work the `python-agent` skill, Engine work the `python-engine` skill. How to use it: `docs/harness/using-the-harness.md`. Full map: `docs/harness/sdlc.md`.
 
 ## Session protocol
 
