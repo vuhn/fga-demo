@@ -1,0 +1,212 @@
+// Package engine is the gRPC client of the deterministic blueprint Engine (:8092). It implements
+// gateway.BlueprintEngine. The Engine is stateless, has no auth and never sees a tenant or a person: the
+// services run their OpenFGA Checks before calling it.
+package engine
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+
+	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	commonv1 "github.com/vuhn/fga-demo/api/internal/infrastructure/grpcgen/fga/demo/common/v1"
+	enginev1 "github.com/vuhn/fga-demo/api/internal/infrastructure/grpcgen/fga/demo/engine/v1"
+	"github.com/vuhn/fga-demo/api/internal/infrastructure/grpcutil"
+)
+
+// DefaultTimeout bounds a call that carries no deadline of its own. Conversion of a scan runs OCR, so it is
+// generous.
+const DefaultTimeout = 5 * time.Minute
+
+const service = "engine"
+
+// Client calls the Engine over gRPC.
+type Client struct {
+	rpc enginev1.EngineServiceClient
+}
+
+var _ gateway.BlueprintEngine = (*Client)(nil)
+
+// New wraps an open connection (see Dial).
+func New(cc grpc.ClientConnInterface) *Client {
+	return &Client{rpc: enginev1.NewEngineServiceClient(cc)}
+}
+
+// Dial connects to addr. Connecting is lazy: an Engine that is down surfaces as ErrEngineUnavailable on the
+// first call, not at start-up.
+func Dial(addr string) (*Client, *grpc.ClientConn, error) {
+	cc, err := grpcutil.Dial(addr, DefaultTimeout)
+	if err != nil {
+		return nil, nil, err
+	}
+	return New(cc), cc, nil
+}
+
+func call[R any](fn func(opt grpc.CallOption) (R, error)) (R, error) {
+	return grpcutil.Call(service, func(tr *metadata.MD) (R, error) { return fn(grpc.Trailer(tr)) })
+}
+
+func (c *Client) Generate(ctx context.Context, brief, previous []byte, repair bool) (entity.BlueprintOutcome, error) {
+	r, err := call(func(o grpc.CallOption) (*enginev1.BriefResult, error) {
+		return c.rpc.Generate(ctx, &enginev1.GenerateRequest{BriefJson: brief, PreviousModelJson: previous, Repair: repair}, o)
+	})
+	if err != nil {
+		return entity.BlueprintOutcome{}, err
+	}
+	return entity.BlueprintOutcome{Brief: raw(r.BriefJson), Model: raw(r.ModelJson), Checks: checksJSON(r.Checks),
+		Issues: r.Issues, OK: r.Ok, Notes: r.Notes}, nil
+}
+
+func (c *Client) CreatePlan(ctx context.Context, brief []byte) (entity.BlueprintOutcome, error) {
+	r, err := call(func(o grpc.CallOption) (*enginev1.PlanOutcome, error) {
+		return c.rpc.CreatePlan(ctx, &enginev1.CreatePlanRequest{BriefJson: brief}, o)
+	})
+	return planOutcome(r, err)
+}
+
+func (c *Client) DrawPlan(ctx context.Context, model []byte, title string) (entity.BlueprintOutcome, error) {
+	r, err := call(func(o grpc.CallOption) (*enginev1.PlanOutcome, error) {
+		return c.rpc.DrawPlan(ctx, &enginev1.DrawPlanRequest{ModelJson: model, Title: title}, o)
+	})
+	return planOutcome(r, err)
+}
+
+func planOutcome(r *enginev1.PlanOutcome, err error) (entity.BlueprintOutcome, error) {
+	if err != nil {
+		return entity.BlueprintOutcome{}, err
+	}
+	return entity.BlueprintOutcome{Model: raw(r.ModelJson), Checks: checksJSON(r.Checks), Issues: r.Issues, OK: r.Ok,
+		Notes: r.Notes, DXF: r.Dxf}, nil
+}
+
+func (c *Client) EditPlan(ctx context.Context, model, ops []byte) (entity.BlueprintOutcome, error) {
+	r, err := call(func(o grpc.CallOption) (*enginev1.PlanStep, error) {
+		return c.rpc.ApplyPlanOps(ctx, &enginev1.ApplyPlanOpsRequest{ModelJson: model, OpsJson: ops}, o)
+	})
+	if err != nil {
+		return entity.BlueprintOutcome{}, err
+	}
+	return entity.BlueprintOutcome{Model: raw(r.ModelJson), Checks: checksJSON(r.Checks), OK: r.Ok, Notes: r.Notes}, nil
+}
+
+func (c *Client) PatchDXF(ctx context.Context, original entity.Upload, base, current []byte) (entity.PatchedFile, error) {
+	r, err := call(func(o grpc.CallOption) (*enginev1.PatchDXFResponse, error) {
+		return c.rpc.PatchDXF(ctx, &enginev1.PatchDXFRequest{Original: upload(original), BaseModelJson: base, CurrentModelJson: current}, o)
+	})
+	if err != nil {
+		return entity.PatchedFile{}, err
+	}
+	if len(r.Dxf) == 0 {
+		return entity.PatchedFile{}, fmt.Errorf("%w: bad engine response: no file", entity.ErrEngineUnavailable)
+	}
+	return entity.PatchedFile{Name: original.Name, MimeType: original.MimeType, Data: r.Dxf, Report: raw(r.ReportJson)}, nil
+}
+
+func (c *Client) ConvertToDXF(ctx context.Context, file entity.Upload, opts entity.ConvertOptions) (entity.BlueprintConversion, error) {
+	r, err := call(func(o grpc.CallOption) (*enginev1.ConvertToDXFResponse, error) {
+		return c.rpc.ConvertToDXF(ctx, &enginev1.ConvertToDXFRequest{File: upload(file),
+			Options: &enginev1.ConvertOptions{Scale: int32(opts.Scale), LongestM: opts.LongestM}}, o)
+	})
+	if err != nil {
+		return entity.BlueprintConversion{}, err
+	}
+	return entity.BlueprintConversion{DXF: r.Dxf, Report: raw(r.ReportJson)}, nil
+}
+
+func (c *Client) ImportDXF(ctx context.Context, file entity.Upload, unit string) (entity.BlueprintImport, error) {
+	r, err := call(func(o grpc.CallOption) (*enginev1.ImportDXFResponse, error) {
+		return c.rpc.ImportDXF(ctx, &enginev1.ImportDXFRequest{File: upload(file), Unit: unit}, o)
+	})
+	if err != nil {
+		return entity.BlueprintImport{}, err
+	}
+	var plans []struct {
+		Index     int             `json:"index"`
+		Name      string          `json:"name"`
+		RoomCount int             `json:"room_count"`
+		NetArea   float64         `json:"net_area"`
+		OK        bool            `json:"ok"`
+		Model     json.RawMessage `json:"model"`
+		Checks    json.RawMessage `json:"checks"`
+		SVG       string          `json:"svg"`
+	}
+	if err := json.Unmarshal(r.PlansJson, &plans); err != nil {
+		return entity.BlueprintImport{}, fmt.Errorf("%w: bad engine response: %v", entity.ErrEngineUnavailable, err)
+	}
+	res := entity.BlueprintImport{Report: raw(r.ReportJson)}
+	for _, p := range plans {
+		res.Plans = append(res.Plans, entity.BlueprintImportPlan{Index: p.Index, Name: p.Name, RoomCount: p.RoomCount,
+			NetArea: p.NetArea, OK: p.OK, Model: p.Model, Checks: p.Checks, SVG: p.SVG})
+	}
+	return res, nil
+}
+
+var formats = map[string]enginev1.RenderFormat{
+	entity.DrawingSVG: enginev1.RenderFormat_RENDER_FORMAT_SVG,
+	entity.DrawingPDF: enginev1.RenderFormat_RENDER_FORMAT_PDF,
+	entity.DrawingDXF: enginev1.RenderFormat_RENDER_FORMAT_DXF,
+	entity.DrawingIFC: enginev1.RenderFormat_RENDER_FORMAT_IFC,
+}
+
+func (c *Client) Render(ctx context.Context, model []byte, format string, tb entity.BlueprintTitleBlock) (entity.Drawing, error) {
+	f, ok := formats[format]
+	if !ok {
+		return entity.Drawing{}, entity.Invalid("unknown render format %q", format)
+	}
+	r, err := call(func(o grpc.CallOption) (*enginev1.RenderResponse, error) {
+		return c.rpc.Render(ctx, &enginev1.RenderRequest{ModelJson: model, Format: f, TitleBlock: &enginev1.TitleBlock{
+			Title: tb.Project, Version: int32(tb.Version), Issued: tb.Issued, Author: tb.Author}}, o)
+	})
+	if err != nil {
+		return entity.Drawing{}, err
+	}
+	return entity.Drawing{Format: format, ContentType: r.MediaType, Data: r.Data}, nil
+}
+
+func upload(u entity.Upload) *commonv1.Upload {
+	return &commonv1.Upload{Name: u.Name, Mime: u.MimeType, Data: u.Data}
+}
+
+// raw keeps an empty JSON field absent (nil) rather than an empty-but-non-nil message.
+func raw(b []byte) json.RawMessage {
+	if len(b) == 0 {
+		return nil
+	}
+	return json.RawMessage(b)
+}
+
+// checksJSON is the plan checks in the shape the HTTP engine always returned (room_id null when absent), so
+// stored results and the web panel see no difference.
+func checksJSON(cs []*commonv1.Check) json.RawMessage {
+	type check struct {
+		Rule     string   `json:"rule"`
+		Severity string   `json:"severity"`
+		OK       bool     `json:"ok"`
+		Message  string   `json:"message"`
+		RoomID   *string  `json:"room_id"`
+		Category string   `json:"category"`
+		IssueID  string   `json:"issue_id"`
+		Elements []string `json:"elements"`
+		Hint     string   `json:"hint"`
+	}
+	out := make([]check, 0, len(cs))
+	for _, c := range cs {
+		ck := check{Rule: c.Rule, Severity: c.Severity, OK: c.Ok, Message: c.Message, Category: c.Category,
+			IssueID: c.IssueId, Elements: c.Elements, Hint: c.Hint}
+		if ck.Elements == nil {
+			ck.Elements = []string{}
+		}
+		if c.RoomId != "" {
+			id := c.RoomId
+			ck.RoomID = &id
+		}
+		out = append(out, ck)
+	}
+	b, _ := json.Marshal(out)
+	return b
+}

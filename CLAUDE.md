@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-OpenFGA multi-tenant authorization demo: Go API in `api/` (its own module, Gin, pgx, goose) + OpenFGA + React admin panel in `web/` + `blueprint-engine/` (Python FastAPI sidecar, uv, local Ollama; stateless, no auth, only the API calls it). Postgres is the display record; OpenFGA makes every allow/deny decision.
+OpenFGA multi-tenant authorization demo: Go API in `api/` (its own module, Gin, pgx, goose) + OpenFGA + React admin panel in `web/` + `blueprint-engine/` (Python FastAPI sidecar, uv, local Ollama; stateless, no auth; only the API calls it, plus the Agent that will call its deterministic tools once the Agent exists; it never sees a tenant or user id). Postgres is the display record; OpenFGA makes every allow/deny decision.
 
 ## Source of truth
 

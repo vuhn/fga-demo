@@ -21,6 +21,7 @@ cmd/api/wire.go builds infrastructure, services, handlers and injects them
 | `service` | Implementations, one file per operation (`folder_creator.go`). Business logic only. |
 | `infrastructure/postgres` | pgx repos: the display record. |
 | `infrastructure/fga` | OpenFGA client, model bootstrap, and pure tuple builders. The only place tuples are formatted. |
+| `infrastructure/engine` | gRPC client of the deterministic Engine (`gateway.BlueprintEngine`), chosen by `wire.go` when `BLUEPRINT_ENGINE_ADDR` is set. `infrastructure/grpcutil` holds what gRPC clients share: dial options (32 MB messages), the default deadline, `x-request-id` metadata, and the status / in-band error mapping (`INVALID_ARGUMENT` -> `ErrValidation`; anything else -> `ErrEngineUnavailable`). `domain`, `usecase` and `service` never import gRPC, protobuf or the generated stubs (architecture script). |
 | `infrastructure/blueprintengine` | HTTP client for the stateless blueprint engine (`gateway.BlueprintEngine` for the deterministic operations, `gateway.BlueprintAgent` for the LLM ones, `gateway.EstimateAgent`; one client implements all). |
 | `infrastructure/{auth,idgen,config}` | JWT and bcrypt, UUIDs, environment config. |
 | `handler/http` | Gin handlers (decode, call one usecase, map errors) and middleware. |
