@@ -77,13 +77,13 @@
 | `tests/test_drawing.py::test_a_drawing_fills_its_sheet[splineA.dxf]` | | pending |
 | `tests/test_drawing.py::test_a_drawing_fills_its_sheet[splines.dxf]` | | pending |
 | `tests/test_drawing.py::test_a_drawing_fills_its_sheet[texts.dxf]` | | pending |
-| `tests/test_estimate.py::test_takeoff_areas_and_walls_are_hand_checkable` | | pending |
-| `tests/test_estimate.py::test_existing_rooms_are_not_built_and_replaced_rooms_get_demolition` | | pending |
-| `tests/test_estimate.py::test_assumed_height_makes_dependent_lines_assumed` | | pending |
-| `tests/test_estimate.py::test_new_build_adds_structure_and_mep_points` | | pending |
-| `tests/test_estimate.py::test_a_drawing_with_no_rooms_is_unsupported_not_zero` | | pending |
-| `tests/test_estimate.py::test_cascade_to_the_dong` | | pending |
-| `tests/test_estimate.py::test_contingency_rises_with_assumed_share_and_unpriced_lines_stay_out` | | pending |
+| `tests/test_estimate.py::test_takeoff_areas_and_walls_are_hand_checkable` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
+| `tests/test_estimate.py::test_existing_rooms_are_not_built_and_replaced_rooms_get_demolition` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
+| `tests/test_estimate.py::test_assumed_height_makes_dependent_lines_assumed` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
+| `tests/test_estimate.py::test_new_build_adds_structure_and_mep_points` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
+| `tests/test_estimate.py::test_a_drawing_with_no_rooms_is_unsupported_not_zero` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
+| `tests/test_estimate.py::test_cascade_to_the_dong` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
+| `tests/test_estimate.py::test_contingency_rises_with_assumed_share_and_unpriced_lines_stay_out` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
 | `tests/test_estimate.py::test_quote_must_be_on_the_page_and_carry_the_number` | | pending |
 | `tests/test_estimate.py::test_units_and_currency_convert_or_are_rejected` | | pending |
 | `tests/test_estimate.py::test_aggregation_drops_outliers_and_flags_thin_evidence` | | pending |
@@ -117,7 +117,7 @@
 | `tests/test_estimate.py::test_the_region_is_pinned_by_code_not_the_model` | | pending |
 | `tests/test_estimate.py::test_a_query_naming_the_wrong_city_never_reaches_the_search_provider` | | pending |
 | `tests/test_estimate.py::test_the_cited_sources_are_only_those_the_rate_rests_on` | | pending |
-| `tests/test_estimate.py::test_fixtures_are_assumed_absent_and_priced_unless_they_exist` | | pending |
+| `tests/test_estimate.py::test_fixtures_are_assumed_absent_and_priced_unless_they_exist` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
 | `tests/test_estimate.py::test_the_agent_asks_which_fixtures_exist_before_it_prices` | | pending |
 | `tests/test_estimate.py::test_some_fixtures_exist_only_those_the_message_refers_to` | | pending |
 | `tests/test_estimate.py::test_i_dont_know_assumes_no_fixture_exists_and_says_so` | | pending |
@@ -212,3 +212,15 @@
 | `tests/test_pipeline.py::test_ifc_export_matches_the_model` | | pending |
 | `tests/test_pipeline.py::test_open_plan_removes_the_walls_between_hall_living_kitchen_and_dining` | | pending |
 | `tests/test_pipeline.py::test_the_hall_cannot_be_edited_and_says_how_to_open_it` | | pending |
+
+## New tests added by T5 (not in the baseline)
+
+| Collected ID | What it covers |
+| --- | --- |
+| `tests/test_estimate_services.py::test_summarize_lists_rooms_fixtures_and_openings` | `SummarizePlan` rooms, fixtures, openings |
+| `tests/test_estimate_services.py::test_summarize_pending_fixtures_are_priced_unknown_ones_only` | `pending_fixtures`: priced kinds only, `fixtures_existing`, existing rooms |
+| `tests/test_estimate_services.py::test_summarize_structure_in_scope_follows_the_facts` | `structure_in_scope` for new build / renovation |
+| `tests/test_estimate_services.py::test_summarize_an_empty_plan_is_empty` | empty plan summary |
+| `tests/test_estimate_services.py::test_takeoff_and_price_take_facts_and_match_the_legacy_adapter` | services on `EstimateFacts` equal the legacy adapters |
+| `tests/test_estimate_services.py::test_takeoff_honours_excluded_codes_and_the_source_of_a_fact` | `excluded`, fact source -> confidence |
+| `tests/test_estimate_services.py::test_price_uses_markup_facts_and_defaults` | markup facts and defaults |

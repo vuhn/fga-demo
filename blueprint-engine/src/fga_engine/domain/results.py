@@ -58,3 +58,31 @@ class PlanCreated(BaseModel):
     result: PlanBuild
     notes: list[str] = []
     dxf: str | None = None  # base64 of the CAD file the plan was drawn into: its original from now on
+
+
+class SummaryRoom(BaseModel):
+    id: str
+    name: str
+    type: str
+    area_m2: float
+
+
+class SummaryFixture(BaseModel):
+    id: str
+    kind: str
+    room_id: str
+
+
+class SummaryOpening(BaseModel):
+    id: str
+    kind: str  # door | window | open (an entrance is a door)
+    room_ids: list[str]
+    width: float
+
+
+class PlanSummary(BaseModel):
+    rooms: list[SummaryRoom]
+    fixtures: list[SummaryFixture]
+    openings: list[SummaryOpening]
+    pending_fixtures: list[str]  # priced fixtures whose installed state is still unknown
+    structure_in_scope: bool
