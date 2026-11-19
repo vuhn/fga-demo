@@ -61,6 +61,14 @@ class FakeEngine(rpc.EngineServiceServicer):
         self._enter("ApplyPlanOps", context)
         return e.PlanStep(model_json=request.model_json, ok=True, summary="s", descriptions=["moved"], changed=True)
 
+    def SummarizePlan(self, request, context):
+        self._enter("SummarizePlan", context)
+        self.facts_seen = request.facts
+        return e.PlanSummary(rooms=[e.PlanSummary.Room(id="r1", name="Living", type="living", area_m2=22.5)],
+                             fixtures=[e.PlanSummary.Fixture(id="f1", kind="toilet", room_id="r1")],
+                             openings=[e.PlanSummary.Opening(id="d1", kind="door", room_ids=["r1", "outside"], width=0.9)],
+                             pending_fixtures=["f1"], structure_in_scope=True)
+
     def RunChecks(self, request, context):
         self._enter("RunChecks", context)
         return e.RunChecksResponse(ok=True, issue_score=0)

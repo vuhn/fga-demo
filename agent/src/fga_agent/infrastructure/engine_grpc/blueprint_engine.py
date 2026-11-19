@@ -11,19 +11,22 @@ import grpc
 from ...domain.model.brief import BriefBuild, BriefDraft
 from ...domain.model.call_context import CallContext
 from ...domain.model.design_limits import DesignLimits
+from ...domain.model.estimate_facts import EstimateFacts
 from ...domain.model.operation_catalog import OperationCatalog
 from ...domain.model.plan import PlanRevision
 from ...domain.model.plan_check import PlanCheckReport
+from ...domain.model.plan_summary import PlanSummary
 from fga.demo.engine.v1 import engine_pb2_grpc as stubs
-from .mapper import brief_mapper, design_limits_mapper, error_mapper, operation_catalog_mapper, plan_check_mapper, plan_mapper
+from .mapper import brief_mapper, design_limits_mapper, error_mapper, operation_catalog_mapper, plan_check_mapper, plan_mapper, \
+    plan_summary_mapper
 
 MAX_MESSAGE = 32 << 20
 REQUEST_ID = "x-request-id"
 
 # Engine RPCs the Agent never calls: the API calls them (plans, files).
 NOT_USED = frozenset({"CreatePlan", "DrawPlan", "ConvertToDXF", "ImportDXF", "PatchDXF", "Render"})
-# Engine RPCs the estimate port (T12) will use.
-LATER = frozenset({"SummarizePlan", "Takeoff", "PriceEstimate"})
+# Engine RPCs the estimate turn (T13b) will use.
+LATER = frozenset({"Takeoff", "PriceEstimate"})
 
 
 def open_channel(addr: str) -> grpc.Channel:
@@ -87,3 +90,7 @@ class GrpcBlueprintEngine:
     def run_checks(self, ctx: CallContext, model: bytes, brief: bytes = b"") -> PlanCheckReport:
         return plan_check_mapper.report_to_domain(
             self._call(ctx, "RunChecks", plan_check_mapper.run_checks_request(model, brief)))
+
+    @rpc("SummarizePlan")
+    def summarize_plan(self, ctx: CallContext, model: bytes, facts: EstimateFacts) -> PlanSummary:
+        return plan_summary_mapper.to_domain(self._call(ctx, "SummarizePlan", plan_summary_mapper.request(model, facts)))
