@@ -12,7 +12,7 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 )
 
-var _ gateway.EstimateEngine = (*Client)(nil)
+var _ gateway.EstimateAgent = (*Client)(nil)
 
 const estimateTurnCeiling = 30 * time.Minute
 

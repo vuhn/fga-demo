@@ -57,6 +57,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		blueprintRels     = fga.BlueprintRelations{}
 
 		engine = blueprintengine.New(cfg.BlueprintEngine)
+		agent  = engine // the same client also implements the LLM gateways (BlueprintAgent, EstimateAgent)
 
 		tokens = auth.JWT{Secret: []byte(cfg.JWTSecret), TTL: cfg.JWTTTL}
 		hasher = auth.Bcrypt{}
@@ -181,7 +182,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		}),
 		httph.NewEstimateHandler(httph.EstimateUsecases{
 			SessionCreator: service.NewEstimateSessionCreator(blueprints, estSessions, authz),
-			Messenger:      service.NewEstimateSessionMessenger(blueprints, estSessions, engine, authz, ids),
+			Messenger:      service.NewEstimateSessionMessenger(blueprints, estSessions, agent, authz, ids),
 			SessionGetter:  service.NewEstimateSessionGetter(blueprints, estSessions, authz),
 			EstimateGetter: service.NewEstimateGetter(blueprints, estimates, authz),
 			EstimateLister: service.NewEstimateLister(blueprints, estimates, authz),
@@ -189,7 +190,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		httph.NewBlueprintHandler(httph.BlueprintUsecases{
 			Lister:          service.NewBlueprintLister(blueprints, authz),
 			Getter:          service.NewBlueprintGetter(blueprints, authz),
-			Drafter:         service.NewBlueprintDrafter(projects, engine, authz),
+			Drafter:         service.NewBlueprintDrafter(projects, agent, authz),
 			ImportPreviewer: service.NewBlueprintDXFImportPreviewer(projects, engine, authz),
 			Importer:        service.NewBlueprintImporter(projects, blueprints, blueprintRels, engine, authz, guard, ids),
 			OriginalGetter:  service.NewBlueprintOriginalGetter(blueprints, authz),
@@ -197,9 +198,9 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 			PlanEditor:      service.NewBlueprintPlanEditor(blueprints, engine, authz),
 			PlanConverter:   service.NewBlueprintPlanConverter(blueprints, engine, authz),
 			Creator:         service.NewBlueprintCreator(projects, blueprints, blueprintRels, engine, authz, guard, ids),
-			Reviser:         service.NewBlueprintReviser(blueprints, engine, authz),
-			ReviseStreamer:  service.NewBlueprintReviseStreamer(blueprints, engine, authz),
-			Reviewer:        service.NewBlueprintReviewer(blueprints, engine, authz),
+			Reviser:         service.NewBlueprintReviser(blueprints, agent, authz),
+			ReviseStreamer:  service.NewBlueprintReviseStreamer(blueprints, agent, authz),
+			Reviewer:        service.NewBlueprintReviewer(blueprints, agent, authz),
 			BriefUpdater:    service.NewBlueprintBriefUpdater(blueprints, engine, authz),
 			VersionLister:   service.NewBlueprintVersionLister(blueprints, authz),
 			Restorer:        service.NewBlueprintVersionRestorer(blueprints, authz),

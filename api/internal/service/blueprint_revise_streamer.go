@@ -10,12 +10,12 @@ import (
 
 type blueprintReviseStreamer struct {
 	blueprints gateway.BlueprintGateway
-	engine     gateway.BlueprintEngine
+	agent      gateway.BlueprintAgent
 	authz      usecase.Authorizer
 }
 
-func NewBlueprintReviseStreamer(blueprints gateway.BlueprintGateway, engine gateway.BlueprintEngine, authz usecase.Authorizer) usecase.BlueprintReviseStreamer {
-	return &blueprintReviseStreamer{blueprints: blueprints, engine: engine, authz: authz}
+func NewBlueprintReviseStreamer(blueprints gateway.BlueprintGateway, agent gateway.BlueprintAgent, authz usecase.Authorizer) usecase.BlueprintReviseStreamer {
+	return &blueprintReviseStreamer{blueprints: blueprints, agent: agent, authz: authz}
 }
 
 // ReviseStream is Revise with live progress: the same can_edit Check and
@@ -29,9 +29,9 @@ func (s *blueprintReviseStreamer) ReviseStream(ctx context.Context, actor, tenan
 	imported := isImported(cur)
 	var out entity.BlueprintOutcome
 	if imported {
-		out, err = s.engine.RevisePlanStream(ctx, cur.Model, message, history, onProgress)
+		out, err = s.agent.RevisePlanStream(ctx, cur.Model, message, history, onProgress)
 	} else {
-		out, err = s.engine.ReviseStream(ctx, cur.Brief, cur.Model, message, history, onProgress)
+		out, err = s.agent.ReviseStream(ctx, cur.Brief, cur.Model, message, history, onProgress)
 	}
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
