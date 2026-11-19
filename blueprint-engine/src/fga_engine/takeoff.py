@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from shapely.geometry import Point, Polygon
 
 from .estimate_models import Confidence, SessionState, Takeoff, TakeoffLine
-from .schemas import BuildingModel, PlacedRoom
+from .domain.schemas import BuildingModel, PlacedRoom
 
 DOOR_HEIGHT = 2.1
 WINDOW_HEIGHT = 1.5

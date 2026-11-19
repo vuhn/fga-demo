@@ -1,6 +1,6 @@
 """Hand-written briefs (no LLM) used by tests and the dev harness."""
 
-from blueprint_engine.schemas import Brief
+from fga_engine.domain.schemas import Brief
 
 FAMILY_3BR = Brief.model_validate({
     "title": "Family house, 3 bedrooms",

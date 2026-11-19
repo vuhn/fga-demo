@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import math
 
-from .schemas import DrawItem
+from .domain.schemas import DrawItem
 
 MAX_ITEMS = 120_000
 MAX_VERTICES = 2_000_000

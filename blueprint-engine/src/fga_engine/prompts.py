@@ -9,7 +9,8 @@ from __future__ import annotations
 import json
 import typing
 
-from .schemas import (
+from .domain.op_docs import field_sig
+from .domain.schemas import (
     DEFAULT_FIXTURES,
     FIXTURE_KINDS,
     MIN_AREA,
@@ -80,13 +81,6 @@ JSON: {"title": "Two-bedroom house", "lot_width": 20, "lot_depth": 30, "entrance
  {"name": "Bathroom", "type": "bathroom", "target_area": 5}]}"""
 
 
-def _field_sig(name: str, field) -> str:
-    if not field.is_required():
-        return f"{name}?"
-    nullable = type(None) in typing.get_args(field.annotation)
-    return f"{name}|null" if nullable else name
-
-
 def ops_help(exclude: frozenset[str] = frozenset()) -> str:
     """Op documentation rendered from the EditOps union: name {fields}: docstring."""
     union = typing.get_args(EditOps.model_fields["ops"].annotation)[0]
@@ -96,7 +90,7 @@ def ops_help(exclude: frozenset[str] = frozenset()) -> str:
         op = typing.get_args(cls.model_fields["op"].annotation)[0]
         if op in exclude:
             continue
-        fields = ", ".join(_field_sig(n, f) for n, f in cls.model_fields.items() if n != "op")
+        fields = ", ".join(field_sig(n, f) for n, f in cls.model_fields.items() if n != "op")
         lines.append(f"- {op} {{{fields}}}: {(cls.__doc__ or '').strip()}")
     lines.append(f"Fixtures: {', '.join(FIXTURE_KINDS)}.")
     return "\n".join(lines)

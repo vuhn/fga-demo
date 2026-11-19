@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from shapely.geometry import Polygon
 
 from .dxf_plan import _layer_role, read_doc
-from .schemas import BuildingModel, Opening, PlacedFixture, PlacedRoom
+from .domain.schemas import BuildingModel, Opening, PlacedFixture, PlacedRoom
 
 ADDED_LAYER = "FGA-ADDED"
 EPS = 0.005  # metres: smaller changes are rounding noise

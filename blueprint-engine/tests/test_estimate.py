@@ -12,15 +12,15 @@ from fastapi.testclient import TestClient
 from shapely.geometry import Polygon
 
 import sample_dxf
-from blueprint_engine import estimate_agent as ag
-from blueprint_engine import estimate_reading as rd
-from blueprint_engine import price_research as pr
-from blueprint_engine.app import create_app
-from blueprint_engine.dxf_plan import import_dxf
-from blueprint_engine.estimate import price
-from blueprint_engine.estimate_models import Fact, RateRequest, RateResult, RoomScope, SessionState
-from blueprint_engine.price_source import NoPriceSource, requests_for
-from blueprint_engine.takeoff import RATE_CATALOG, takeoff
+from fga_engine import estimate_agent as ag
+from fga_engine import estimate_reading as rd
+from fga_engine import price_research as pr
+from fga_engine.app import create_app
+from fga_engine.dxf_plan import import_dxf
+from fga_engine.estimate import price
+from fga_engine.estimate_models import Fact, RateRequest, RateResult, RoomScope, SessionState
+from fga_engine.price_source import NoPriceSource, requests_for
+from fga_engine.takeoff import RATE_CATALOG, takeoff
 
 
 @pytest.fixture(scope="module")
@@ -441,7 +441,7 @@ def test_llm_failure_mid_stream_is_an_error_event(plan):
     class Broken(FakeLLM):
         def stream_text(self, system, user):
             yield "partial"
-            from blueprint_engine.llm import LLMError
+            from fga_engine.llm import LLMError
             raise LLMError("ollama went away")
 
     evs = ndjson(post(stream_client(Broken({"city": "Hanoi"})), plan, SessionState(), "Hanoi"))
@@ -452,7 +452,7 @@ def test_llm_failure_mid_stream_is_an_error_event(plan):
 def test_a_dead_llm_before_any_text_falls_back_to_the_question_text(plan):
     class Silent(FakeLLM):
         def stream_text(self, system, user):
-            from blueprint_engine.llm import LLMError
+            from fga_engine.llm import LLMError
             raise LLMError("down")
             yield
 
@@ -508,7 +508,7 @@ def test_extraction_calls_ask_for_no_live_thinking(plan):
 
     class Spy(FakeLLM):
         def structured(self, system, user, schema, max_tokens=None):
-            from blueprint_engine import progress
+            from fga_engine import progress
             seen.append(progress.thinking_wanted())
             return super().structured(system, user, schema, max_tokens)
 
@@ -594,7 +594,7 @@ def test_the_cited_sources_are_only_those_the_rate_rests_on():
 
 # ---------- fixtures: a floor plan shows where they go, not what exists ----------
 
-from blueprint_engine.schemas import PlacedFixture
+from fga_engine.domain.schemas import PlacedFixture
 
 
 @pytest.fixture
@@ -659,7 +659,7 @@ def test_i_dont_know_assumes_no_fixture_exists_and_says_so(fxplan):
 
 
 def test_demo_search_prices_every_code_through_the_real_pipeline_and_labels_it():
-    from blueprint_engine.demo_search import BASE, DemoSearch, demo_rate
+    from fga_engine.demo_search import BASE, DemoSearch, demo_rate
 
     assert set(BASE) == set(RATE_CATALOG)  # nothing the takeoff can ask for is missing
 

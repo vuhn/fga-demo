@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from blueprint_engine import convert, dxf_plan
-from blueprint_engine.app import create_app
-from blueprint_engine.edits import EditError
+from fga_engine import convert, dxf_plan
+from fga_engine.app import create_app
+from fga_engine.domain.edits import EditError
 
 OUT = Path(__file__).parent.parent / "out"
 # name: (paper scale of the sheet, longest side in m, net area in m² from the original DXF)

@@ -1,6 +1,6 @@
 """Stateless HTTP engine. No auth and no storage: only the Go API calls it, after its own Checks.
 
-Run: uv run uvicorn blueprint_engine.app:app --port 8090
+Run: uv run uvicorn fga_engine.app:app --port 8090
 """
 
 from __future__ import annotations
@@ -16,16 +16,17 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import convert, dxf_patch, dxf_plan, estimate_agent, llm_steps, pipeline, plan_edits, progress
-from .checks import failed, run_imported_checks
+from . import convert, dxf_patch, dxf_plan, estimate_agent, llm_steps, pipeline, progress
+from .domain import plan_edits
+from .domain.checks import failed, run_imported_checks
 from .draw import TitleBlock, build_dxf, to_dxf_bytes, to_pdf, to_svg
-from .edits import EditError
+from .domain.edits import EditError
 from .ifc import to_ifc
 from .estimate_models import Message, SessionState
 from .llm import LLMClient, LLMError, OllamaClient
 from .price_research import LLMWebPriceSource
 from .price_source import PriceSource
-from .schemas import Brief, BuildingModel, CheckResult
+from .domain.schemas import Brief, BuildingModel, CheckResult
 
 STATIC = Path(__file__).parent / "static"
 

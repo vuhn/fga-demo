@@ -5,11 +5,11 @@ from __future__ import annotations
 import pytest
 from briefs import FEASIBLE
 
-from blueprint_engine.dxf_patch import ADDED_LAYER, patch_dxf
-from blueprint_engine.dxf_plan import import_dxf, read_doc
-from blueprint_engine.draw import build_dxf, to_dxf_bytes
-from blueprint_engine.pipeline import generate
-from blueprint_engine.schemas import BuildingModel
+from fga_engine.dxf_patch import ADDED_LAYER, patch_dxf
+from fga_engine.dxf_plan import import_dxf, read_doc
+from fga_engine.draw import build_dxf, to_dxf_bytes
+from fga_engine.pipeline import generate
+from fga_engine.domain.schemas import BuildingModel
 
 
 @pytest.fixture(scope="module")
@@ -104,7 +104,7 @@ def test_fixture_move_remove_and_add(original):
 def test_added_fixture_without_a_template_is_drawn_on_the_added_layer(original):
     data, base = original
     kinds = {f.kind for f in base.fixtures}
-    new_kind = next(k for k in ("piano", "bathtub", "sofa", "bed_double", "toilet") if k not in kinds and k in __import__("blueprint_engine.schemas", fromlist=["FIXTURE_KINDS"]).FIXTURE_KINDS)
+    new_kind = next(k for k in ("piano", "bathtub", "sofa", "bed_double", "toilet") if k not in kinds and k in __import__("fga_engine.domain.schemas", fromlist=["FIXTURE_KINDS"]).FIXTURE_KINDS)
     room = base.rooms[0]
     x0, y0, x1, y1 = room.net_rect
     fx = base.fixtures[0].model_copy(update={"id": "n1", "kind": new_kind, "src": [], "room_id": room.id,
@@ -138,7 +138,7 @@ def test_a_generated_plan_cannot_be_patched(original):
 def _api():
     from fastapi.testclient import TestClient
 
-    from blueprint_engine.app import create_app
+    from fga_engine.app import create_app
 
     return TestClient(create_app(None))
 
@@ -198,7 +198,7 @@ def test_a_direct_edit_then_export_writes_the_change_into_the_file(original):
 
 
 def test_delete_fixture_by_id_and_the_chat_help_lists_the_new_ops(original):
-    from blueprint_engine.plan_edits import ops_help
+    from fga_engine.domain.plan_edits import ops_help
 
     _, base = original
     c = _api()
@@ -265,7 +265,7 @@ def test_a_plan_made_from_a_brief_can_be_drawn_into_an_editable_cad_plan():
 
 
 def test_an_open_plan_reads_back_as_fewer_spaces_and_says_so():
-    from blueprint_engine.llm_steps import draw_plan
+    from fga_engine.llm_steps import draw_plan
 
     brief = next(b for b in FEASIBLE.values() if len(b.rooms) >= 4).model_copy(update={"open_plan": True})
     gen = generate(brief).model

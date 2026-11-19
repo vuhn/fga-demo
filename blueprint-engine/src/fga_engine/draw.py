@@ -21,7 +21,7 @@ from ezdxf.document import Drawing
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 from shapely.ops import unary_union
 
-from .schemas import BuildingModel, DrawItem, Opening, PlacedFixture, Wall
+from .domain.schemas import BuildingModel, DrawItem, Opening, PlacedFixture, Wall
 
 PAPERS: dict[str, tuple[float, float]] = {  # landscape, metres of paper
     "A3": (0.420, 0.297),

@@ -19,12 +19,12 @@ HERE = Path(__file__).parent
 sys.path[:0] = [str(HERE.parent / "tests"), str(HERE.parent / "src")]
 
 import sample_dxf  # noqa: E402
-from blueprint_engine import estimate_agent as ag  # noqa: E402
-from blueprint_engine.dxf_plan import import_dxf  # noqa: E402
-from blueprint_engine.estimate_reading import _norm  # noqa: E402
-from blueprint_engine.estimate_models import Message, SessionState  # noqa: E402
-from blueprint_engine.llm import LLMError, OllamaClient  # noqa: E402
-from blueprint_engine.schemas import PlacedFixture  # noqa: E402
+from fga_engine import estimate_agent as ag  # noqa: E402
+from fga_engine.dxf_plan import import_dxf  # noqa: E402
+from fga_engine.estimate_reading import _norm  # noqa: E402
+from fga_engine.estimate_models import Message, SessionState  # noqa: E402
+from fga_engine.llm import LLMError, OllamaClient  # noqa: E402
+from fga_engine.domain.schemas import PlacedFixture  # noqa: E402
 
 
 def plan():

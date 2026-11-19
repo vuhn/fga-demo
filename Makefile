@@ -11,7 +11,7 @@ web:
 	cd web && npm install && npm run dev
 
 engine:
-	cd blueprint-engine && uv run uvicorn blueprint_engine.app:app --port 8090 --reload
+	cd blueprint-engine && uv run uvicorn fga_engine.app:app --port 8090 --reload
 
 engine-test:
 	cd blueprint-engine && uv run pytest -q
