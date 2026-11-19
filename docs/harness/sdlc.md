@@ -9,7 +9,7 @@ Principle: the agent drafts and checks; a person approves at each gate. Skills g
 | 1 | Clarify requirements | `clarify-requirements` | `requirements.md` | - | Requester / PO approves |
 | 2 | System design | `system-design` | `system-design.md` (sequence + data flow) | `design-reviewer` | Approve design |
 | 3 | DB design | `db-design` | `db-design.md` + migration | `design-reviewer`, `check-migrations.sh`, hook | Approve schema |
-| 4 | Plan | `plan-tasks` | `plan.md` (tasks, hours, deps, release order) | `design-reviewer` | Approve plan |
+| 4 | Plan | `plan-tasks` | `plan.md` (endpoint-sliced, merge-safe tasks, hours, deps, rollout) | `design-reviewer` | Approve plan |
 | 5 | Build | `build-task` + the service's skill (`go-api`, `python-agent`, `python-engine`) | PR per task, tests | `make check`, `authz-reviewer` | Code review (15-30 min) |
 | 6 | Test | `test-plan` | test section of `plan.md` | `make verify-live` | Confirm manual results |
 | 7 | Release | `release-docs` | `release.md` | - | A person releases from the doc |
