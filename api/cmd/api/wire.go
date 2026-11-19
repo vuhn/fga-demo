@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +12,7 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/auth"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/blueprintengine"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/config"
+	engineclient "github.com/vuhn/fga-demo/api/internal/infrastructure/engine"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/fga"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/idgen"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/postgres"
@@ -56,8 +58,9 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		photoRels         = fga.PhotoRelations{}
 		blueprintRels     = fga.BlueprintRelations{}
 
-		engine = blueprintengine.New(cfg.BlueprintEngine)
-		agent  = engine // the same client also implements the LLM gateways (BlueprintAgent, EstimateAgent)
+		legacy = blueprintengine.New(cfg.BlueprintEngine)
+		agent  = legacy // the HTTP sidecar also implements the LLM gateways (BlueprintAgent, EstimateAgent)
+		engine = engineGateway(cfg, legacy, log)
 
 		tokens = auth.JWT{Secret: []byte(cfg.JWTSecret), TTL: cfg.JWTTTL}
 		hasher = auth.Bcrypt{}
@@ -214,4 +217,18 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		}),
 	}
 	return httph.NewRouter(service.NewTokenVerifier(tokens), cfg.CORSOrigin, log, handlers...)
+}
+
+// engineGateway is the deterministic Engine: the gRPC client when BLUEPRINT_ENGINE_ADDR is set (the connection
+// is lazy and lives as long as the process), else the legacy HTTP sidecar.
+func engineGateway(cfg config.Config, legacy gateway.BlueprintEngine, log *slog.Logger) gateway.BlueprintEngine {
+	if cfg.BlueprintEngineAddr == "" {
+		return legacy
+	}
+	c, _, err := engineclient.Dial(cfg.BlueprintEngineAddr)
+	if err != nil {
+		panic(fmt.Errorf("BLUEPRINT_ENGINE_ADDR %q: %w", cfg.BlueprintEngineAddr, err)) // a malformed address is a config error
+	}
+	log.Info("blueprint engine over gRPC", "addr", cfg.BlueprintEngineAddr)
+	return c
 }

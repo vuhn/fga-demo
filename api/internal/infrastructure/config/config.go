@@ -20,6 +20,9 @@ type Config struct {
 	JWTTTL           time.Duration
 	CORSOrigin       string
 	BlueprintEngine  string
+	// BlueprintEngineAddr is the gRPC address of the Engine (host:port). When set the API calls the Engine over
+	// gRPC and BlueprintEngine (HTTP) serves only the LLM operations; unset keeps everything on the HTTP sidecar.
+	BlueprintEngineAddr string
 }
 
 var defaults = map[string]string{
@@ -55,15 +58,16 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("JWT_TTL: %w", err)
 	}
 	return Config{
-		HTTPAddr:         get("HTTP_ADDR"),
-		DatabaseURL:      get("DATABASE_URL"),
-		OpenFGAAPIURL:    get("OPENFGA_API_URL"),
-		OpenFGAStoreName: get("OPENFGA_STORE_NAME"),
-		OpenFGAModelPath: get("OPENFGA_MODEL_PATH"),
-		JWTSecret:        get("JWT_SECRET"),
-		JWTTTL:           ttl,
-		CORSOrigin:       get("CORS_ORIGIN"),
-		BlueprintEngine:  get("BLUEPRINT_ENGINE_URL"),
+		HTTPAddr:            get("HTTP_ADDR"),
+		DatabaseURL:         get("DATABASE_URL"),
+		OpenFGAAPIURL:       get("OPENFGA_API_URL"),
+		OpenFGAStoreName:    get("OPENFGA_STORE_NAME"),
+		OpenFGAModelPath:    get("OPENFGA_MODEL_PATH"),
+		JWTSecret:           get("JWT_SECRET"),
+		JWTTTL:              ttl,
+		CORSOrigin:          get("CORS_ORIGIN"),
+		BlueprintEngine:     get("BLUEPRINT_ENGINE_URL"),
+		BlueprintEngineAddr: get("BLUEPRINT_ENGINE_ADDR"),
 	}, nil
 }
 

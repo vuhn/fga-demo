@@ -11,9 +11,9 @@ violation() { # what why fix
 
 # 1. Inner layers never import transport/storage SDKs.
 for layer in domain usecase service; do
-  hits=$(grep -rlE 'gin-gonic|jackc/pgx|openfga/go-sdk' --include='*.go' "api/internal/$layer" 2>/dev/null)
+  hits=$(grep -rlE 'gin-gonic|jackc/pgx|openfga/go-sdk|google\.golang\.org/(grpc|protobuf)|infrastructure/grpc(gen|util)' --include='*.go' "api/internal/$layer" 2>/dev/null)
   if [ -n "$hits" ]; then
-    violation "api/internal/$layer imports Gin, pgx, or the OpenFGA SDK:
+    violation "api/internal/$layer imports Gin, pgx, the OpenFGA SDK, gRPC, protobuf or the generated stubs:
 $hits" \
       "domain, usecase and service depend only on interfaces so they stay testable and backend-agnostic" \
       "move the SDK call behind a gateway interface in domain/gateway and implement it under infrastructure/"
