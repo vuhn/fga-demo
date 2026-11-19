@@ -21,24 +21,14 @@ import ezdxf
 import numpy as np
 from pydantic import BaseModel, Field
 
-from .domain.edits import EditError
+from ..domain.edits import EditError
+from ..domain.files import ConvertReport
 
 MAX_PIXELS = 24_000_000
 DEFAULT_SCALE = 100
 DEFAULT_DPI = 150
 PT_MM = 25.4 / 72
 DOOR_MIN, DOOR_MAX = 0.55, 3.2  # m: a gap between two wall ends this wide is an opening
-
-
-class ConvertReport(BaseModel):
-    method: str  # "pdf-vector" | "raster-trace"
-    scale_source: str  # how metres per source unit was decided
-    metres_across: float  # the drawing's longest side, m
-    walls: int = 0  # wall solids / outlines written
-    openings: int = 0
-    texts: int = 0
-    skipped: list[str] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
 
 
 class _Geo:

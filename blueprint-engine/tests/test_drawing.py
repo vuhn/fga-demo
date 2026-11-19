@@ -12,11 +12,11 @@ from fastapi.testclient import TestClient
 
 from fga_engine.app import create_app
 from fga_engine.domain.checks import run_imported_checks
-from fga_engine.draw import build_dxf, to_dxf_bytes, to_pdf, to_svg
-from fga_engine.dxf_patch import patch_dxf
-from fga_engine.dxf_plan import import_dxf
+from fga_engine.infrastructure.draw import build_dxf, to_dxf_bytes, to_pdf, to_svg
+from fga_engine.infrastructure.dxf_patch import patch_dxf
+from fga_engine.infrastructure.dxf_plan import import_dxf
 from fga_engine.domain.edits import EditError
-from fga_engine.ifc import to_ifc
+from fga_engine.infrastructure.ifc import to_ifc
 from fga_engine.domain.schemas import BuildingModel
 
 SAMPLES = sorted((Path(__file__).parent / "samples" / "jscad").glob("*.dxf"))  # jscad/sample-files, dxf-parser
@@ -135,7 +135,7 @@ def test_endpoint_imports_a_plain_drawing():
 @pytest.mark.parametrize("path", [p for p in SAMPLES if p.name != "blocks2.dxf"], ids=lambda p: p.name)
 def test_a_drawing_fills_its_sheet(path):
     """A drawing of any size is drawn at the largest scale that fits, not a dot at 1:50 (a 10 mm part, a site)."""
-    from fga_engine.draw import PAPERS, _scale_for
+    from fga_engine.infrastructure.draw import PAPERS, _scale_for
 
     m = import_dxf(path.read_bytes()).plans[0].model
     if m.rooms:

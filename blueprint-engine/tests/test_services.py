@@ -105,3 +105,54 @@ def test_plan_ops_applier_edits_and_checks(imported):
     step = PlanOpsApplierService(ChecksRunnerService()).apply_plan_ops(imported, ops)
     assert step.result.model.rooms[0].name == "Den"
     assert step.notes[0].startswith("edited: ") and step.llm_attempts == 0
+
+
+class FakeRendering:
+    def __init__(self):
+        self.calls = []
+
+    def render(self, model, fmt, title_block):
+        self.calls.append((fmt, title_block.project))
+        return "<svg/>"
+
+
+def test_dxf_importer_checks_and_draws_each_plan_through_the_gateways(imported):
+    from fga_engine.domain.files import ImportedPlan, ImportReport, ImportResult
+    from fga_engine.service.dxf_importer import DxfImporterService
+
+    class Reading:
+        def read_plans(self, data, unit):
+            plan = ImportedPlan(index=0, name="Flat", model=imported, room_count=len(imported.rooms), net_area=1.0)
+            return ImportResult(plans=[plan], report=ImportReport(units="m", unit_source="test"))
+
+    fake = FakeRendering()
+    out = DxfImporterService(Reading(), fake).import_dxf(b"x", None)
+    assert fake.calls == [("svg", "Flat")] and out.plans[0].svg == "<svg/>" and out.plans[0].checks and out.report.units == "m"
+
+
+def test_plan_converter_rejects_a_file_over_20_mb_and_treats_zero_as_not_given():
+    from fga_engine.domain.files import MAX_BYTES, ConvertReport
+    from fga_engine.service.plan_converter import PlanConverterService
+
+    class Conversion:
+        def to_dxf(self, data, mime, scale, dpi, longest_m):
+            self.args = (scale, dpi, longest_m)
+            return b"  0\nEOF\n", ConvertReport(method="m", scale_source="s", metres_across=1.0)
+
+    conv = Conversion()
+    svc = PlanConverterService(conv)
+    with pytest.raises(EditError):
+        svc.convert(b"x" * (MAX_BYTES + 1), "image/png", 0, 0, 0)
+    out = svc.convert(b"x", "image/png", 0, 0.0, 12.5)
+    assert conv.args == (None, None, 12.5) and out.dxf
+
+
+def test_dxf_patcher_turns_bad_json_into_an_edit_error():
+    from fga_engine.service.dxf_patcher import DxfPatcherService
+
+    class Patching:
+        def patch(self, *a):
+            raise AssertionError("must not patch")
+
+    with pytest.raises(EditError):
+        DxfPatcherService(Patching()).patch(b"x", "not json", "{}")

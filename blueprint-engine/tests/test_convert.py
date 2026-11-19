@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from fga_engine import convert, dxf_plan
+from fga_engine.infrastructure import convert, dxf_plan
 from fga_engine.app import create_app
 from fga_engine.domain.edits import EditError
 

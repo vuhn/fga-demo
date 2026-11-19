@@ -2,7 +2,7 @@ import ezdxf
 import pytest
 
 from fga_engine.domain.checks import failed
-from fga_engine.draw import build_dxf, to_dxf_bytes, to_pdf, to_svg
+from fga_engine.infrastructure.draw import build_dxf, to_dxf_bytes, to_pdf, to_svg
 from fga_engine.domain.edits import EditError, apply_ops
 from fga_engine.pipeline import generate
 from fga_engine.domain.schemas import Brief, EditOps
@@ -230,7 +230,7 @@ def test_ifc_export_matches_the_model(tmp_path):
     import ifcopenshell
     import ifcopenshell.util.element as eu
 
-    from fga_engine.ifc import to_ifc
+    from fga_engine.infrastructure.ifc import to_ifc
 
     model = generate(_with_ensuite_and_closet()).model
     path = tmp_path / "plan.ifc"
@@ -274,7 +274,7 @@ def test_open_plan_removes_the_walls_between_hall_living_kitchen_and_dining():
     assert not [o for o in generate(FAMILY_3BR).model.openings if o.kind == "open"]
     build_dxf(m)  # draws without a door leaf for the passages
 
-    from fga_engine.ifc import to_ifc
+    from fga_engine.infrastructure.ifc import to_ifc
     assert b"IFCOPENINGELEMENT" in to_ifc(m)
 
 
