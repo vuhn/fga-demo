@@ -9,6 +9,8 @@ make agent        # serve on :8091 with reload (needs the Engine on :8092 and Ol
 make agent-test   # pytest, no LLM
 ```
 
+Served so far: `BriefFromText` (unary) and `Revise` (stream: progress, then a result or an in-band error) from `handler/grpc/blueprint_handler.py`. `RevisePlan`, `Review` (T11b) and `EstimateTurn` (T13b) answer UNIMPLEMENTED. A refusal before the first stream message is a gRPC status with an `ErrorDetail`; after it, an `Error` event.
+
 ## Layers
 
 ```text
@@ -21,7 +23,7 @@ request -> handler -> usecase (interface) -> service -> gateway (interface) -> i
 fga_agent/
   wire.py, serve.py            composition root and entrypoint
   domain/   model/ gateway/ errors.py        business data, interfaces to the outside, domain errors
-  usecase/  <op>.py  helper/                 one Protocol per operation (signatures only); shared business rules (design_catalog_loader)
+  usecase/  <op>.py  helper/                 one Protocol per operation (signatures only); shared business rules (design_catalog_loader, feedback_asker)
   service/  <op>.py  helper/  prompts/       <Op>Service implements the use case; shared rules; prompt functions
   infrastructure/  ollama/ engine_grpc/ entity/   one folder per technology; entity = their wire shapes
   handler/  grpc/ (<domain>_handler.py, common/ helpers, mapper/, servicer, server)   delivery layer

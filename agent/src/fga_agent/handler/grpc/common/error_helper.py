@@ -51,3 +51,10 @@ def handled(fn):
             map_exception(context, e)
 
     return wrapper
+
+
+def refuse_before_stream(context: grpc.ServicerContext, err: Exception) -> None:
+    """A refusal before the first stream message is a gRPC status; an error that is not a domain error is left to the
+    stream to report in-band."""
+    if error_mapper.to_status(err) is not None:
+        map_exception(context, err)
