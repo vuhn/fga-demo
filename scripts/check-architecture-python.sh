@@ -110,5 +110,20 @@ for svc in "$ROOT"/agent/src/*; do
   done
 done
 
+# 9. Agent handlers mirror the Go HTTP handlers: one `<domain>_handler.py` per domain with its own use cases, thin
+# (decode, call one use case, encode through mapper/), importing no domain logic (only models, errors and gateway types).
+for svc in "$ROOT"/agent/src/*; do
+  dir="$svc/handler/grpc"
+  [ -d "$dir" ] || continue
+  for f in "$dir"/*.py; do
+    n=$(basename "$f")
+    case "$n" in __init__.py|errors.py|server.py|servicer.py|streaming.py|*_handler.py) ;; *) report agent-handler-shape "${f#$ROOT/}" "a handler file is named after its domain, like Go's <domain>_handler.go" "name it <domain>_handler.py";; esac
+  done
+  while IFS= read -r f; do
+    report agent-handler-shape "${f#$ROOT/}" "handlers decode, call one use case and encode; business logic belongs in service/" \
+      "move the logic to a service and call it through its use case"
+  done < <(grep -rlE '^[[:space:]]*from[[:space:]]+\.\.\.domain\.(progress|cancel|call_context)|^[[:space:]]*from[[:space:]]+\.\.\.(service|infrastructure)' --include='*.py' "$dir" 2>/dev/null)
+done
+
 [ $fail = 0 ] && echo "python architecture: ok"
 exit $fail

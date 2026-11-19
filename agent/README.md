@@ -20,7 +20,7 @@ make agent-test   # pytest, no LLM
 | A business operation | `usecase/<operation>.py` (interface, verb methods) + `service/<operation>.py` (`<Operation>Service`, the logic), wired in `wire.py` |
 | A prompt | `service/prompts/<operation>.py`, pure functions; model-specific tuning stays in `infrastructure/ollama` |
 | A new Engine operation | a method in `engine.proto`, a typed method on `gateway.BlueprintEngine`, and its `@rpc` adapter in `infrastructure/engine_grpc/blueprint_engine.py` (a test fails until every `EngineService` method is used or deliberately left out) |
-| An RPC | `handler/grpc/servicer.py`: decode, call one use case with a `CallContext`, encode; errors through `handler/grpc/errors.py`, streams through `streaming.py` |
+| An RPC | a method of `handler/grpc/<domain>_handler.py` (with its own `<Domain>Usecases`): decode, call one use case with a `CallContext`, encode through `mapper/`; `servicer.py` only delegates; errors through `errors.py`, streams through `streaming.py` |
 
 Calls carry a `CallContext` (request id) and a `ProgressReporter` explicitly; there are no ambient `ContextVar`s.
 `scripts/check-architecture-python.sh` enforces the layer imports, one gateway per file, usecase/service pairs, no ambient state, prompts only in `service/`, dataclasses only in `domain/model/` and `infrastructure/entity/`, and protobuf DTOs only in `mapper/`.
