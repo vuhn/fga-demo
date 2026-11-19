@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -31,7 +32,7 @@ func (h *TenantHandler) Register(r Routes) {
 
 func (h *TenantHandler) list(c *gin.Context) {
 	ts, err := h.lister.List(c, actor(c))
-	respond(c, http.StatusOK, mapSlice(ts, tenantView), err)
+	respond(c, http.StatusOK, mapSlice(ts, mapper.TenantView), err)
 }
 
 func (h *TenantHandler) create(c *gin.Context) {
@@ -40,12 +41,12 @@ func (h *TenantHandler) create(c *gin.Context) {
 		return
 	}
 	t, err := h.creator.Create(c, actor(c), body.Name, body.Slug)
-	respond(c, http.StatusCreated, tenantView(t), err)
+	respond(c, http.StatusCreated, mapper.TenantView(t), err)
 }
 
 func (h *TenantHandler) listMine(c *gin.Context) {
 	ts, err := h.mine.ListMine(c, actor(c))
-	respond(c, http.StatusOK, tenantViews(ts), err)
+	respond(c, http.StatusOK, mapper.TenantViews(ts), err)
 }
 
 func (h *TenantHandler) get(c *gin.Context) {
@@ -53,7 +54,7 @@ func (h *TenantHandler) get(c *gin.Context) {
 		return
 	}
 	t, err := h.getter.Get(c, actor(c), c.Param("id"))
-	respond(c, http.StatusOK, tenantView(t), err)
+	respond(c, http.StatusOK, mapper.TenantView(t), err)
 }
 
 func (h *TenantHandler) update(c *gin.Context) {
@@ -62,5 +63,5 @@ func (h *TenantHandler) update(c *gin.Context) {
 		return
 	}
 	t, err := h.updater.UpdateName(c, actor(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, tenantView(t), err)
+	respond(c, http.StatusOK, mapper.TenantView(t), err)
 }

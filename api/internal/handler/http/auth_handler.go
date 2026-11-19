@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -35,7 +36,7 @@ func (h *AuthHandler) login(c *gin.Context) {
 		writeErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"access_token": res.Token, "expires_at": res.ExpiresAt, "user": userView(res.User)})
+	c.JSON(http.StatusOK, gin.H{"access_token": res.Token, "expires_at": res.ExpiresAt, "user": mapper.UserView(res.User)})
 }
 
 func (h *AuthHandler) me(c *gin.Context) {
@@ -44,5 +45,5 @@ func (h *AuthHandler) me(c *gin.Context) {
 		writeErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": userView(u), "tenants": tenantViews(tenants)})
+	c.JSON(http.StatusOK, gin.H{"user": mapper.UserView(u), "tenants": mapper.TenantViews(tenants)})
 }

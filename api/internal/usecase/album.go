@@ -3,15 +3,15 @@ package usecase
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type AlbumLister interface {
-	List(ctx context.Context, actor, tenantID, projectID string) ([]entity.Visible[entity.Album], error)
+	List(ctx context.Context, actor, tenantID, projectID string) ([]model.Visible[model.Album], error)
 }
 
 type AlbumGetter interface {
-	Get(ctx context.Context, actor, tenantID, id string) (entity.Visible[entity.Album], error)
+	Get(ctx context.Context, actor, tenantID, id string) (model.Visible[model.Album], error)
 }
 
 type CreateAlbumInput struct {
@@ -23,15 +23,15 @@ type CreateAlbumInput struct {
 }
 
 type AlbumCreator interface {
-	Create(ctx context.Context, actor, tenantID string, in CreateAlbumInput) (entity.Album, error)
+	Create(ctx context.Context, actor, tenantID string, in CreateAlbumInput) (model.Album, error)
 }
 
 type AlbumRenamer interface {
-	Rename(ctx context.Context, actor, tenantID, id, name string) (entity.Album, error)
+	Rename(ctx context.Context, actor, tenantID, id, name string) (model.Album, error)
 }
 
 type AlbumVisibilitySetter interface {
-	SetVisibility(ctx context.Context, actor, tenantID, id string, isPrivate bool) (entity.Album, error)
+	SetVisibility(ctx context.Context, actor, tenantID, id string, isPrivate bool) (model.Album, error)
 }
 
 type AlbumDeleter interface {
@@ -39,18 +39,18 @@ type AlbumDeleter interface {
 }
 
 type AlbumGrantLister interface {
-	ListGrants(ctx context.Context, actor, tenantID, id string) ([]entity.Grant, error)
+	ListGrants(ctx context.Context, actor, tenantID, id string) ([]model.Grant, error)
 }
 
 // AlbumShareCandidateLister lists the external members a sharer can pick.
 type AlbumShareCandidateLister interface {
-	ListShareCandidates(ctx context.Context, actor, tenantID, id string) ([]entity.Membership, error)
+	ListShareCandidates(ctx context.Context, actor, tenantID, id string) ([]model.Membership, error)
 }
 
 type AlbumSharer interface {
-	Share(ctx context.Context, actor, tenantID, id string, in entity.ShareInput) (entity.Grant, error)
+	Share(ctx context.Context, actor, tenantID, id string, in model.ShareInput) (model.Grant, error)
 }
 
 type AlbumShareRevoker interface {
-	Revoke(ctx context.Context, actor, tenantID, id string, in entity.ShareInput) error
+	Revoke(ctx context.Context, actor, tenantID, id string, in model.ShareInput) error
 }

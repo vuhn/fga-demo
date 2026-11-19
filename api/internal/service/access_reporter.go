@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -23,9 +23,9 @@ func NewAccessReporter(authzStore gateway.AuthzGateway, members gateway.Membersh
 }
 
 var contentTypes = map[string]bool{
-	entity.ObjectTypeFolder: true, entity.ObjectTypeDocument: true,
-	entity.ObjectTypeAlbum: true, entity.ObjectTypePhoto: true,
-	entity.ObjectTypeBlueprint: true,
+	model.ObjectTypeFolder: true, model.ObjectTypeDocument: true,
+	model.ObjectTypeAlbum: true, model.ObjectTypePhoto: true,
+	model.ObjectTypeBlueprint: true,
 }
 
 // Report lists the direct tuples on an object and evaluates every tenant
@@ -33,7 +33,7 @@ var contentTypes = map[string]bool{
 // of the object, or the tenant's member manager may ask.
 func (s *accessReporter) Report(ctx context.Context, actor, objectType, objectID string) (usecase.AccessReport, error) {
 	if !contentTypes[objectType] {
-		return usecase.AccessReport{}, entity.Invalid("object_type must be folder, document, album, photo, or blueprint")
+		return usecase.AccessReport{}, model.Invalid("object_type must be folder, document, album, photo, or blueprint")
 	}
 	tenantID, err := s.tenants.TenantOf(ctx, objectType, objectID)
 	if err != nil {
@@ -52,10 +52,10 @@ func (s *accessReporter) Report(ctx context.Context, actor, objectType, objectID
 		return usecase.AccessReport{}, err
 	}
 	rels := []string{"can_view", "can_edit", "can_delete"}
-	var checks []entity.CheckRequest
+	var checks []model.CheckRequest
 	for _, p := range people {
 		for _, r := range rels {
-			checks = append(checks, entity.CheckRequest{UserID: p.UserID, Relation: r, ObjectType: objectType, ObjectID: objectID})
+			checks = append(checks, model.CheckRequest{UserID: p.UserID, Relation: r, ObjectType: objectType, ObjectID: objectID})
 		}
 	}
 	res, err := s.authz.BatchCheck(ctx, checks)
@@ -66,16 +66,16 @@ func (s *accessReporter) Report(ctx context.Context, actor, objectType, objectID
 		people[i].CanView, people[i].CanEdit, people[i].CanDelete = res[3*i], res[3*i+1], res[3*i+2]
 	}
 	if direct == nil {
-		direct = []entity.Tuple{}
+		direct = []model.Tuple{}
 	}
 	return usecase.AccessReport{Object: objectType + ":" + objectID, DirectTuples: direct, Members: people}, nil
 }
 
 func (s *accessReporter) requireReader(ctx context.Context, actor, objectType, objectID, tenantID string) error {
-	for _, c := range []entity.CheckRequest{
-		{UserID: actor, Relation: "can_manage_platform", ObjectType: entity.ObjectTypePlatform, ObjectID: entity.PlatformID},
+	for _, c := range []model.CheckRequest{
+		{UserID: actor, Relation: "can_manage_platform", ObjectType: model.ObjectTypePlatform, ObjectID: model.PlatformID},
 		{UserID: actor, Relation: "can_share", ObjectType: objectType, ObjectID: objectID},
-		{UserID: actor, Relation: "can_manage_members", ObjectType: entity.ObjectTypeTenant, ObjectID: tenantID},
+		{UserID: actor, Relation: "can_manage_members", ObjectType: model.ObjectTypeTenant, ObjectID: tenantID},
 	} {
 		ok, err := s.authz.Check(ctx, c.UserID, c.Relation, c.ObjectType, c.ObjectID)
 		if err != nil {
@@ -85,7 +85,7 @@ func (s *accessReporter) requireReader(ctx context.Context, actor, objectType, o
 			return nil
 		}
 	}
-	return entity.Denied(entity.ErrForbidden, "can_share", objectType, objectID)
+	return model.Denied(model.ErrForbidden, "can_share", objectType, objectID)
 }
 
 // people is every tenant member, then every platform admin not already listed.

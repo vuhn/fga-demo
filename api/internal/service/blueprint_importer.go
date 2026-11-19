@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -32,7 +32,7 @@ func NewBlueprintImporter(projects gateway.ProjectGateway, blueprints gateway.Bl
 // plan becomes version 1 (kind import, no brief) and the original is stored with it in the same transaction.
 // Then OpenFGA; a failure there deletes the Postgres rows, like every create.
 func (s *blueprintImporter) Import(ctx context.Context, actor, tenantID string, in usecase.ImportBlueprintInput) (usecase.BlueprintDetail, error) {
-	name, err := entity.CleanName("name", in.Name)
+	name, err := model.CleanName("name", in.Name)
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
@@ -40,9 +40,9 @@ func (s *blueprintImporter) Import(ctx context.Context, actor, tenantID string, 
 		return usecase.BlueprintDetail{}, err
 	}
 	if in.PlanIndex < 1 {
-		return usecase.BlueprintDetail{}, entity.Invalid("plan must be 1 or more")
+		return usecase.BlueprintDetail{}, model.Invalid("plan must be 1 or more")
 	}
-	fileName, err := entity.CleanName("file name", in.File.Name)
+	fileName, err := model.CleanName("file name", in.File.Name)
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
@@ -62,27 +62,27 @@ func (s *blueprintImporter) Import(ctx context.Context, actor, tenantID string, 
 		return usecase.BlueprintDetail{}, err
 	}
 	res.Conversion = conv
-	var plan *entity.BlueprintImportPlan
+	var plan *model.BlueprintImportPlan
 	for i := range res.Plans {
 		if res.Plans[i].Index == in.PlanIndex {
 			plan = &res.Plans[i]
 		}
 	}
 	if plan == nil {
-		return usecase.BlueprintDetail{}, entity.Invalid("the file has %d plan(s); plan %d does not exist", len(res.Plans), in.PlanIndex)
+		return usecase.BlueprintDetail{}, model.Invalid("the file has %d plan(s); plan %d does not exist", len(res.Plans), in.PlanIndex)
 	}
 
 	// what is kept is the DXF: the upload itself, or the one the engine drew from the PDF/image (the picture is dropped)
 	sum := sha256.Sum256(dxf.Data)
 	size := int64(len(dxf.Data))
-	b := entity.Blueprint{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: in.ProjectID, Name: name, CurrentVersion: 1,
-		SourceKind: entity.BlueprintSourceImport, CreatedBy: actor,
-		Source: &entity.BlueprintSource{Name: fileName, MimeType: in.File.MimeType, ByteSize: int64(len(in.File.Data))}}
-	v := entity.BlueprintVersion{BlueprintID: b.ID, Version: 1, Kind: entity.BlueprintVersionImport, Message: "imported " + fileName,
+	b := model.Blueprint{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: in.ProjectID, Name: name, CurrentVersion: 1,
+		SourceKind: model.BlueprintSourceImport, CreatedBy: actor,
+		Source: &model.BlueprintSource{Name: fileName, MimeType: in.File.MimeType, ByteSize: int64(len(in.File.Data))}}
+	v := model.BlueprintVersion{BlueprintID: b.ID, Version: 1, Kind: model.BlueprintVersionImport, Message: "imported " + fileName,
 		Brief: json.RawMessage("null"), Model: plan.Model, Checks: plan.Checks, Notes: importNotes(res, *plan), OK: plan.OK, CreatedBy: actor}
-	orig := entity.BlueprintOriginal{BlueprintID: b.ID, Version: 1, Name: dxf.Name, MimeType: entity.DXFMimeType, ByteSize: size,
+	orig := model.BlueprintOriginal{BlueprintID: b.ID, Version: 1, Name: dxf.Name, MimeType: model.DXFMimeType, ByteSize: size,
 		SHA256: hex.EncodeToString(sum[:]), Data: dxf.Data}
-	owner := entity.OwnerGrant(s.ids.NewID(), tenantID, entity.ObjectTypeBlueprint, b.ID, actor)
+	owner := model.OwnerGrant(s.ids.NewID(), tenantID, model.ObjectTypeBlueprint, b.ID, actor)
 	if err := s.blueprints.CreateImported(ctx, b, v, owner, orig); err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
@@ -100,7 +100,7 @@ func (s *blueprintImporter) Import(ctx context.Context, actor, tenantID string, 
 }
 
 // importNotes are the lines shown under the version: which plan, the unit, and what the engine warned about.
-func importNotes(res entity.BlueprintImport, p entity.BlueprintImportPlan) []string {
+func importNotes(res model.BlueprintImport, p model.BlueprintImportPlan) []string {
 	var rep struct {
 		Units      string   `json:"units"`
 		UnitSource string   `json:"unit_source"`

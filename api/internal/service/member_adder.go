@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -33,74 +33,74 @@ func NewMemberAdder(tenants gateway.TenantGateway, users gateway.UserGateway, co
 // email; one email is one account, so a known email reuses the account and an
 // unknown one creates it in a company the tenant manages. Affiliation is not
 // an input: it is internal when the user's company is the tenant's own.
-func (s *memberAdder) Add(ctx context.Context, actor, tenantID string, in usecase.AddMemberInput) (entity.Membership, error) {
-	if err := s.authz.PlatformOr(ctx, actor, "can_manage_members", tenantID, entity.ErrForbidden); err != nil {
-		return entity.Membership{}, err
+func (s *memberAdder) Add(ctx context.Context, actor, tenantID string, in usecase.AddMemberInput) (model.Membership, error) {
+	if err := s.authz.PlatformOr(ctx, actor, "can_manage_members", tenantID, model.ErrForbidden); err != nil {
+		return model.Membership{}, err
 	}
 	if _, err := s.tenants.Get(ctx, tenantID); err != nil {
-		return entity.Membership{}, err
+		return model.Membership{}, err
 	}
 	user, err := s.resolveUser(ctx, actor, tenantID, in)
 	if err != nil {
-		return entity.Membership{}, err
+		return model.Membership{}, err
 	}
 	company, err := s.companies.Get(ctx, user.CompanyID)
 	if err != nil {
-		return entity.Membership{}, err
+		return model.Membership{}, err
 	}
-	affiliation := entity.DeriveAffiliation(company, tenantID)
+	affiliation := model.DeriveAffiliation(company, tenantID)
 	assigned, err := assignMemberRole(ctx, s.roles, s.relations, s.roleRels, tenantID, user.ID, affiliation, in.Role, "")
 	if err != nil {
-		return entity.Membership{}, err
+		return model.Membership{}, err
 	}
 
-	m := entity.Membership{TenantID: tenantID, UserID: user.ID, Role: assigned.StoredRole, CustomRoleID: assigned.CustomRoleID}
+	m := model.Membership{TenantID: tenantID, UserID: user.ID, Role: assigned.StoredRole, CustomRoleID: assigned.CustomRoleID}
 	if err := s.members.Insert(ctx, m); err != nil {
-		return entity.Membership{}, err
+		return model.Membership{}, err
 	}
 	err = s.guard.Grant(ctx, assigned.Writes, assigned.Deletes, func(ctx context.Context) error {
 		return s.members.Delete(ctx, tenantID, user.ID)
 	})
 	if err != nil {
-		return entity.Membership{}, err
+		return model.Membership{}, err
 	}
 	return s.members.Get(ctx, tenantID, user.ID)
 }
 
-func (s *memberAdder) resolveUser(ctx context.Context, actor, tenantID string, in usecase.AddMemberInput) (entity.User, error) {
+func (s *memberAdder) resolveUser(ctx context.Context, actor, tenantID string, in usecase.AddMemberInput) (model.User, error) {
 	if in.UserID != "" {
-		if err := entity.RequireUUID("user_id", in.UserID); err != nil {
-			return entity.User{}, err
+		if err := model.RequireUUID("user_id", in.UserID); err != nil {
+			return model.User{}, err
 		}
 		return s.users.Get(ctx, in.UserID)
 	}
 	email := strings.TrimSpace(in.Email)
 	if !strings.Contains(email, "@") {
-		return entity.User{}, entity.Invalid("user_id or a valid email is required")
+		return model.User{}, model.Invalid("user_id or a valid email is required")
 	}
 	if u, err := s.users.GetByEmail(ctx, email); err == nil {
 		return u, nil // one email, one account
 	}
-	name, err := entity.CleanName("name", in.Name)
+	name, err := model.CleanName("name", in.Name)
 	if err != nil {
-		return entity.User{}, err
+		return model.User{}, err
 	}
 	if n := len(in.Password); n < 8 || n > 72 {
-		return entity.User{}, entity.Invalid("password length must be 8 to 72")
+		return model.User{}, model.Invalid("password length must be 8 to 72")
 	}
-	if err := entity.RequireUUID("company_id", in.CompanyID); err != nil {
-		return entity.User{}, err
+	if err := model.RequireUUID("company_id", in.CompanyID); err != nil {
+		return model.User{}, err
 	}
 	if err := s.requireUsableCompany(ctx, actor, tenantID, in.CompanyID); err != nil {
-		return entity.User{}, err
+		return model.User{}, err
 	}
 	hash, err := s.hasher.Hash(in.Password)
 	if err != nil {
-		return entity.User{}, err
+		return model.User{}, err
 	}
-	u := entity.User{ID: s.ids.NewID(), Email: email, Name: name, PasswordHash: hash, CompanyID: in.CompanyID}
+	u := model.User{ID: s.ids.NewID(), Email: email, Name: name, PasswordHash: hash, CompanyID: in.CompanyID}
 	if err := s.users.Create(ctx, u); err != nil {
-		return entity.User{}, err
+		return model.User{}, err
 	}
 	return s.users.Get(ctx, u.ID)
 }
@@ -120,5 +120,5 @@ func (s *memberAdder) requireUsableCompany(ctx context.Context, actor, tenantID,
 			return nil
 		}
 	}
-	return entity.ErrNotFound
+	return model.ErrNotFound
 }

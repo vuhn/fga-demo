@@ -3,35 +3,35 @@ package usecase
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type ProjectLister interface {
-	List(ctx context.Context, actor, tenantID string) ([]entity.Visible[entity.Project], error)
+	List(ctx context.Context, actor, tenantID string) ([]model.Visible[model.Project], error)
 }
 
 type ProjectGetter interface {
-	Get(ctx context.Context, actor, tenantID, id string) (entity.Visible[entity.Project], error)
+	Get(ctx context.Context, actor, tenantID, id string) (model.Visible[model.Project], error)
 }
 
 type ProjectCreator interface {
-	Create(ctx context.Context, actor, tenantID, name string) (entity.Project, error)
+	Create(ctx context.Context, actor, tenantID, name string) (model.Project, error)
 }
 
 type ProjectRenamer interface {
-	Rename(ctx context.Context, actor, tenantID, id, name string) (entity.Project, error)
+	Rename(ctx context.Context, actor, tenantID, id, name string) (model.Project, error)
 }
 
 type ProjectRoleLister interface {
-	List(ctx context.Context, actor, tenantID, projectID string) ([]entity.ProjectRole, error)
+	List(ctx context.Context, actor, tenantID, projectID string) ([]model.ProjectRole, error)
 }
 
 type ProjectRoleCreator interface {
-	Create(ctx context.Context, actor, tenantID, projectID, name, affiliation string) (entity.ProjectRole, error)
+	Create(ctx context.Context, actor, tenantID, projectID, name, affiliation string) (model.ProjectRole, error)
 }
 
 type ProjectRolePermissionSetter interface {
-	SetPermissions(ctx context.Context, actor, tenantID, projectID, roleID string, permissions []string) (entity.ProjectRole, error)
+	SetPermissions(ctx context.Context, actor, tenantID, projectID, roleID string, permissions []string) (model.ProjectRole, error)
 }
 
 type ProjectRoleDeleter interface {
@@ -39,14 +39,14 @@ type ProjectRoleDeleter interface {
 }
 
 type ProjectMemberLister interface {
-	List(ctx context.Context, actor, tenantID, projectID string) ([]entity.ProjectMember, error)
+	List(ctx context.Context, actor, tenantID, projectID string) ([]model.ProjectMember, error)
 }
 
 // ProjectMemberCandidateLister lists the tenant members who are not yet in
 // the project. It is the narrow endpoint for project member managers, who
 // need not be tenant member managers.
 type ProjectMemberCandidateLister interface {
-	ListCandidates(ctx context.Context, actor, tenantID, projectID string) ([]entity.Membership, error)
+	ListCandidates(ctx context.Context, actor, tenantID, projectID string) ([]model.Membership, error)
 }
 
 type AddProjectMemberInput struct {
@@ -55,11 +55,11 @@ type AddProjectMemberInput struct {
 }
 
 type ProjectMemberAdder interface {
-	Add(ctx context.Context, actor, tenantID, projectID string, in AddProjectMemberInput) (entity.ProjectMember, error)
+	Add(ctx context.Context, actor, tenantID, projectID string, in AddProjectMemberInput) (model.ProjectMember, error)
 }
 
 type ProjectMemberRoleChanger interface {
-	ChangeRole(ctx context.Context, actor, tenantID, projectID, userID, role string) (entity.ProjectMember, error)
+	ChangeRole(ctx context.Context, actor, tenantID, projectID, userID, role string) (model.ProjectMember, error)
 }
 
 type ProjectMemberRemover interface {

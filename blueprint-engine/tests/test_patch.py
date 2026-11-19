@@ -5,11 +5,11 @@ from __future__ import annotations
 import pytest
 from briefs import FEASIBLE
 
-from blueprint_engine.dxf_patch import ADDED_LAYER, patch_dxf
-from blueprint_engine.dxf_plan import import_dxf, read_doc
-from blueprint_engine.draw import build_dxf, to_dxf_bytes
-from blueprint_engine.pipeline import generate
-from blueprint_engine.schemas import BuildingModel
+from fga_engine.infrastructure.dxf_patch import ADDED_LAYER, patch_dxf
+from fga_engine.infrastructure.dxf_plan import import_dxf, read_doc
+from fga_engine.infrastructure.draw import build_dxf, to_dxf_bytes
+from fga_engine.pipeline import generate
+from fga_engine.domain.schemas import BuildingModel
 
 
 @pytest.fixture(scope="module")
@@ -104,7 +104,7 @@ def test_fixture_move_remove_and_add(original):
 def test_added_fixture_without_a_template_is_drawn_on_the_added_layer(original):
     data, base = original
     kinds = {f.kind for f in base.fixtures}
-    new_kind = next(k for k in ("piano", "bathtub", "sofa", "bed_double", "toilet") if k not in kinds and k in __import__("blueprint_engine.schemas", fromlist=["FIXTURE_KINDS"]).FIXTURE_KINDS)
+    new_kind = next(k for k in ("piano", "bathtub", "sofa", "bed_double", "toilet") if k not in kinds and k in __import__("fga_engine.domain.schemas", fromlist=["FIXTURE_KINDS"]).FIXTURE_KINDS)
     room = base.rooms[0]
     x0, y0, x1, y1 = room.net_rect
     fx = base.fixtures[0].model_copy(update={"id": "n1", "kind": new_kind, "src": [], "room_id": room.id,
@@ -135,78 +135,82 @@ def test_a_generated_plan_cannot_be_patched(original):
 # ---------------------------------------------------------------- direct edit ops and endpoints
 
 
-def _api():
-    from fastapi.testclient import TestClient
+def _apply(stub, model, ops):
+    """Apply direct ops over gRPC; the model as the Engine returns it. A refusal raises grpc.RpcError."""
+    import json
 
-    from blueprint_engine.app import create_app
+    from fga.demo.engine.v1 import engine_pb2 as e
 
-    return TestClient(create_app(None))
-
-
-def _post_edit(client, model, ops):
-    return client.post("/v1/plan/edit", json={"model": model.model_dump(mode="json"), "ops": {"ops": ops}})
+    step = stub.ApplyPlanOps(e.ApplyPlanOpsRequest(model_json=model.model_dump_json().encode(), ops_json=json.dumps({"ops": ops}).encode()))
+    return json.loads(step.model_json)
 
 
-def test_direct_edit_moves_turns_and_slides_without_an_llm(original):
+def _refused(stub, model, ops) -> str:
+    import grpc
+
+    with pytest.raises(grpc.RpcError) as ei:
+        _apply(stub, model, ops)
+    assert ei.value.code() == grpc.StatusCode.INVALID_ARGUMENT
+    return ei.value.details()
+
+
+def _patch(stub, data, base_json: bytes, current_json: bytes):
+    import json
+
+    from fga.demo.common.v1 import common_pb2 as c
+    from fga.demo.engine.v1 import engine_pb2 as e
+
+    r = stub.PatchDXF(e.PatchDXFRequest(original=c.Upload(name="p.dxf", mime="image/vnd.dxf", data=data),
+                                        base_model_json=base_json, current_model_json=current_json))
+    return r.dxf, json.loads(r.report_json)
+
+
+def test_direct_edit_moves_turns_and_slides_without_an_llm(original, stub):
     _, base = original
-    c = _api()
     fx = base.fixtures[0]
     room = base.room(fx.room_id)
     # a step toward the room's centre is always legal for a fixture that stands against a wall
     cx, cy = (room.net_rect[0] + room.net_rect[2]) / 2, (room.net_rect[1] + room.net_rect[3]) / 2
     fcx, fcy = (fx.rect[0] + fx.rect[2]) / 2, (fx.rect[1] + fx.rect[3]) / 2
-    r = _post_edit(c, base, [{"op": "move_fixture", "fixture": fx.id, "dx": 0.02 if cx > fcx else -0.02, "dy": 0.0}])
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["llm_attempts"] == 0 and body["result"]["model"]["fixtures"][0]["id"] == fx.id
-    moved = next(f for f in body["result"]["model"]["fixtures"] if f["id"] == fx.id)
+    edited = _apply(stub, base, [{"op": "move_fixture", "fixture": fx.id, "dx": 0.02 if cx > fcx else -0.02, "dy": 0.0}])
+    assert edited["fixtures"][0]["id"] == fx.id
+    moved = next(f for f in edited["fixtures"] if f["id"] == fx.id)
     assert moved["src"] == fx.src and moved["rect"] != list(fx.rect)
 
     o = next(o for o in base.openings if o.kind == "window")
-    far = _post_edit(c, base, [{"op": "move_opening", "opening": o.id, "offset": 50}])
-    assert far.status_code == 422  # beyond the field limit
-    wall = next(w for w in base.walls if w.id == o.wall_id)
-    leave = _post_edit(c, base, [{"op": "move_opening", "opening": o.id, "offset": 29}])
-    assert leave.status_code == 422 and "clear of the wall ends" in leave.json()["message"]
-
-    out = _post_edit(c, base, [{"op": "move_fixture", "fixture": fx.id, "dx": 25, "dy": 0}])
-    assert out.status_code == 422 and "leave" in out.json()["message"]
-    assert wall  # the wall exists
+    _refused(stub, base, [{"op": "move_opening", "opening": o.id, "offset": 50}])  # beyond the field limit
+    assert "clear of the wall ends" in _refused(stub, base, [{"op": "move_opening", "opening": o.id, "offset": 29}])
+    assert "leave" in _refused(stub, base, [{"op": "move_fixture", "fixture": fx.id, "dx": 25, "dy": 0}])
 
 
-def test_a_direct_edit_then_export_writes_the_change_into_the_file(original):
-    import base64
+def test_a_direct_edit_then_export_writes_the_change_into_the_file(original, stub):
+    import grpc
 
     data, base = original
-    c = _api()
     o = next(o for o in base.openings if o.kind == "window")
     w = next(w for w in base.walls if w.id == o.wall_id)
     length = ((w.end[0] - w.start[0]) ** 2 + (w.end[1] - w.start[1]) ** 2) ** 0.5
     # slide towards the nearer wall end only as far as it allows: a small, legal step
     step = 0.05 if length > o.width + 1.0 else 0.0
-    edited = _post_edit(c, base, [{"op": "move_opening", "opening": o.id, "offset": step}, {"op": "rename_room", "room": base.rooms[0].name, "name": "Den"}])
-    assert edited.status_code == 200, edited.text
-    cur = edited.json()["result"]["model"]
-    r = c.post("/v1/export/dxf-patch", files={"file": ("p.dxf", data, "image/vnd.dxf")},
-               data={"base": base.model_dump_json(), "current": __import__("json").dumps(cur)})
-    assert r.status_code == 200, r.text
-    out = base64.b64decode(r.json()["dxf"])
-    assert any("renamed to 'Den'" in s for s in r.json()["report"]["applied"])
+    cur = _apply(stub, base, [{"op": "move_opening", "opening": o.id, "offset": step}, {"op": "rename_room", "room": base.rooms[0].name, "name": "Den"}])
+    import json
+
+    out, report = _patch(stub, data, base.model_dump_json().encode(), json.dumps(cur).encode())
+    assert any("renamed to 'Den'" in s for s in report["applied"])
     assert import_dxf(out).plans[0].model.rooms[0].name == "Den"
-    bad = c.post("/v1/export/dxf-patch", files={"file": ("p.dxf", data, "image/vnd.dxf")}, data={"base": "{}", "current": "{}"})
-    assert bad.status_code == 422
+    with pytest.raises(grpc.RpcError) as ei:
+        _patch(stub, data, b"{}", b"{}")
+    assert ei.value.code() == grpc.StatusCode.INVALID_ARGUMENT
 
 
-def test_delete_fixture_by_id_and_the_chat_help_lists_the_new_ops(original):
-    from blueprint_engine.plan_edits import ops_help
+def test_delete_fixture_by_id_and_the_chat_help_lists_the_new_ops(original, stub):
+    from fga_engine.domain.plan_edits import ops_help
 
     _, base = original
-    c = _api()
     fx = base.fixtures[-1]
-    r = _post_edit(c, base, [{"op": "delete_fixture", "fixture": fx.id}])
-    assert r.status_code == 200, r.text
-    assert fx.id not in {f["id"] for f in r.json()["result"]["model"]["fixtures"]}
-    assert _post_edit(c, base, [{"op": "delete_fixture", "fixture": "nope"}]).status_code == 422
+    edited = _apply(stub, base, [{"op": "delete_fixture", "fixture": fx.id}])
+    assert fx.id not in {f["id"] for f in edited["fixtures"]}
+    _refused(stub, base, [{"op": "delete_fixture", "fixture": "nope"}])
     help_ = ops_help()
     assert all(op in help_ for op in ("move_fixture", "rotate_fixture", "move_opening", "delete_fixture"))
 
@@ -214,61 +218,56 @@ def test_delete_fixture_by_id_and_the_chat_help_lists_the_new_ops(original):
 # ---------------------------------------------------------------- a created plan behaves like an imported one
 
 
-def test_a_created_plan_is_an_editable_cad_plan():
-    import base64
+def test_a_created_plan_is_an_editable_cad_plan(stub):
     import json
 
-    c = _api()
+    from fga.demo.engine.v1 import engine_pb2 as e
+
     brief = next(iter(FEASIBLE.values()))
-    r = c.post("/v1/generate/plan", json={"brief": brief.model_dump(mode="json")})
-    assert r.status_code == 200, r.text
-    body = r.json()
-    model = BuildingModel.model_validate(body["result"]["model"])
-    data = base64.b64decode(body["dxf"])
+    r = stub.CreatePlan(e.CreatePlanRequest(brief_json=brief.model_dump_json().encode()))
+    model = BuildingModel.model_validate_json(r.model_json)
     assert model.source == "imported" and model.origin is not None and all(f.src for f in model.fixtures)
-    assert "brief" not in body["result"] and body["result"]["ok"] is True
+    assert r.ok and not r.issues
     # the file is the plan's original: a direct edit of the model is written back into it
     room = model.rooms[0]
-    ed = _post_edit(c, model, [{"op": "rename_room", "room": room.name, "name": "Studio nook"}])
-    assert ed.status_code == 200, ed.text
-    out = c.post("/v1/export/dxf-patch", files={"file": ("p.dxf", data, "image/vnd.dxf")},
-                 data={"base": model.model_dump_json(), "current": json.dumps(ed.json()["result"]["model"])})
-    assert out.status_code == 200, out.text
-    assert import_dxf(base64.b64decode(out.json()["dxf"])).plans[0].model.room(room.id).name == "Studio nook"
+    cur = _apply(stub, model, [{"op": "rename_room", "room": room.name, "name": "Studio nook"}])
+    out, _ = _patch(stub, r.dxf, model.model_dump_json().encode(), json.dumps(cur).encode())
+    assert import_dxf(out).plans[0].model.room(room.id).name == "Studio nook"
 
 
-def test_a_brief_that_cannot_be_built_creates_nothing():
-    c = _api()
+def test_a_brief_that_cannot_be_built_creates_nothing(stub):
+    from fga.demo.engine.v1 import engine_pb2 as e
+
     brief = next(iter(FEASIBLE.values())).model_dump(mode="json")
     brief["lot"] = {**brief["lot"], "width": 5.0, "depth": 5.0}
-    r = c.post("/v1/generate/plan", json={"brief": brief})
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["dxf"] is None and body["result"]["model"] is None and body["result"]["issues"]
+    import json
+
+    r = stub.CreatePlan(e.CreatePlanRequest(brief_json=json.dumps(brief).encode()))
+    assert not r.dxf and not r.model_json and r.issues
 
 
-def test_a_plan_made_from_a_brief_can_be_drawn_into_an_editable_cad_plan():
-    import base64
+def test_a_plan_made_from_a_brief_can_be_drawn_into_an_editable_cad_plan(stub):
+    import grpc
 
-    c = _api()
+    from fga.demo.engine.v1 import engine_pb2 as e
+
     brief = next(iter(FEASIBLE.values()))
     gen = generate(brief).model
-    r = c.post("/v1/plan/draw", json={"model": gen.model_dump(mode="json"), "title": "Old house"})
-    assert r.status_code == 200, r.text
-    body = r.json()
-    model = BuildingModel.model_validate(body["result"]["model"])
-    assert model.source == "imported" and model.origin is not None and base64.b64decode(body["dxf"]).startswith(b"  0")
+    r = stub.DrawPlan(e.DrawPlanRequest(model_json=gen.model_dump_json().encode(), title="Old house"))
+    model = BuildingModel.model_validate_json(r.model_json)
+    assert model.source == "imported" and model.origin is not None and r.dxf.startswith(b"  0")
     assert len(model.rooms) == len(gen.rooms) and len(model.fixtures) == len(gen.fixtures)
     # a plan that is already a CAD plan is refused
-    again = c.post("/v1/plan/draw", json={"model": model.model_dump(mode="json")})
-    assert again.status_code == 422 and "already" in again.json()["message"]
+    with pytest.raises(grpc.RpcError) as ei:
+        stub.DrawPlan(e.DrawPlanRequest(model_json=model.model_dump_json().encode()))
+    assert ei.value.code() == grpc.StatusCode.INVALID_ARGUMENT and "already" in ei.value.details()
 
 
 def test_an_open_plan_reads_back_as_fewer_spaces_and_says_so():
-    from blueprint_engine.llm_steps import draw_plan
+    from fga_engine.wire import build_engine
 
     brief = next(b for b in FEASIBLE.values() if len(b.rooms) >= 4).model_copy(update={"open_plan": True})
     gen = generate(brief).model
-    out = draw_plan(gen, "Open")
+    out = build_engine().plan_drawer.draw_plan(gen, "Open")
     assert len(out.result.model.rooms) < len(gen.rooms)
     assert any("open plan" in n for n in out.result.notes)

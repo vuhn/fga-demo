@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -29,7 +29,7 @@ func NewMemberRemover(members gateway.MembershipGateway, relations gateway.Membe
 // project membership tuples, and every direct grant for the user in this tenant. Group usersets stay; the
 // person simply drops out of them.
 func (s *memberRemover) Remove(ctx context.Context, actor, tenantID, userID string) error {
-	if err := s.authz.PlatformOr(ctx, actor, "can_manage_members", tenantID, entity.ErrForbidden); err != nil {
+	if err := s.authz.PlatformOr(ctx, actor, "can_manage_members", tenantID, model.ErrForbidden); err != nil {
 		return err
 	}
 	m, err := s.members.Get(ctx, tenantID, userID)
@@ -53,7 +53,7 @@ func (s *memberRemover) Remove(ctx context.Context, actor, tenantID, userID stri
 	}
 
 	// Restore set: exactly the tuples that existed.
-	var restore []entity.Tuple
+	var restore []model.Tuple
 	if m.CustomRoleID == "" {
 		var err error
 		restore, _, err = s.relations.AssignRole(tenantID, userID, m.Affiliation, m.Role)

@@ -3,11 +3,11 @@ package usecase
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type MemberLister interface {
-	List(ctx context.Context, actor, tenantID, affiliation string) ([]entity.Membership, error)
+	List(ctx context.Context, actor, tenantID, affiliation string) ([]model.Membership, error)
 }
 
 // AddMemberInput names the person by UserID or by Email. An unknown email
@@ -24,11 +24,11 @@ type AddMemberInput struct {
 }
 
 type MemberAdder interface {
-	Add(ctx context.Context, actor, tenantID string, in AddMemberInput) (entity.Membership, error)
+	Add(ctx context.Context, actor, tenantID string, in AddMemberInput) (model.Membership, error)
 }
 
 type MemberRoleChanger interface {
-	ChangeRole(ctx context.Context, actor, tenantID, userID, role string) (entity.Membership, error)
+	ChangeRole(ctx context.Context, actor, tenantID, userID, role string) (model.Membership, error)
 }
 
 type MemberRemover interface {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -25,46 +25,46 @@ func NewCompanyClaimer(tenants gateway.TenantGateway, companies gateway.CompanyG
 // tenants are untouched: those users stay external there, so no tuple
 // changes. A user already a member of the claimer tenant would flip
 // affiliation, so that is a conflict.
-func (s *companyClaimer) Claim(ctx context.Context, actor, tenantID string, companyIDs []string) (entity.Company, error) {
+func (s *companyClaimer) Claim(ctx context.Context, actor, tenantID string, companyIDs []string) (model.Company, error) {
 	if err := s.authz.RequirePlatform(ctx, actor); err != nil {
-		return entity.Company{}, err
+		return model.Company{}, err
 	}
 	if len(companyIDs) == 0 {
-		return entity.Company{}, entity.Invalid("company_ids is required")
+		return model.Company{}, model.Invalid("company_ids is required")
 	}
 	if _, err := s.tenants.Get(ctx, tenantID); err != nil {
-		return entity.Company{}, err
+		return model.Company{}, err
 	}
 	own, err := s.companies.GetOwn(ctx, tenantID)
 	if err != nil {
-		return entity.Company{}, err
+		return model.Company{}, err
 	}
 	seen := map[string]bool{}
 	for _, id := range companyIDs {
-		if err := entity.RequireUUID("company_ids", id); err != nil {
-			return entity.Company{}, err
+		if err := model.RequireUUID("company_ids", id); err != nil {
+			return model.Company{}, err
 		}
 		if seen[id] {
-			return entity.Company{}, entity.Invalid("duplicate company id %s", id)
+			return model.Company{}, model.Invalid("duplicate company id %s", id)
 		}
 		seen[id] = true
 		c, err := s.companies.Get(ctx, id)
 		if err != nil {
-			return entity.Company{}, err
+			return model.Company{}, err
 		}
 		if c.Claimed() {
-			return entity.Company{}, fmt.Errorf("%w: company %s is already claimed", entity.ErrConflict, c.Name)
+			return model.Company{}, fmt.Errorf("%w: company %s is already claimed", model.ErrConflict, c.Name)
 		}
 	}
 	n, err := s.companies.CountMembersIn(ctx, tenantID, companyIDs)
 	if err != nil {
-		return entity.Company{}, err
+		return model.Company{}, err
 	}
 	if n > 0 {
-		return entity.Company{}, fmt.Errorf("%w: remove the claimer tenant's members of these companies first", entity.ErrConflict)
+		return model.Company{}, fmt.Errorf("%w: remove the claimer tenant's members of these companies first", model.ErrConflict)
 	}
 	if err := s.companies.Merge(ctx, own.ID, companyIDs); err != nil {
-		return entity.Company{}, err
+		return model.Company{}, err
 	}
 	return s.companies.Get(ctx, own.ID)
 }

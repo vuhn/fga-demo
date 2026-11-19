@@ -4,19 +4,19 @@ import (
 	"context"
 	"strings"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
 type blueprintReviewer struct {
 	blueprints gateway.BlueprintGateway
-	engine     gateway.BlueprintEngine
+	agent      gateway.BlueprintAgent
 	authz      usecase.Authorizer
 }
 
-func NewBlueprintReviewer(blueprints gateway.BlueprintGateway, engine gateway.BlueprintEngine, authz usecase.Authorizer) usecase.BlueprintReviewer {
-	return &blueprintReviewer{blueprints: blueprints, engine: engine, authz: authz}
+func NewBlueprintReviewer(blueprints gateway.BlueprintGateway, agent gateway.BlueprintAgent, authz usecase.Authorizer) usecase.BlueprintReviewer {
+	return &blueprintReviewer{blueprints: blueprints, agent: agent, authz: authz}
 }
 
 // Review requires can_edit and a current base_version, like a chat revision.
@@ -36,7 +36,7 @@ func (s *blueprintReviewer) Review(ctx context.Context, actor, tenantID, id stri
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
-	out, err := s.engine.Review(ctx, cur.Brief, cur.Model, history)
+	out, err := s.agent.Review(ctx, cur.Brief, cur.Model, history)
 	if err != nil {
 		return usecase.BlueprintDetail{}, err
 	}
@@ -48,7 +48,7 @@ func (s *blueprintReviewer) Review(ctx context.Context, actor, tenantID, id stri
 		if len(out.Notes) > 0 {
 			msg = "no fix found: " + strings.Join(out.Notes, "; ")
 		}
-		return usecase.BlueprintDetail{}, entity.Invalid("%s", msg)
+		return usecase.BlueprintDetail{}, model.Invalid("%s", msg)
 	}
-	return appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(id, entity.BlueprintVersionReview, "", actor, out), baseVersion)
+	return appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(id, model.BlueprintVersionReview, "", actor, out), baseVersion)
 }

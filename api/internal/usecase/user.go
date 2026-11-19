@@ -3,11 +3,11 @@ package usecase
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type UserLister interface {
-	List(ctx context.Context, actor string) ([]entity.User, error)
+	List(ctx context.Context, actor string) ([]model.User, error)
 }
 
 type CreateUserInput struct {
@@ -19,9 +19,9 @@ type CreateUserInput struct {
 }
 
 type UserCreator interface {
-	Create(ctx context.Context, actor string, in CreateUserInput) (entity.User, error)
+	Create(ctx context.Context, actor string, in CreateUserInput) (model.User, error)
 }
 
 type UserUpdater interface {
-	UpdateName(ctx context.Context, actor, id, name string) (entity.User, error)
+	UpdateName(ctx context.Context, actor, id, name string) (model.User, error)
 }

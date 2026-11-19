@@ -1,11 +1,11 @@
 import ezdxf
 import pytest
 
-from blueprint_engine.checks import failed
-from blueprint_engine.draw import build_dxf, to_dxf_bytes, to_pdf, to_svg
-from blueprint_engine.edits import EditError, apply_ops
-from blueprint_engine.pipeline import generate
-from blueprint_engine.schemas import Brief, EditOps
+from fga_engine.domain.checks import failed
+from fga_engine.infrastructure.draw import build_dxf, to_dxf_bytes, to_pdf, to_svg
+from fga_engine.domain.edits import EditError, apply_ops
+from fga_engine.pipeline import generate
+from fga_engine.domain.schemas import Brief, EditOps
 
 from briefs import FAMILY_3BR, FEASIBLE, NORTH_ENTRY_2BR, TOO_BIG
 
@@ -198,7 +198,7 @@ def test_plans_are_drawn_at_1_to_50_on_a_sheet_that_fits():
 
 
 def test_defensive_rules_fire_on_a_broken_model():
-    from blueprint_engine.checks import run_checks
+    from fga_engine.domain.checks import run_checks
 
     m = generate(FAMILY_3BR).model.model_copy(deep=True)
     living = m.room("living")
@@ -230,7 +230,7 @@ def test_ifc_export_matches_the_model(tmp_path):
     import ifcopenshell
     import ifcopenshell.util.element as eu
 
-    from blueprint_engine.ifc import to_ifc
+    from fga_engine.infrastructure.ifc import to_ifc
 
     model = generate(_with_ensuite_and_closet()).model
     path = tmp_path / "plan.ifc"
@@ -274,7 +274,7 @@ def test_open_plan_removes_the_walls_between_hall_living_kitchen_and_dining():
     assert not [o for o in generate(FAMILY_3BR).model.openings if o.kind == "open"]
     build_dxf(m)  # draws without a door leaf for the passages
 
-    from blueprint_engine.ifc import to_ifc
+    from fga_engine.infrastructure.ifc import to_ifc
     assert b"IFCOPENINGELEMENT" in to_ifc(m)
 
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -31,7 +32,7 @@ func (h *MemberHandler) list(c *gin.Context) {
 		return
 	}
 	ms, err := h.lister.List(c, actor(c), c.Param("id"), c.Query("affiliation"))
-	respond(c, http.StatusOK, mapSlice(ms, memberView), err)
+	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
 }
 
 func (h *MemberHandler) add(c *gin.Context) {
@@ -47,7 +48,7 @@ func (h *MemberHandler) add(c *gin.Context) {
 		return
 	}
 	m, err := h.adder.Add(c, actor(c), c.Param("id"), usecase.AddMemberInput{UserID: body.UserID, Email: body.Email, Name: body.Name, Password: body.Password, CompanyID: body.CompanyID, Role: body.Role})
-	respond(c, http.StatusCreated, memberView(m), err)
+	respond(c, http.StatusCreated, mapper.MemberView(m), err)
 }
 
 func (h *MemberHandler) changeRole(c *gin.Context) {
@@ -58,7 +59,7 @@ func (h *MemberHandler) changeRole(c *gin.Context) {
 		return
 	}
 	m, err := h.roleChanger.ChangeRole(c, actor(c), c.Param("id"), c.Param("userId"), body.Role)
-	respond(c, http.StatusOK, memberView(m), err)
+	respond(c, http.StatusOK, mapper.MemberView(m), err)
 }
 
 func (h *MemberHandler) remove(c *gin.Context) {

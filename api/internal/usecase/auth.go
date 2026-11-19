@@ -4,13 +4,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type LoginResult struct {
 	Token     string
 	ExpiresAt time.Time
-	User      entity.User
+	User      model.User
 }
 
 type Authenticator interface {
@@ -24,5 +24,5 @@ type TokenVerifier interface {
 
 // ProfileGetter returns the caller and the tenants they can read.
 type ProfileGetter interface {
-	Me(ctx context.Context, actor string) (entity.User, []TenantView, error)
+	Me(ctx context.Context, actor string) (model.User, []TenantView, error)
 }

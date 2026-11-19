@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/migrations"
 )
 
@@ -56,25 +56,25 @@ func Truncate(ctx context.Context, pool *pgxpool.Pool) error {
 	return err
 }
 
-// mapErr turns driver errors into entity sentinels.
+// mapErr turns driver errors into model sentinels.
 func mapErr(err error) error {
 	if err == nil {
 		return nil
 	}
 	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
-		return entity.ErrNotFound
+		return model.ErrNotFound
 	}
 	var pg *pgconn.PgError
 	if errors.As(err, &pg) {
 		switch pg.Code {
 		case "23505": // unique_violation
-			return fmt.Errorf("%w: %s", entity.ErrConflict, pg.ConstraintName)
+			return fmt.Errorf("%w: %s", model.ErrConflict, pg.ConstraintName)
 		case "23503": // foreign_key_violation
 			if pg.ConstraintName != "" {
-				return fmt.Errorf("%w: %s", entity.ErrNotFound, pg.ConstraintName)
+				return fmt.Errorf("%w: %s", model.ErrNotFound, pg.ConstraintName)
 			}
 		case "23514", "22P02": // check_violation, invalid_text_representation
-			return fmt.Errorf("%w: %s", entity.ErrValidation, pg.Message)
+			return fmt.Errorf("%w: %s", model.ErrValidation, pg.Message)
 		}
 	}
 	return err

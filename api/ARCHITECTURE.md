@@ -7,30 +7,32 @@ The Go service (module `github.com/vuhn/fga-demo/api`, Gin, pgx, goose). It is t
 Dependencies point inward. Paths are under `internal/`.
 
 ```text
-handler/http  ->  usecase (interfaces)  ->  domain/entity
-service       ->  usecase, usecase/helper, domain/gateway, domain/entity
-infrastructure -> domain/gateway, domain/entity
+handler/http  ->  usecase (interfaces)  ->  domain/model
+service       ->  usecase, usecase/helper, domain/gateway, domain/model
+infrastructure -> domain/gateway, domain/model
 cmd/api/wire.go builds infrastructure, services, handlers and injects them
 ```
 
 | Layer | Responsibility |
 | --- | --- |
-| `domain/entity` | Entities, value types, sentinel errors. Stdlib only. |
+| `domain/model` | Business models (entities), value types, sentinel errors. Stdlib only. |
 | `domain/gateway` | Data-access interfaces (Postgres repos, OpenFGA). |
 | `usecase`, `usecase/helper` | One interface per operation (`FolderCreator`), plus shared rule interfaces (`WriteGuard`, `SharePolicy`). |
 | `service` | Implementations, one file per operation (`folder_creator.go`). Business logic only. |
 | `infrastructure/postgres` | pgx repos: the display record. |
 | `infrastructure/fga` | OpenFGA client, model bootstrap, and pure tuple builders. The only place tuples are formatted. |
-| `infrastructure/blueprintengine` | HTTP client for the stateless blueprint engine (`gateway.BlueprintEngine`). |
+| `infrastructure/agent` | gRPC client of the Agent (`gateway.BlueprintAgent`: `BriefFromText` unary; `Revise`, `RevisePlan`, `Review` streams; the sync variants collect the same stream), wired by `wire.go` from `AGENT_ADDR` (default `localhost:8091`). `EstimateTurn` is the same client for `gateway.EstimateAgent`: each stream event becomes the SSE event the browser already reads (a fact's text value gets its JSON type back, a question always has `options`), the Done event is the turn, and a turn is bounded by a 31 minute ceiling. A status before the first message is a plain error, an in-band `Error` event after it is mapped the same way (4xx -> `ErrValidation`, else `ErrEngineUnavailable`); a caller that leaves cancels the stream and so the Agent's run. Only `x-request-id` is sent. |
+| `infrastructure/engine` | gRPC client of the deterministic Engine (`gateway.BlueprintEngine`), wired by `wire.go` from `BLUEPRINT_ENGINE_ADDR` (default `localhost:8092`). `infrastructure/grpcutil` holds what gRPC clients share: dial options (32 MB messages), the default deadline, `x-request-id` metadata, and the status / in-band error mapping (`INVALID_ARGUMENT` -> `ErrValidation`; anything else -> `ErrEngineUnavailable`). `domain`, `usecase` and `service` never import gRPC, protobuf or the generated stubs (architecture script). |
 | `infrastructure/{auth,idgen,config}` | JWT and bcrypt, UUIDs, environment config. |
 | `handler/http` | Gin handlers (decode, call one usecase, map errors) and middleware. |
+| `handler/http/mapper/<domain>_mapper.go` | The domain's JSON DTOs and the conversions model <-> DTO (views out, shared request bodies in). Handlers never hold a `...View` function or a `...JSON` type. |
 | `seed` | The fixed demo world, shared by `cmd/seed` and the integration tests. |
 
 Rules:
 
 - `domain`, `usecase`, and `service` never import Gin, pgx, or the OpenFGA SDK.
 - Constructors take interfaces; `cmd/api/wire.go` is the only place that names concrete types. A new operation is a usecase interface, a service file, and wiring.
-- **Each domain is separate in every layer.** Folder, document, album, photo, blueprint (and user, tenant, product, member, role) own their entity, gateways, repos, relation builder, usecases, services, handler, and routes. Do not merge them behind a shared abstraction. The only shared code is cross-domain rules in `service/helper.go` and SQL plumbing in `postgres/grant_rows.go`. Member removal also drops that person's custom-role assignee tuples.
+- **Each domain is separate in every layer.** Folder, document, album, photo, blueprint (and user, tenant, product, member, role) own their model, gateways, repos, relation builder, usecases, services, handler, and routes. Do not merge them behind a shared abstraction. The only shared code is cross-domain rules in `service/helper.go` and SQL plumbing in `postgres/grant_rows.go`. Member removal also drops that person's custom-role assignee tuples.
 
 ## Request lifecycle
 

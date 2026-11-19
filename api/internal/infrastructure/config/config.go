@@ -19,19 +19,23 @@ type Config struct {
 	JWTSecret        string
 	JWTTTL           time.Duration
 	CORSOrigin       string
-	BlueprintEngine  string
+	// BlueprintEngineAddr is the gRPC address of the deterministic Engine (host:port).
+	BlueprintEngineAddr string
+	// AgentAddr is the gRPC address of the Agent (host:port), which owns every LLM call.
+	AgentAddr string
 }
 
 var defaults = map[string]string{
-	"HTTP_ADDR":            ":8088",
-	"DATABASE_URL":         "postgres://fgademo:password@localhost:5432/fgademo?sslmode=disable",
-	"OPENFGA_API_URL":      "http://localhost:8080",
-	"OPENFGA_STORE_NAME":   "fga-demo",
-	"OPENFGA_MODEL_PATH":   "fga/model.fga",
-	"JWT_SECRET":           "dev-secret-change-me",
-	"JWT_TTL":              "12h",
-	"CORS_ORIGIN":          "http://localhost:5173",
-	"BLUEPRINT_ENGINE_URL": "http://localhost:8090",
+	"HTTP_ADDR":             ":8088",
+	"DATABASE_URL":          "postgres://fgademo:password@localhost:5432/fgademo?sslmode=disable",
+	"OPENFGA_API_URL":       "http://localhost:8080",
+	"OPENFGA_STORE_NAME":    "fga-demo",
+	"OPENFGA_MODEL_PATH":    "fga/model.fga",
+	"JWT_SECRET":            "dev-secret-change-me",
+	"JWT_TTL":               "12h",
+	"CORS_ORIGIN":           "http://localhost:5173",
+	"BLUEPRINT_ENGINE_ADDR": "localhost:8092",
+	"AGENT_ADDR":            "localhost:8091",
 }
 
 // dotEnvPaths is where Load looks for .env: the working directory (api/),
@@ -55,15 +59,16 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("JWT_TTL: %w", err)
 	}
 	return Config{
-		HTTPAddr:         get("HTTP_ADDR"),
-		DatabaseURL:      get("DATABASE_URL"),
-		OpenFGAAPIURL:    get("OPENFGA_API_URL"),
-		OpenFGAStoreName: get("OPENFGA_STORE_NAME"),
-		OpenFGAModelPath: get("OPENFGA_MODEL_PATH"),
-		JWTSecret:        get("JWT_SECRET"),
-		JWTTTL:           ttl,
-		CORSOrigin:       get("CORS_ORIGIN"),
-		BlueprintEngine:  get("BLUEPRINT_ENGINE_URL"),
+		HTTPAddr:            get("HTTP_ADDR"),
+		DatabaseURL:         get("DATABASE_URL"),
+		OpenFGAAPIURL:       get("OPENFGA_API_URL"),
+		OpenFGAStoreName:    get("OPENFGA_STORE_NAME"),
+		OpenFGAModelPath:    get("OPENFGA_MODEL_PATH"),
+		JWTSecret:           get("JWT_SECRET"),
+		JWTTTL:              ttl,
+		CORSOrigin:          get("CORS_ORIGIN"),
+		BlueprintEngineAddr: get("BLUEPRINT_ENGINE_ADDR"),
+		AgentAddr:           get("AGENT_ADDR"),
 	}, nil
 }
 

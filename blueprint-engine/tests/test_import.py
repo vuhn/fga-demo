@@ -6,16 +6,14 @@ import json
 import math
 
 import pytest
-from fastapi.testclient import TestClient
 from shapely.geometry import Polygon
 
 import sample_dxf
-from blueprint_engine.app import create_app
-from blueprint_engine.checks import failed, run_imported_checks
-from blueprint_engine.draw import build_dxf, to_dxf_bytes, to_svg
-from blueprint_engine.dxf_plan import import_dxf
-from blueprint_engine.edits import EditError
-from blueprint_engine.ifc import to_ifc
+from fga_engine.domain.checks import failed, run_imported_checks
+from fga_engine.infrastructure.draw import build_dxf, to_dxf_bytes, to_svg
+from fga_engine.infrastructure.dxf_plan import import_dxf
+from fga_engine.domain.edits import EditError
+from fga_engine.infrastructure.ifc import to_ifc
 
 EXPECT = {  # plan -> (rooms, doors, windows, entrance side)
     1: (6, 6, 4, "west"),
@@ -129,17 +127,6 @@ def test_garbage_and_empty_files_are_refused():
         import_dxf(buf.getvalue().encode())
 
 
-def test_endpoint_returns_plans_with_checks_and_svg(sheet):
-    data, _, _ = sheet
-    c = TestClient(create_app(llm=object()))
-    r = c.post("/v1/import/dxf", files={"file": ("sheet.dxf", data, "image/vnd.dxf")})
-    assert r.status_code == 200
-    body = r.json()
-    assert len(body["plans"]) == 3 and all(p["ok"] and p["svg"].startswith("<?xml") or "<svg" in p["svg"] for p in body["plans"])
-    bad = c.post("/v1/import/dxf", files={"file": ("x.dxf", b"junk", "image/vnd.dxf")})
-    assert bad.status_code == 422
-
-
 def test_single_line_walls_are_read_with_a_default_thickness():
     import io
 
@@ -170,7 +157,7 @@ def _own_export_cases():
 @pytest.mark.parametrize("name,brief", _own_export_cases())
 def test_our_own_dxf_export_imports_back_to_the_same_rooms(name, brief):
     """Exports cut doors and windows out of the wall solids; the importer must still find every room."""
-    from blueprint_engine.pipeline import generate
+    from fga_engine.pipeline import generate
 
     gen = generate(brief).model
     assert gen is not None
@@ -190,7 +177,7 @@ def test_our_own_dxf_export_imports_back_to_the_same_rooms(name, brief):
 def test_round_trip_keeps_fixtures_and_reports_unsupported_items():
     """Our export carries furniture blocks with a KIND attribute: every one comes back as a fixture."""
     from briefs import FEASIBLE
-    from blueprint_engine.pipeline import generate
+    from fga_engine.pipeline import generate
 
     gen = None
     for brief in FEASIBLE.values():
@@ -213,72 +200,57 @@ def test_dimensions_and_other_entities_are_kept_as_drawing_items(sheet):
     assert sum(len(p.model.drawing) for p in res.plans) > 0  # the sheet's dimension rows and notes are drawn
 
 
-# ---------------------------------------------------------------- chat edits on an imported plan
+# ---------------------------------------------------------------- explicit edits on an imported plan (the ops a chat produces)
 
 
-class _Scripted:
-    def __init__(self, *answers):
-        self.answers, self.prompts = list(answers), []
+def _ops(stub, model, ops):
+    import json as _json
 
-    def structured(self, system, user, schema):
-        self.prompts.append(user)
-        a = self.answers.pop(0) if len(self.answers) > 1 else self.answers[0]
-        return schema.model_validate(a)
+    from fga.demo.engine.v1 import engine_pb2 as e
 
-
-def _plan_client(*answers):
-    return TestClient(create_app(_Scripted(*answers)))
+    step = stub.ApplyPlanOps(e.ApplyPlanOpsRequest(model_json=model.model_dump_json().encode(), ops_json=_json.dumps({"ops": ops}).encode()))
+    return _json.loads(step.model_json), step
 
 
-def test_plan_revise_renames_adds_and_resizes(sheet):
+def _refusal(stub, model, ops) -> str:
+    import grpc
+
+    with pytest.raises(grpc.RpcError) as ei:
+        _ops(stub, model, ops)
+    assert ei.value.code() == grpc.StatusCode.INVALID_ARGUMENT
+    return ei.value.details()
+
+
+def test_plan_ops_rename_retype_and_resize(sheet, stub):
     model = sheet[2].plans[0].model
     room = model.rooms[0]
     door = next(o for o in model.openings if o.kind == "door")
-    c = _plan_client({"ops": [
+    out, step = _ops(stub, model, [
         {"op": "rename_room", "room": room.name, "name": "Library"},
         {"op": "set_room_type", "room": "Library", "type": "study"},
         {"op": "resize_opening", "opening": door.id, "width": 0.8},
-    ]})
-    r = c.post("/v1/plan/revise", json={"model": model.model_dump(mode="json"), "message": "make it a library"})
-    assert r.status_code == 200, r.text
-    out = r.json()["result"]["model"]
+    ])
     assert out["rooms"][0]["name"] == "Library" and out["rooms"][0]["type"] == "study"
     assert next(o for o in out["openings"] if o["id"] == door.id)["width"] == 0.8
     assert out["source"] == "imported" and out["walls"] == model.model_dump(mode="json")["walls"]
-    assert r.json()["result"]["checks"]
+    assert step.checks and step.changed
 
 
-def test_plan_revise_adds_and_removes_fixtures(sheet):
+def test_plan_ops_add_and_remove_fixtures(sheet, stub):
+    from fga_engine.domain.schemas import BuildingModel
+
     model = sheet[2].plans[0].model
     big = max(model.rooms, key=lambda r: r.net_area)
-    c = _plan_client({"ops": [{"op": "add_fixture", "room": big.name, "fixture": "sofa"}]})
-    r = c.post("/v1/plan/revise", json={"model": model.model_dump(mode="json"), "message": "add a sofa"})
-    assert r.status_code == 200, r.text
-    fx = [f for f in r.json()["result"]["model"]["fixtures"] if f["room_id"] == big.id]
-    assert [f["kind"] for f in fx] == ["sofa"]
-    c2 = _plan_client({"ops": [{"op": "remove_fixture", "room": big.name, "fixture": "sofa"}]})
-    back = c2.post("/v1/plan/revise", json={"model": r.json()["result"]["model"], "message": "remove the sofa"})
-    assert back.status_code == 200 and not back.json()["result"]["model"]["fixtures"]
+    out, _ = _ops(stub, model, [{"op": "add_fixture", "room": big.name, "fixture": "sofa"}])
+    assert [f["kind"] for f in out["fixtures"] if f["room_id"] == big.id] == ["sofa"]
+    back, _ = _ops(stub, BuildingModel.model_validate(out), [{"op": "remove_fixture", "room": big.name, "fixture": "sofa"}])
+    assert not back["fixtures"]
 
 
-def test_plan_revise_refuses_geometry_changes_and_unknown_names(sheet):
-    model = sheet[2].plans[0].model.model_dump(mode="json")
-    c = _plan_client({"ops": [{"op": "unsupported", "reason": "moving walls"}]})
-    r = c.post("/v1/plan/revise", json={"model": model, "message": "move the wall"})
-    assert r.status_code == 422 and "not supported" in r.json()["message"]
-    c = _plan_client({"ops": [{"op": "rename_room", "room": "Nonexistent", "name": "x"}]})
-    r = c.post("/v1/plan/revise", json={"model": model, "message": "rename"})
-    assert r.status_code == 422 and "no room called" in r.json()["message"]
-    c = _plan_client({"ops": [{"op": "remove_opening", "opening": "zzz"}]})
-    assert c.post("/v1/plan/revise", json={"model": model, "message": "x"}).status_code == 422
-
-
-def test_plan_revise_stream_reports_result(sheet):
+def test_plan_ops_refuse_unknown_names(sheet, stub):
     model = sheet[2].plans[0].model
-    c = _plan_client({"ops": [{"op": "rename_room", "room": model.rooms[0].name, "name": "Den"}]})
-    with c.stream("POST", "/v1/plan/revise/stream", json={"model": model.model_dump(mode="json"), "message": "rename"}) as r:
-        lines = [json.loads(x) for x in r.iter_lines() if x]
-    assert lines[-1]["event"] == "result" and lines[-1]["data"]["result"]["model"]["rooms"][0]["name"] == "Den"
+    assert "no room called" in _refusal(stub, model, [{"op": "rename_room", "room": "Nonexistent", "name": "x"}])
+    _refusal(stub, model, [{"op": "remove_opening", "opening": "zzz"}])
 
 
 def _rect(msp, x0, y0, x1, y1, layer="WALLS"):

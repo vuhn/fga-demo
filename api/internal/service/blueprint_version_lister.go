@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -18,11 +18,11 @@ func NewBlueprintVersionLister(blueprints gateway.BlueprintGateway, authz usecas
 }
 
 // ListVersions requires can_view (404 when denied).
-func (s *blueprintVersionLister) ListVersions(ctx context.Context, actor, tenantID, id string) ([]entity.BlueprintVersion, error) {
+func (s *blueprintVersionLister) ListVersions(ctx context.Context, actor, tenantID, id string) ([]model.BlueprintVersion, error) {
 	if _, err := loadBlueprint(ctx, s.blueprints, tenantID, id); err != nil {
 		return nil, err
 	}
-	if err := s.authz.RequireVisible(ctx, actor, "can_view", entity.ObjectTypeBlueprint, id); err != nil {
+	if err := s.authz.RequireVisible(ctx, actor, "can_view", model.ObjectTypeBlueprint, id); err != nil {
 		return nil, err
 	}
 	return s.blueprints.ListVersions(ctx, id)

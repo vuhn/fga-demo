@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -30,26 +30,12 @@ func (h *ProjectMemberHandler) Register(r Routes) {
 	g.DELETE("/projects/:id/members/:userId", h.remove)
 }
 
-type projectMemberJSON struct {
-	UserID      string         `json:"user_id"`
-	Email       string         `json:"email"`
-	Name        string         `json:"name"`
-	Affiliation string         `json:"affiliation"`
-	Role        string         `json:"role"`
-	RoleName    string         `json:"role_name,omitempty"`
-	Company     companyRefJSON `json:"company"`
-}
-
-func projectMemberView(m entity.ProjectMember) projectMemberJSON {
-	return projectMemberJSON{m.UserID, m.Email, m.Name, m.Affiliation, m.Role, m.RoleName, companyRefJSON{m.CompanyID, m.CompanyName}}
-}
-
 func (h *ProjectMemberHandler) list(c *gin.Context) {
 	if !pathUUID(c, "id") {
 		return
 	}
 	ms, err := h.lister.List(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, projectMemberView), err)
+	respond(c, http.StatusOK, mapSlice(ms, mapper.ProjectMemberView), err)
 }
 
 func (h *ProjectMemberHandler) listCandidates(c *gin.Context) {
@@ -57,7 +43,7 @@ func (h *ProjectMemberHandler) listCandidates(c *gin.Context) {
 		return
 	}
 	ms, err := h.candidates.ListCandidates(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, memberView), err)
+	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
 }
 
 func (h *ProjectMemberHandler) add(c *gin.Context) {
@@ -69,7 +55,7 @@ func (h *ProjectMemberHandler) add(c *gin.Context) {
 		return
 	}
 	m, err := h.adder.Add(c, actor(c), tenant(c), c.Param("id"), usecase.AddProjectMemberInput{UserID: body.UserID, Role: body.Role})
-	respond(c, http.StatusCreated, projectMemberView(m), err)
+	respond(c, http.StatusCreated, mapper.ProjectMemberView(m), err)
 }
 
 func (h *ProjectMemberHandler) changeRole(c *gin.Context) {
@@ -80,7 +66,7 @@ func (h *ProjectMemberHandler) changeRole(c *gin.Context) {
 		return
 	}
 	m, err := h.roleChanger.ChangeRole(c, actor(c), tenant(c), c.Param("id"), c.Param("userId"), body.Role)
-	respond(c, http.StatusOK, projectMemberView(m), err)
+	respond(c, http.StatusOK, mapper.ProjectMemberView(m), err)
 }
 
 func (h *ProjectMemberHandler) remove(c *gin.Context) {

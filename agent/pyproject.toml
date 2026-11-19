@@ -1,0 +1,32 @@
+[project]
+name = "blueprint-agent"
+version = "0.1.0"
+description = "Blueprint Agent: all LLM work (brief drafting, chat edits, review, cost estimate). Stateless gRPC service; calls the Engine only as tools."
+requires-python = ">=3.13"
+dependencies = [
+    "fga-proto",
+    "grpcio==1.80.0",
+    "grpcio-health-checking==1.80.0",
+    "httpx==0.28.1",
+    "protobuf==6.33.6",
+]
+
+[tool.uv.sources]
+fga-proto = { path = "../proto/python", editable = true }
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "fga_agent"
+
+[dependency-groups]
+dev = [
+    "pytest==9.2.0",
+    "watchfiles==1.3.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["tests"]
+testpaths = ["tests"]

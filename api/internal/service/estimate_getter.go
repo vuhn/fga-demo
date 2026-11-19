@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -22,15 +22,15 @@ func NewEstimateGetter(blueprints gateway.BlueprintGateway, estimates gateway.Bl
 
 // Get returns a finished estimate. It derives from the plan geometry, which can_view already exposes, so
 // reading needs can_view (404 when the caller cannot see the blueprint).
-func (s *estimateGetter) Get(ctx context.Context, actor, tenantID, blueprintID, id string) (entity.BlueprintEstimate, error) {
+func (s *estimateGetter) Get(ctx context.Context, actor, tenantID, blueprintID, id string) (model.BlueprintEstimate, error) {
 	if _, err := loadBlueprint(ctx, s.blueprints, tenantID, blueprintID); err != nil {
-		return entity.BlueprintEstimate{}, err
+		return model.BlueprintEstimate{}, err
 	}
-	if err := s.authz.RequireVisible(ctx, actor, "can_view", entity.ObjectTypeBlueprint, blueprintID); err != nil {
-		return entity.BlueprintEstimate{}, err
+	if err := s.authz.RequireVisible(ctx, actor, "can_view", model.ObjectTypeBlueprint, blueprintID); err != nil {
+		return model.BlueprintEstimate{}, err
 	}
-	if err := entity.RequireUUID("id", id); err != nil {
-		return entity.BlueprintEstimate{}, err
+	if err := model.RequireUUID("id", id); err != nil {
+		return model.BlueprintEstimate{}, err
 	}
 	return s.estimates.Get(ctx, blueprintID, id)
 }
@@ -45,11 +45,11 @@ func NewEstimateLister(blueprints gateway.BlueprintGateway, estimates gateway.Bl
 	return &estimateLister{blueprints: blueprints, estimates: estimates, authz: authz}
 }
 
-func (s *estimateLister) List(ctx context.Context, actor, tenantID, blueprintID string) ([]entity.BlueprintEstimate, error) {
+func (s *estimateLister) List(ctx context.Context, actor, tenantID, blueprintID string) ([]model.BlueprintEstimate, error) {
 	if _, err := loadBlueprint(ctx, s.blueprints, tenantID, blueprintID); err != nil {
 		return nil, err
 	}
-	if err := s.authz.RequireVisible(ctx, actor, "can_view", entity.ObjectTypeBlueprint, blueprintID); err != nil {
+	if err := s.authz.RequireVisible(ctx, actor, "can_view", model.ObjectTypeBlueprint, blueprintID); err != nil {
 		return nil, err
 	}
 	return s.estimates.ListByBlueprint(ctx, blueprintID)

@@ -6,8 +6,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type ProjectRoleRepo struct{ pool *pgxpool.Pool }
@@ -16,13 +16,13 @@ var _ gateway.ProjectRoleGateway = (*ProjectRoleRepo)(nil)
 
 func NewProjectRoleRepo(pool *pgxpool.Pool) *ProjectRoleRepo { return &ProjectRoleRepo{pool: pool} }
 
-func (r *ProjectRoleRepo) List(ctx context.Context, projectID string) ([]entity.ProjectRole, error) {
+func (r *ProjectRoleRepo) List(ctx context.Context, projectID string) ([]model.ProjectRole, error) {
 	rows, err := r.pool.Query(ctx, `SELECT id, tenant_id, project_id, name, affiliation, created_at FROM project_roles WHERE project_id = $1 ORDER BY affiliation, name`, projectID)
 	if err != nil {
 		return nil, mapErr(err)
 	}
 	defer rows.Close()
-	var out []entity.ProjectRole
+	var out []model.ProjectRole
 	for rows.Next() {
 		role, err := scanProjectRole(rows)
 		if err != nil {
@@ -34,45 +34,45 @@ func (r *ProjectRoleRepo) List(ctx context.Context, projectID string) ([]entity.
 		return nil, mapErr(err)
 	}
 	if out == nil {
-		out = []entity.ProjectRole{}
+		out = []model.ProjectRole{}
 	}
 	return r.hydrate(ctx, projectID, out)
 }
 
-func (r *ProjectRoleRepo) Get(ctx context.Context, projectID, roleID string) (entity.ProjectRole, error) {
+func (r *ProjectRoleRepo) Get(ctx context.Context, projectID, roleID string) (model.ProjectRole, error) {
 	rows, err := r.pool.Query(ctx, `SELECT id, tenant_id, project_id, name, affiliation, created_at FROM project_roles WHERE project_id = $1 AND id = $2`, projectID, roleID)
 	if err != nil {
-		return entity.ProjectRole{}, mapErr(err)
+		return model.ProjectRole{}, mapErr(err)
 	}
 	defer rows.Close()
 	if !rows.Next() {
 		if err := rows.Err(); err != nil {
-			return entity.ProjectRole{}, mapErr(err)
+			return model.ProjectRole{}, mapErr(err)
 		}
-		return entity.ProjectRole{}, entity.ErrNotFound
+		return model.ProjectRole{}, model.ErrNotFound
 	}
 	role, err := scanProjectRole(rows)
 	if err != nil {
-		return entity.ProjectRole{}, err
+		return model.ProjectRole{}, err
 	}
-	roles, err := r.hydrate(ctx, projectID, []entity.ProjectRole{role})
+	roles, err := r.hydrate(ctx, projectID, []model.ProjectRole{role})
 	if err != nil {
-		return entity.ProjectRole{}, err
+		return model.ProjectRole{}, err
 	}
 	return roles[0], nil
 }
 
-func scanProjectRole(rows pgx.Rows) (entity.ProjectRole, error) {
-	var role entity.ProjectRole
+func scanProjectRole(rows pgx.Rows) (model.ProjectRole, error) {
+	var role model.ProjectRole
 	err := rows.Scan(&role.ID, &role.TenantID, &role.ProjectID, &role.Name, &role.Affiliation, &role.CreatedAt)
 	return role, mapErr(err)
 }
 
-func (r *ProjectRoleRepo) hydrate(ctx context.Context, projectID string, roles []entity.ProjectRole) ([]entity.ProjectRole, error) {
-	byID := make(map[string]*entity.ProjectRole, len(roles))
+func (r *ProjectRoleRepo) hydrate(ctx context.Context, projectID string, roles []model.ProjectRole) ([]model.ProjectRole, error) {
+	byID := make(map[string]*model.ProjectRole, len(roles))
 	for i := range roles {
 		roles[i].Permissions = []string{}
-		roles[i].Assignees = []entity.RoleAssignee{}
+		roles[i].Assignees = []model.RoleAssignee{}
 		byID[roles[i].ID] = &roles[i]
 	}
 	perms, err := r.pool.Query(ctx, `SELECT rp.role_id, rp.permission
@@ -97,7 +97,7 @@ func (r *ProjectRoleRepo) hydrate(ctx context.Context, projectID string, roles [
 		return nil, err
 	}
 	for id, role := range byID {
-		for _, p := range entity.CustomPermissions {
+		for _, p := range model.CustomPermissions {
 			if held[id][p] {
 				role.Permissions = append(role.Permissions, p)
 			}
@@ -115,7 +115,7 @@ func (r *ProjectRoleRepo) hydrate(ctx context.Context, projectID string, roles [
 	defer assignees.Close()
 	for assignees.Next() {
 		var roleID string
-		var a entity.RoleAssignee
+		var a model.RoleAssignee
 		if err := assignees.Scan(&roleID, &a.UserID, &a.Email, &a.Name); err != nil {
 			return nil, err
 		}
@@ -126,7 +126,7 @@ func (r *ProjectRoleRepo) hydrate(ctx context.Context, projectID string, roles [
 	return roles, assignees.Err()
 }
 
-func (r *ProjectRoleRepo) Insert(ctx context.Context, role entity.ProjectRole) error {
+func (r *ProjectRoleRepo) Insert(ctx context.Context, role model.ProjectRole) error {
 	_, err := r.pool.Exec(ctx, `INSERT INTO project_roles (id, tenant_id, project_id, name, affiliation) VALUES ($1, $2, $3, $4, $5)`, role.ID, role.TenantID, role.ProjectID, role.Name, role.Affiliation)
 	return mapErr(err)
 }
@@ -137,7 +137,7 @@ func (r *ProjectRoleRepo) Delete(ctx context.Context, projectID, roleID string) 
 		return mapErr(err)
 	}
 	if tag.RowsAffected() == 0 {
-		return entity.ErrNotFound
+		return model.ErrNotFound
 	}
 	return nil
 }

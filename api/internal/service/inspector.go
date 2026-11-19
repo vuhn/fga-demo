@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
@@ -19,8 +19,8 @@ func NewInspector(authz usecase.Authorizer, tenants helper.ObjectTenantResolver)
 	return &inspector{authz: authz, tenants: tenants}
 }
 
-func (s *inspector) Inspect(ctx context.Context, actor string, c entity.CheckRequest) (bool, error) {
-	res, err := s.BatchInspect(ctx, actor, []entity.CheckRequest{c})
+func (s *inspector) Inspect(ctx context.Context, actor string, c model.CheckRequest) (bool, error) {
+	res, err := s.BatchInspect(ctx, actor, []model.CheckRequest{c})
 	if err != nil {
 		return false, err
 	}
@@ -28,12 +28,12 @@ func (s *inspector) Inspect(ctx context.Context, actor string, c entity.CheckReq
 }
 
 // BatchInspect evaluates up to 50 checks after authorizing each item.
-func (s *inspector) BatchInspect(ctx context.Context, actor string, checks []entity.CheckRequest) ([]bool, error) {
+func (s *inspector) BatchInspect(ctx context.Context, actor string, checks []model.CheckRequest) ([]bool, error) {
 	if len(checks) == 0 {
 		return []bool{}, nil
 	}
 	if len(checks) > maxInspectChecks {
-		return nil, entity.Invalid("at most 50 checks")
+		return nil, model.Invalid("at most 50 checks")
 	}
 	grant := &inspectGrant{authz: s.authz, tenants: s.tenants, actor: actor, managed: map[string]bool{}}
 	for _, c := range checks {
@@ -47,23 +47,23 @@ func (s *inspector) BatchInspect(ctx context.Context, actor string, checks []ent
 	return s.authz.BatchCheck(ctx, checks)
 }
 
-func validateInspect(c entity.CheckRequest) error {
-	if _, ok := entity.PermissionRelations[c.ObjectType]; !ok {
-		return entity.Invalid("unknown object_type %q", c.ObjectType)
+func validateInspect(c model.CheckRequest) error {
+	if _, ok := model.PermissionRelations[c.ObjectType]; !ok {
+		return model.Invalid("unknown object_type %q", c.ObjectType)
 	}
-	if !entity.IsPermissionRelation(c.ObjectType, c.Relation) {
-		return entity.Invalid("relation %q is not allowed on %s", c.Relation, c.ObjectType)
+	if !model.IsPermissionRelation(c.ObjectType, c.Relation) {
+		return model.Invalid("relation %q is not allowed on %s", c.Relation, c.ObjectType)
 	}
-	if err := entity.RequireUUID("user_id", c.UserID); err != nil {
+	if err := model.RequireUUID("user_id", c.UserID); err != nil {
 		return err
 	}
-	if c.ObjectType == entity.ObjectTypePlatform {
-		if c.ObjectID != entity.PlatformID {
-			return entity.Invalid("platform object_id must be main")
+	if c.ObjectType == model.ObjectTypePlatform {
+		if c.ObjectID != model.PlatformID {
+			return model.Invalid("platform object_id must be main")
 		}
 		return nil
 	}
-	return entity.RequireUUID("object_id", c.ObjectID)
+	return model.RequireUUID("object_id", c.ObjectID)
 }
 
 // inspectGrant decides whether actor may ask about other users on objects.
@@ -76,7 +76,7 @@ type inspectGrant struct {
 	managed  map[string]bool
 }
 
-func (g *inspectGrant) allowed(ctx context.Context, c entity.CheckRequest) error {
+func (g *inspectGrant) allowed(ctx context.Context, c model.CheckRequest) error {
 	if c.UserID == g.actor {
 		return nil
 	}
@@ -93,9 +93,9 @@ func (g *inspectGrant) allowed(ctx context.Context, c entity.CheckRequest) error
 	// The tenant comes from the object, never from the request.
 	var tenantID string
 	switch c.ObjectType {
-	case entity.ObjectTypePlatform:
-		return entity.Denied(entity.ErrForbidden, "can_manage_platform", entity.ObjectTypePlatform, entity.PlatformID)
-	case entity.ObjectTypeTenant:
+	case model.ObjectTypePlatform:
+		return model.Denied(model.ErrForbidden, "can_manage_platform", model.ObjectTypePlatform, model.PlatformID)
+	case model.ObjectTypeTenant:
 		tenantID = c.ObjectID
 	default:
 		t, err := g.tenants.TenantOf(ctx, c.ObjectType, c.ObjectID)
@@ -107,13 +107,13 @@ func (g *inspectGrant) allowed(ctx context.Context, c entity.CheckRequest) error
 	ok, seen := g.managed[tenantID]
 	if !seen {
 		var err error
-		if ok, err = g.authz.Check(ctx, g.actor, "can_manage_members", entity.ObjectTypeTenant, tenantID); err != nil {
+		if ok, err = g.authz.Check(ctx, g.actor, "can_manage_members", model.ObjectTypeTenant, tenantID); err != nil {
 			return err
 		}
 		g.managed[tenantID] = ok
 	}
 	if !ok {
-		return entity.Denied(entity.ErrForbidden, "can_manage_members", entity.ObjectTypeTenant, tenantID)
+		return model.Denied(model.ErrForbidden, "can_manage_members", model.ObjectTypeTenant, tenantID)
 	}
 	return nil
 }

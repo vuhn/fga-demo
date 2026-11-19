@@ -2,11 +2,11 @@ package http
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -29,35 +29,12 @@ func (h *ProjectRoleHandler) Register(r Routes) {
 	g.DELETE("/projects/:id/roles/:roleId", h.delete)
 }
 
-type projectRoleJSON struct {
-	ID          string         `json:"id"`
-	TenantID    string         `json:"tenant_id"`
-	ProjectID   string         `json:"project_id"`
-	Name        string         `json:"name"`
-	Affiliation string         `json:"affiliation"`
-	Permissions []string       `json:"permissions"`
-	Assignees   []assigneeJSON `json:"assignees"`
-	CreatedAt   time.Time      `json:"created_at"`
-}
-
-func projectRoleView(role entity.ProjectRole) projectRoleJSON {
-	perms := role.Permissions
-	if perms == nil {
-		perms = []string{}
-	}
-	assignees := make([]assigneeJSON, 0, len(role.Assignees))
-	for _, a := range role.Assignees {
-		assignees = append(assignees, assigneeJSON{a.UserID, a.Email, a.Name})
-	}
-	return projectRoleJSON{role.ID, role.TenantID, role.ProjectID, role.Name, role.Affiliation, perms, assignees, role.CreatedAt}
-}
-
 func (h *ProjectRoleHandler) list(c *gin.Context) {
 	if !pathUUID(c, "id") {
 		return
 	}
 	roles, err := h.lister.List(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(roles, projectRoleView), err)
+	respond(c, http.StatusOK, mapSlice(roles, mapper.ProjectRoleView), err)
 }
 
 func (h *ProjectRoleHandler) create(c *gin.Context) {
@@ -69,7 +46,7 @@ func (h *ProjectRoleHandler) create(c *gin.Context) {
 		return
 	}
 	role, err := h.creator.Create(c, actor(c), tenant(c), c.Param("id"), body.Name, body.Affiliation)
-	respond(c, http.StatusCreated, projectRoleView(role), err)
+	respond(c, http.StatusCreated, mapper.ProjectRoleView(role), err)
 }
 
 func (h *ProjectRoleHandler) setPermissions(c *gin.Context) {
@@ -80,11 +57,11 @@ func (h *ProjectRoleHandler) setPermissions(c *gin.Context) {
 		return
 	}
 	if body.Permissions == nil {
-		writeErr(c, entity.Invalid("permissions is required"))
+		writeErr(c, model.Invalid("permissions is required"))
 		return
 	}
 	role, err := h.permissionSetter.SetPermissions(c, actor(c), tenant(c), c.Param("id"), c.Param("roleId"), body.Permissions)
-	respond(c, http.StatusOK, projectRoleView(role), err)
+	respond(c, http.StatusOK, mapper.ProjectRoleView(role), err)
 }
 
 func (h *ProjectRoleHandler) delete(c *gin.Context) {

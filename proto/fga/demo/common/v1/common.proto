@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package fga.demo.common.v1;
+
+option go_package = "github.com/vuhn/fga-demo/proto/go/fga/demo/common/v1;commonv1";
+
+// Shared vocabulary of the Agent and the Engine. No tenant, person, project or actor identity ever appears
+// in a message or in metadata (see docs/service-contracts.md); only the opaque request id travels as the
+// gRPC metadata key `x-request-id`.
+
+// Detail codes carried in the gRPC status detail so callers can tell refusals apart.
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  // The input is wrong in a way the caller (or an LLM retrying with this feedback) can fix.
+  ERROR_CODE_EDIT_ERROR = 1;
+  // A valid request the Engine does not support; retrying cannot help (the Agent stops its loop).
+  ERROR_CODE_UNSUPPORTED = 2;
+  // A file that cannot be read (unreadable, empty, too large, no drawable content).
+  ERROR_CODE_BAD_FILE = 3;
+  // A dependency of the service is down. The Agent reports an Engine outage with `dependency = "engine"` and
+  // an Ollama outage with `dependency = "llm"`.
+  ERROR_CODE_DEPENDENCY_UNAVAILABLE = 4;
+}
+
+message ErrorDetail {
+  ErrorCode code = 1;
+  string message = 2;
+  string dependency = 3;
+}
+
+message Upload {
+  string name = 1;
+  string mime = 2;
+  bytes data = 3;
+}
+
+// One rule result of the plan checks.
+message Check {
+  string rule = 1;
+  string severity = 2;  // error | warning
+  bool ok = 3;
+  string message = 4;
+  string room_id = 5;
+  string category = 6;
+  string issue_id = 7;
+  repeated string elements = 8;
+  string hint = 9;
+}
+
+// Estimate vocabulary. Each service generates its own copy; none imports the other's code.
+enum FactSource {
+  FACT_SOURCE_UNSPECIFIED = 0;
+  FACT_SOURCE_USER = 1;  // given or agreed by the person
+  FACT_SOURCE_PLAN = 2;
+  FACT_SOURCE_ASSUMED = 3;
+}
+
+enum Quality {
+  QUALITY_UNSPECIFIED = 0;
+  QUALITY_TYPICAL = 1;
+  QUALITY_NORMAL = 2;
+  QUALITY_GOOD = 3;
+  QUALITY_LUXURY = 4;
+}
+
+enum WorkType {
+  WORK_TYPE_UNSPECIFIED = 0;
+  WORK_TYPE_NEW_BUILD = 1;
+  WORK_TYPE_FIT_OUT = 2;
+  WORK_TYPE_RENOVATION = 3;
+}
+
+enum RoomState {
+  ROOM_STATE_UNSPECIFIED = 0;
+  ROOM_STATE_EMPTY = 1;
+  ROOM_STATE_EXISTING = 2;
+  ROOM_STATE_TO_REPLACE = 3;
+  ROOM_STATE_NEW = 4;
+}
+
+message Fact {
+  string name = 1;
+  oneof value {
+    string text = 2;
+    double number = 3;
+    bool flag = 4;
+  }
+  FactSource source = 5;
+}
+
+message RoomScope {
+  string room_id = 1;
+  RoomState state = 2;
+  FactSource source = 3;
+}
+
+message RateSource {
+  string url = 1;
+  string quote = 2;
+  string retrieved_at = 3;  // YYYY-MM-DD
+}
+
+message RateRequest {
+  string code = 1;
+  string description = 2;
+  string unit = 3;
+  string region = 4;
+  string quality = 5;
+}
+
+message RateResult {
+  string code = 1;
+  optional double low = 2;
+  optional double base = 3;
+  optional double high = 4;
+  string unit = 5;
+  string currency = 6;
+  string confidence = 7;  // ok | low_confidence | user | none
+  string region = 8;
+  string quality = 9;
+  repeated RateSource sources = 10;
+  string note = 11;
+}
+
+// What takeoff and pricing read from the interview; the Agent owns the rest of the conversation state.
+message EstimateFacts {
+  repeated Fact facts = 1;
+  repeated RoomScope scope = 2;
+  repeated string fixtures_existing = 3;
+  repeated string excluded = 4;
+}

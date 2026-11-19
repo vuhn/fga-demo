@@ -5,7 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -41,22 +42,9 @@ func (h *AlbumHandler) Register(r Routes) {
 	g.DELETE("/albums/:id/grants", h.revoke)
 }
 
-func albumView(a entity.Album) map[string]any {
-	return map[string]any{
-		"id": a.ID, "tenant_id": a.TenantID, "project_id": a.ProjectID, "parent_id": a.ParentID, "name": a.Name, "is_private": a.IsPrivate,
-		"created_by": a.CreatedBy, "created_at": a.CreatedAt,
-	}
-}
-
-func visibleAlbumView(v entity.Visible[entity.Album]) map[string]any {
-	m := albumView(v.Value)
-	m["permissions"] = v.Perms
-	return m
-}
-
 func (h *AlbumHandler) list(c *gin.Context) {
 	as, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("project_id"))
-	respond(c, http.StatusOK, mapSlice(as, visibleAlbumView), err)
+	respond(c, http.StatusOK, mapSlice(as, mapper.VisibleAlbumView), err)
 }
 
 func (h *AlbumHandler) create(c *gin.Context) {
@@ -70,16 +58,16 @@ func (h *AlbumHandler) create(c *gin.Context) {
 		return
 	}
 	if body.IsPrivate == nil {
-		writeErr(c, entity.Invalid("is_private is required"))
+		writeErr(c, model.Invalid("is_private is required"))
 		return
 	}
 	a, err := h.uc.Creator.Create(c, actor(c), tenant(c), usecase.CreateAlbumInput{ProjectID: body.ProjectID, Name: body.Name, ParentID: body.ParentID, IsPrivate: *body.IsPrivate})
-	respond(c, http.StatusCreated, albumView(a), err)
+	respond(c, http.StatusCreated, mapper.AlbumView(a), err)
 }
 
 func (h *AlbumHandler) get(c *gin.Context) {
 	a, err := h.uc.Getter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, visibleAlbumView(a), err)
+	respond(c, http.StatusOK, mapper.VisibleAlbumView(a), err)
 }
 
 func (h *AlbumHandler) rename(c *gin.Context) {
@@ -88,20 +76,20 @@ func (h *AlbumHandler) rename(c *gin.Context) {
 		return
 	}
 	a, err := h.uc.Renamer.Rename(c, actor(c), tenant(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, albumView(a), err)
+	respond(c, http.StatusOK, mapper.AlbumView(a), err)
 }
 
 func (h *AlbumHandler) setVisibility(c *gin.Context) {
-	var body visibilityBody
+	var body mapper.VisibilityBody
 	if !bind(c, &body) {
 		return
 	}
 	if body.IsPrivate == nil {
-		writeErr(c, entity.Invalid("is_private is required"))
+		writeErr(c, model.Invalid("is_private is required"))
 		return
 	}
 	a, err := h.uc.VisibilitySetter.SetVisibility(c, actor(c), tenant(c), c.Param("id"), *body.IsPrivate)
-	respond(c, http.StatusOK, albumView(a), err)
+	respond(c, http.StatusOK, mapper.AlbumView(a), err)
 }
 
 func (h *AlbumHandler) delete(c *gin.Context) {
@@ -110,27 +98,27 @@ func (h *AlbumHandler) delete(c *gin.Context) {
 
 func (h *AlbumHandler) listGrants(c *gin.Context) {
 	gs, err := h.uc.GrantLister.ListGrants(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(gs, grantView), err)
+	respond(c, http.StatusOK, mapSlice(gs, mapper.GrantView), err)
 }
 
 func (h *AlbumHandler) listShareCandidates(c *gin.Context) {
 	ms, err := h.uc.CandidateLister.ListShareCandidates(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, memberView), err)
+	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
 }
 
 func (h *AlbumHandler) share(c *gin.Context) {
-	var body shareBody
+	var body mapper.ShareBody
 	if !bind(c, &body) {
 		return
 	}
-	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.input())
-	respond(c, http.StatusCreated, grantView(g), err)
+	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.Input())
+	respond(c, http.StatusCreated, mapper.GrantView(g), err)
 }
 
 func (h *AlbumHandler) revoke(c *gin.Context) {
-	var body shareBody
+	var body mapper.ShareBody
 	if !bind(c, &body) {
 		return
 	}
-	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.input()))
+	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.Input()))
 }

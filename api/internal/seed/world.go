@@ -3,7 +3,7 @@
 package seed
 
 import (
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/fga"
 )
 
@@ -98,13 +98,13 @@ type TenantSeed struct {
 // FolderSeed and AlbumSeed carry their shares to external members;
 // TenantID/ObjectType/ObjectID are filled by Grants().
 type FolderSeed struct {
-	Folder entity.Folder
-	Shares []entity.Grant
+	Folder model.Folder
+	Shares []model.Grant
 }
 
 type AlbumSeed struct {
-	Album  entity.Album
-	Shares []entity.Grant
+	Album  model.Album
+	Shares []model.Grant
 }
 
 var People = []Person{
@@ -117,19 +117,19 @@ var People = []Person{
 }
 
 var Tenants = []TenantSeed{
-	{Acme, "acme", "Acme", CoAcme, entity.AllProducts},
-	{Globex, "globex", "Globex", CoGlobex, []string{entity.ProductDocuments, entity.ProductPhotos}},
+	{Acme, "acme", "Acme", CoAcme, model.AllProducts},
+	{Globex, "globex", "Globex", CoGlobex, []string{model.ProductDocuments, model.ProductPhotos}},
 }
 
 // Subcontractors are the companies that are not a tenant's own. The platform
 // company has no creator tenant; the others were created by Acme.
-var Subcontractors = []entity.Company{
+var Subcontractors = []model.Company{
 	{ID: CoPlatform, Name: "Platform"},
 	{ID: CoBuildRight, Name: "BuildRight Subcontractors", CreatedByTenantID: Acme},
 	{ID: CoSteelworks, Name: "Steelworks Ltd", CreatedByTenantID: Acme},
 }
 
-var Projects = []entity.Project{
+var Projects = []model.Project{
 	{ID: ProjAcmeTower, TenantID: Acme, Name: "Tower A", CreatedBy: Bob},
 	{ID: ProjAcmeAnnex, TenantID: Acme, Name: "Annex", CreatedBy: Bob},
 	{ID: ProjGlobexMain, TenantID: Globex, Name: "Main", CreatedBy: Eve},
@@ -138,11 +138,11 @@ var Projects = []entity.Project{
 // ProjectMembers: externals need project membership to see anything.
 // Cara is an internal user in the tenant and an internal admin of Annex, so
 // in Annex she holds the union of both roles' permissions.
-var ProjectMembers = []entity.ProjectMember{
-	{ProjectID: ProjAcmeTower, TenantID: Acme, UserID: Dan, Affiliation: entity.AffiliationExternal, Role: entity.RoleExternalUser},
-	{ProjectID: ProjAcmeTower, TenantID: Acme, UserID: Fay, Affiliation: entity.AffiliationExternal, Role: entity.RoleExternalAdmin},
-	{ProjectID: ProjAcmeAnnex, TenantID: Acme, UserID: Cara, Affiliation: entity.AffiliationInternal, Role: entity.RoleInternalAdmin},
-	{ProjectID: ProjGlobexMain, TenantID: Globex, UserID: Bob, Affiliation: entity.AffiliationExternal, Role: entity.RoleExternalUser},
+var ProjectMembers = []model.ProjectMember{
+	{ProjectID: ProjAcmeTower, TenantID: Acme, UserID: Dan, Affiliation: model.AffiliationExternal, Role: model.RoleExternalUser},
+	{ProjectID: ProjAcmeTower, TenantID: Acme, UserID: Fay, Affiliation: model.AffiliationExternal, Role: model.RoleExternalAdmin},
+	{ProjectID: ProjAcmeAnnex, TenantID: Acme, UserID: Cara, Affiliation: model.AffiliationInternal, Role: model.RoleInternalAdmin},
+	{ProjectID: ProjGlobexMain, TenantID: Globex, UserID: Bob, Affiliation: model.AffiliationExternal, Role: model.RoleExternalUser},
 }
 
 // defaultProject is the project of seeded content that names none.
@@ -168,24 +168,24 @@ func CompanyOf(userID string) string {
 func AffiliationIn(tenantID, userID string) string {
 	for _, t := range Tenants {
 		if t.ID == tenantID && t.CompanyID == CompanyOf(userID) {
-			return entity.AffiliationInternal
+			return model.AffiliationInternal
 		}
 	}
-	return entity.AffiliationExternal
+	return model.AffiliationExternal
 }
 
-var Roles = []entity.Role{
-	{ID: AcmeAuditor, TenantID: Acme, Name: "Auditor", Affiliation: entity.AffiliationInternal, Permissions: []string{entity.PermView, entity.PermViewProducts}},
-	{ID: GlobexVendor, TenantID: Globex, Name: "Vendor", Affiliation: entity.AffiliationExternal, Permissions: []string{entity.PermContribute}},
+var Roles = []model.Role{
+	{ID: AcmeAuditor, TenantID: Acme, Name: "Auditor", Affiliation: model.AffiliationInternal, Permissions: []string{model.PermView, model.PermViewProducts}},
+	{ID: GlobexVendor, TenantID: Globex, Name: "Vendor", Affiliation: model.AffiliationExternal, Permissions: []string{model.PermContribute}},
 }
 
-var Members = []entity.Membership{
-	{TenantID: Acme, UserID: Bob, Affiliation: entity.AffiliationInternal, Role: entity.RoleInternalAdmin},
-	{TenantID: Acme, UserID: Cara, Affiliation: entity.AffiliationInternal, Role: entity.RoleInternalUser},
-	{TenantID: Acme, UserID: Dan, Affiliation: entity.AffiliationExternal, Role: entity.RoleExternalUser},
-	{TenantID: Acme, UserID: Fay, Affiliation: entity.AffiliationExternal, Role: entity.RoleExternalAdmin},
-	{TenantID: Globex, UserID: Eve, Affiliation: entity.AffiliationInternal, Role: entity.RoleInternalAdmin},
-	{TenantID: Globex, UserID: Bob, Affiliation: entity.AffiliationExternal, Role: entity.RoleExternalUser},
+var Members = []model.Membership{
+	{TenantID: Acme, UserID: Bob, Affiliation: model.AffiliationInternal, Role: model.RoleInternalAdmin},
+	{TenantID: Acme, UserID: Cara, Affiliation: model.AffiliationInternal, Role: model.RoleInternalUser},
+	{TenantID: Acme, UserID: Dan, Affiliation: model.AffiliationExternal, Role: model.RoleExternalUser},
+	{TenantID: Acme, UserID: Fay, Affiliation: model.AffiliationExternal, Role: model.RoleExternalAdmin},
+	{TenantID: Globex, UserID: Eve, Affiliation: model.AffiliationInternal, Role: model.RoleInternalAdmin},
+	{TenantID: Globex, UserID: Bob, Affiliation: model.AffiliationExternal, Role: model.RoleExternalUser},
 }
 
 func p(s string) *string { return &s }
@@ -195,20 +195,20 @@ const (
 	public  = false
 )
 
-func folder(id, tenant string, parent *string, name, owner string, isPrivate bool, shares ...entity.Grant) FolderSeed {
-	return FolderSeed{entity.Folder{ID: id, TenantID: tenant, ProjectID: defaultProject(tenant), ParentID: parent, Name: name, CreatedBy: owner, IsPrivate: isPrivate}, shares}
+func folder(id, tenant string, parent *string, name, owner string, isPrivate bool, shares ...model.Grant) FolderSeed {
+	return FolderSeed{model.Folder{ID: id, TenantID: tenant, ProjectID: defaultProject(tenant), ParentID: parent, Name: name, CreatedBy: owner, IsPrivate: isPrivate}, shares}
 }
 
 func album(id, tenant, name, owner string, isPrivate bool) AlbumSeed {
-	return AlbumSeed{Album: entity.Album{ID: id, TenantID: tenant, ProjectID: defaultProject(tenant), Name: name, CreatedBy: owner, IsPrivate: isPrivate}}
+	return AlbumSeed{Album: model.Album{ID: id, TenantID: tenant, ProjectID: defaultProject(tenant), Name: name, CreatedBy: owner, IsPrivate: isPrivate}}
 }
 
-func document(id, tenant, folderID, name, owner string) entity.Document {
-	return entity.Document{ID: id, TenantID: tenant, ProjectID: defaultProject(tenant), FolderID: folderID, Name: name, MimeType: "text/plain", ByteSize: 128, CreatedBy: owner}
+func document(id, tenant, folderID, name, owner string) model.Document {
+	return model.Document{ID: id, TenantID: tenant, ProjectID: defaultProject(tenant), FolderID: folderID, Name: name, MimeType: "text/plain", ByteSize: 128, CreatedBy: owner}
 }
 
-func photo(id, tenant, albumID, name, owner string) entity.Photo {
-	return entity.Photo{ID: id, TenantID: tenant, ProjectID: defaultProject(tenant), AlbumID: albumID, Name: name, MimeType: "image/jpeg", ByteSize: 2048, CreatedBy: owner}
+func photo(id, tenant, albumID, name, owner string) model.Photo {
+	return model.Photo{ID: id, TenantID: tenant, ProjectID: defaultProject(tenant), AlbumID: albumID, Name: name, MimeType: "image/jpeg", ByteSize: 2048, CreatedBy: owner}
 }
 
 var Folders = []FolderSeed{
@@ -218,9 +218,9 @@ var Folders = []FolderSeed{
 	folder(AcmeClient, Acme, nil, "Client", Bob, public),
 	folder(AcmeSpecs, Acme, p(AcmeClient), "Specs", Bob, private),
 	folder(AcmePartners, Acme, nil, "Partners", Bob, private,
-		entity.Grant{Relation: entity.RelViewer, SubjectType: entity.SubjectUser, UserID: p(Dan)}),
+		model.Grant{Relation: model.RelViewer, SubjectType: model.SubjectUser, UserID: p(Dan)}),
 
-	{Folder: entity.Folder{ID: AcmeAnnexPlans, TenantID: Acme, ProjectID: ProjAcmeAnnex, Name: "Annex Plans", CreatedBy: Bob, IsPrivate: private}},
+	{Folder: model.Folder{ID: AcmeAnnexPlans, TenantID: Acme, ProjectID: ProjAcmeAnnex, Name: "Annex Plans", CreatedBy: Bob, IsPrivate: private}},
 
 	folder(GlobexCompany, Globex, nil, "Company", Eve, private),
 	folder(GlobexBoard, Globex, nil, "Board", Eve, private),
@@ -237,7 +237,7 @@ var Albums = []AlbumSeed{
 	album(GlobexClientVisit, Globex, "Client visit", Eve, public),
 }
 
-var Documents = []entity.Document{
+var Documents = []model.Document{
 	document(AcmeHandbook, Acme, AcmeCompany, "Handbook", Bob),
 	document(AcmeSecret, Acme, AcmeBoard, "Secret", Bob),
 	document(AcmeQ3Plan, Acme, AcmeBoard, "Q3 Plan", Bob),
@@ -254,7 +254,7 @@ var Documents = []entity.Document{
 	document(GlobexClientBrief, Globex, GlobexClient, "Client Brief", Eve),
 }
 
-var Photos = []entity.Photo{
+var Photos = []model.Photo{
 	photo(AcmeKickoff, Acme, AcmeAllHands, "Kickoff", Bob),
 	photo(AcmeOffsiteShot, Acme, AcmeOffsite, "Offsite Shot", Bob),
 	photo(AcmeLobby, Acme, AcmeClientVisit, "Lobby", Bob),
@@ -264,44 +264,44 @@ var Photos = []entity.Photo{
 	photo(GlobexLobby, Globex, GlobexClientVisit, "Lobby", Eve),
 }
 
-func owner(tenant, objectType, objectID, userID string) entity.Grant {
-	return entity.OwnerGrant("", tenant, objectType, objectID, userID)
+func owner(tenant, objectType, objectID, userID string) model.Grant {
+	return model.OwnerGrant("", tenant, objectType, objectID, userID)
 }
 
 // Grants returns every resource_grants row: owners and shares. Ids are left
 // empty for the writer to assign.
-func Grants() []entity.Grant {
-	var out []entity.Grant
+func Grants() []model.Grant {
+	var out []model.Grant
 	for _, s := range Folders {
 		f := s.Folder
-		out = append(out, owner(f.TenantID, entity.ObjectTypeFolder, f.ID, f.CreatedBy))
+		out = append(out, owner(f.TenantID, model.ObjectTypeFolder, f.ID, f.CreatedBy))
 		for _, g := range s.Shares {
-			g.TenantID, g.ObjectType, g.ObjectID = f.TenantID, entity.ObjectTypeFolder, f.ID
+			g.TenantID, g.ObjectType, g.ObjectID = f.TenantID, model.ObjectTypeFolder, f.ID
 			out = append(out, g)
 		}
 	}
 	for _, s := range Albums {
 		a := s.Album
-		out = append(out, owner(a.TenantID, entity.ObjectTypeAlbum, a.ID, a.CreatedBy))
+		out = append(out, owner(a.TenantID, model.ObjectTypeAlbum, a.ID, a.CreatedBy))
 		for _, g := range s.Shares {
-			g.TenantID, g.ObjectType, g.ObjectID = a.TenantID, entity.ObjectTypeAlbum, a.ID
+			g.TenantID, g.ObjectType, g.ObjectID = a.TenantID, model.ObjectTypeAlbum, a.ID
 			out = append(out, g)
 		}
 	}
 	for _, d := range Documents {
-		out = append(out, owner(d.TenantID, entity.ObjectTypeDocument, d.ID, d.CreatedBy))
+		out = append(out, owner(d.TenantID, model.ObjectTypeDocument, d.ID, d.CreatedBy))
 	}
 	for _, ph := range Photos {
-		out = append(out, owner(ph.TenantID, entity.ObjectTypePhoto, ph.ID, ph.CreatedBy))
+		out = append(out, owner(ph.TenantID, model.ObjectTypePhoto, ph.ID, ph.CreatedBy))
 	}
 	return out
 }
 
 // withoutOwner drops owner tuples; they come from Grants().
-func withoutOwner(ts []entity.Tuple) []entity.Tuple {
-	var out []entity.Tuple
+func withoutOwner(ts []model.Tuple) []model.Tuple {
+	var out []model.Tuple
 	for _, t := range ts {
-		if t.Relation != entity.RelOwner {
+		if t.Relation != model.RelOwner {
 			out = append(out, t)
 		}
 	}
@@ -309,8 +309,8 @@ func withoutOwner(ts []entity.Tuple) []entity.Tuple {
 }
 
 // Tuples returns the full seeded tuple set.
-func Tuples() ([]entity.Tuple, error) {
-	var out []entity.Tuple
+func Tuples() ([]model.Tuple, error) {
+	var out []model.Tuple
 	for _, person := range People {
 		if person.SystemAdmin {
 			out = append(out, fga.PlatformAdmin(person.ID))

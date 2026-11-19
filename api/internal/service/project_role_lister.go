@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -19,7 +19,7 @@ func NewProjectRoleLister(projects gateway.ProjectGateway, roles gateway.Project
 }
 
 // List is for project member managers: they offer project roles next to the built-in ones.
-func (s *projectRoleLister) List(ctx context.Context, actor, tenantID, projectID string) ([]entity.ProjectRole, error) {
+func (s *projectRoleLister) List(ctx context.Context, actor, tenantID, projectID string) ([]model.ProjectRole, error) {
 	if _, err := loadProject(ctx, s.projects, tenantID, projectID); err != nil {
 		return nil, err
 	}

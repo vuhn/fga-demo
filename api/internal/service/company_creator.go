@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -22,20 +22,20 @@ func NewCompanyCreator(tenants gateway.TenantGateway, companies gateway.CompanyG
 
 // Create adds an unclaimed subcontractor company on behalf of a tenant. The
 // company is a display record: it has no tuples and grants nothing.
-func (s *companyCreator) Create(ctx context.Context, actor, tenantID string, in usecase.CreateCompanyInput) (entity.Company, error) {
-	if err := s.authz.PlatformOr(ctx, actor, "can_manage_members", tenantID, entity.ErrForbidden); err != nil {
-		return entity.Company{}, err
+func (s *companyCreator) Create(ctx context.Context, actor, tenantID string, in usecase.CreateCompanyInput) (model.Company, error) {
+	if err := s.authz.PlatformOr(ctx, actor, "can_manage_members", tenantID, model.ErrForbidden); err != nil {
+		return model.Company{}, err
 	}
-	name, err := entity.CleanName("name", in.Name)
+	name, err := model.CleanName("name", in.Name)
 	if err != nil {
-		return entity.Company{}, err
+		return model.Company{}, err
 	}
 	if _, err := s.tenants.Get(ctx, tenantID); err != nil {
-		return entity.Company{}, err
+		return model.Company{}, err
 	}
-	c := entity.Company{ID: s.ids.NewID(), Name: name, NameKey: entity.CompanyNameKey(name), TaxID: strings.TrimSpace(in.TaxID), CreatedByTenantID: tenantID}
+	c := model.Company{ID: s.ids.NewID(), Name: name, NameKey: model.CompanyNameKey(name), TaxID: strings.TrimSpace(in.TaxID), CreatedByTenantID: tenantID}
 	if err := s.companies.Create(ctx, c); err != nil {
-		return entity.Company{}, err
+		return model.Company{}, err
 	}
 	return s.companies.Get(ctx, c.ID)
 }

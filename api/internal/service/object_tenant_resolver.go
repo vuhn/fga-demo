@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
 
@@ -24,28 +24,28 @@ func NewObjectTenantResolver(folders gateway.FolderGateway, documents gateway.Do
 }
 
 func (r *objectTenantResolver) TenantOf(ctx context.Context, objectType, objectID string) (string, error) {
-	if err := entity.RequireUUID("id", objectID); err != nil {
+	if err := model.RequireUUID("id", objectID); err != nil {
 		return "", err
 	}
 	switch objectType {
-	case entity.ObjectTypeFolder:
+	case model.ObjectTypeFolder:
 		f, err := r.folders.Get(ctx, objectID)
 		return f.TenantID, err
-	case entity.ObjectTypeDocument:
+	case model.ObjectTypeDocument:
 		d, err := r.documents.Get(ctx, objectID)
 		return d.TenantID, err
-	case entity.ObjectTypeAlbum:
+	case model.ObjectTypeAlbum:
 		a, err := r.albums.Get(ctx, objectID)
 		return a.TenantID, err
-	case entity.ObjectTypeProject:
+	case model.ObjectTypeProject:
 		p, err := r.projects.Get(ctx, objectID)
 		return p.TenantID, err
-	case entity.ObjectTypePhoto:
+	case model.ObjectTypePhoto:
 		p, err := r.photos.Get(ctx, objectID)
 		return p.TenantID, err
-	case entity.ObjectTypeBlueprint:
+	case model.ObjectTypeBlueprint:
 		b, err := r.blueprints.Get(ctx, objectID)
 		return b.TenantID, err
 	}
-	return "", entity.Invalid("unknown object type %q", objectType)
+	return "", model.Invalid("unknown object type %q", objectType)
 }

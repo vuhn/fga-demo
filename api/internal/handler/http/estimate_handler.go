@@ -7,7 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -33,49 +34,24 @@ func (h *EstimateHandler) Register(r Routes) {
 	g.GET("/blueprints/:id/estimates/:eid", h.getEstimate)
 }
 
-func estimateSummary(e entity.BlueprintEstimate) map[string]any {
-	return map[string]any{
-		"id": e.ID, "blueprint_id": e.BlueprintID, "version": e.Version,
-		"total_low": e.TotalLow, "total_base": e.TotalBase, "total_high": e.TotalHigh, "created_at": e.CreatedAt,
-	}
-}
-
-func estimateView(e entity.BlueprintEstimate) map[string]any {
-	m := estimateSummary(e)
-	m["result"] = e.Result
-	return m
-}
-
-func estimateSessionView(d usecase.EstimateSessionDetail) map[string]any {
-	msgs := make([]map[string]any, 0, len(d.Messages))
-	for _, x := range d.Messages {
-		msgs = append(msgs, map[string]any{"seq": x.Seq, "role": x.Role, "content": x.Content, "created_at": x.CreatedAt})
-	}
-	s := d.Session
-	return map[string]any{
-		"blueprint_id": s.BlueprintID, "blueprint_version": s.BlueprintVersion, "status": s.Status(), "turns": s.Seq,
-		"state": s.State, "messages": msgs, "created_by": s.CreatedBy, "created_at": s.CreatedAt, "updated_at": s.UpdatedAt,
-	}
-}
-
 func (h *EstimateHandler) startSession(c *gin.Context) {
 	d, err := h.uc.SessionCreator.Create(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusCreated, estimateSessionView(d), err)
+	respond(c, http.StatusCreated, mapper.EstimateSessionView(d), err)
 }
 
 func (h *EstimateHandler) listEstimates(c *gin.Context) {
 	es, err := h.uc.EstimateLister.List(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(es, estimateSummary), err)
+	respond(c, http.StatusOK, mapSlice(es, mapper.EstimateSummary), err)
 }
 
 func (h *EstimateHandler) getEstimate(c *gin.Context) {
 	e, err := h.uc.EstimateGetter.Get(c, actor(c), tenant(c), c.Param("id"), c.Param("eid"))
-	respond(c, http.StatusOK, estimateView(e), err)
+	respond(c, http.StatusOK, mapper.EstimateView(e), err)
 }
 
 func (h *EstimateHandler) getSession(c *gin.Context) {
 	d, err := h.uc.SessionGetter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, estimateSessionView(d), err)
+	respond(c, http.StatusOK, mapper.EstimateSessionView(d), err)
 }
 
 // send runs one agent turn as Server-Sent Events: progress, token, fact, question, rate and estimate events as
@@ -107,7 +83,7 @@ func (h *EstimateHandler) send(c *gin.Context) {
 		c.Writer.Flush()
 	}
 	d, err := h.uc.Messenger.Send(c.Request.Context(), actor(c), tenant(c), c.Param("id"), body.Message, body.Overrides,
-		func(ev entity.EstimateEvent) { emit(ev.Name, ev.Data) })
+		func(ev model.EstimateEvent) { emit(ev.Name, ev.Data) })
 	if err != nil {
 		if !started {
 			writeErr(c, err)
@@ -119,6 +95,6 @@ func (h *EstimateHandler) send(c *gin.Context) {
 		emit("error", data)
 		return
 	}
-	data, _ := json.Marshal(estimateSessionView(d))
+	data, _ := json.Marshal(mapper.EstimateSessionView(d))
 	emit("done", data)
 }

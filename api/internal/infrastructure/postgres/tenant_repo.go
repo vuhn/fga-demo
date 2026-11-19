@@ -6,8 +6,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type TenantRepo struct{ pool *pgxpool.Pool }
@@ -16,7 +16,7 @@ var _ gateway.TenantGateway = (*TenantRepo)(nil)
 
 func NewTenantRepo(pool *pgxpool.Pool) *TenantRepo { return &TenantRepo{pool: pool} }
 
-func (r *TenantRepo) Create(ctx context.Context, t entity.Tenant) error {
+func (r *TenantRepo) Create(ctx context.Context, t model.Tenant) error {
 	return inTx(ctx, r.pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `INSERT INTO tenants (id, slug, name) VALUES ($1, $2, $3)`, t.ID, t.Slug, t.Name); err != nil {
 			return err
@@ -26,21 +26,21 @@ func (r *TenantRepo) Create(ctx context.Context, t entity.Tenant) error {
 		}
 		// Every tenant owns one company; its members are the internal members.
 		_, err := tx.Exec(ctx, `INSERT INTO companies (id, name, name_key, created_by_tenant_id, tenant_id, claimed_at)
-			VALUES (COALESCE(NULLIF($4, '')::uuid, gen_random_uuid()), $2, $3, $1, $1, now())`, t.ID, t.Name, entity.CompanyNameKey(t.Name), t.CompanyID)
+			VALUES (COALESCE(NULLIF($4, '')::uuid, gen_random_uuid()), $2, $3, $1, $1, now())`, t.ID, t.Name, model.CompanyNameKey(t.Name), t.CompanyID)
 		return err
 	})
 }
 
 // query loads tenants with their products.
-func (r *TenantRepo) query(ctx context.Context, q string, args ...any) ([]entity.Tenant, error) {
+func (r *TenantRepo) query(ctx context.Context, q string, args ...any) ([]model.Tenant, error) {
 	rows, err := r.pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, mapErr(err)
 	}
 	defer rows.Close()
-	out := []entity.Tenant{}
+	out := []model.Tenant{}
 	for rows.Next() {
-		var t entity.Tenant
+		var t model.Tenant
 		if err := rows.Scan(&t.ID, &t.Slug, &t.Name, &t.CreatedAt); err != nil {
 			return nil, err
 		}
@@ -57,32 +57,32 @@ func (r *TenantRepo) query(ctx context.Context, q string, args ...any) ([]entity
 	return out, nil
 }
 
-func (r *TenantRepo) Get(ctx context.Context, id string) (entity.Tenant, error) {
+func (r *TenantRepo) Get(ctx context.Context, id string) (model.Tenant, error) {
 	ts, err := r.query(ctx, `SELECT id, slug, name, created_at FROM tenants WHERE id = $1`, id)
 	if err != nil {
-		return entity.Tenant{}, err
+		return model.Tenant{}, err
 	}
 	if len(ts) == 0 {
-		return entity.Tenant{}, entity.ErrNotFound
+		return model.Tenant{}, model.ErrNotFound
 	}
 	return ts[0], nil
 }
 
-func (r *TenantRepo) List(ctx context.Context) ([]entity.Tenant, error) {
+func (r *TenantRepo) List(ctx context.Context) ([]model.Tenant, error) {
 	return r.query(ctx, `SELECT id, slug, name, created_at FROM tenants ORDER BY name`)
 }
 
-func (r *TenantRepo) ListByIDs(ctx context.Context, ids []string) ([]entity.Tenant, error) {
+func (r *TenantRepo) ListByIDs(ctx context.Context, ids []string) ([]model.Tenant, error) {
 	return r.query(ctx, `SELECT id, slug, name, created_at FROM tenants WHERE id = ANY($1::uuid[]) ORDER BY name`, ids)
 }
 
-func (r *TenantRepo) UpdateName(ctx context.Context, id, name string) (entity.Tenant, error) {
+func (r *TenantRepo) UpdateName(ctx context.Context, id, name string) (model.Tenant, error) {
 	tag, err := r.pool.Exec(ctx, `UPDATE tenants SET name = $2 WHERE id = $1`, id, name)
 	if err != nil {
-		return entity.Tenant{}, mapErr(err)
+		return model.Tenant{}, mapErr(err)
 	}
 	if tag.RowsAffected() == 0 {
-		return entity.Tenant{}, entity.ErrNotFound
+		return model.Tenant{}, model.ErrNotFound
 	}
 	return r.Get(ctx, id)
 }

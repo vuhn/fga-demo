@@ -5,7 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/entity"
+	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
@@ -41,22 +42,9 @@ func (h *FolderHandler) Register(r Routes) {
 	g.DELETE("/folders/:id/grants", h.revoke)
 }
 
-func folderView(f entity.Folder) map[string]any {
-	return map[string]any{
-		"id": f.ID, "tenant_id": f.TenantID, "project_id": f.ProjectID, "parent_id": f.ParentID, "name": f.Name, "is_private": f.IsPrivate,
-		"created_by": f.CreatedBy, "created_at": f.CreatedAt,
-	}
-}
-
-func visibleFolderView(v entity.Visible[entity.Folder]) map[string]any {
-	m := folderView(v.Value)
-	m["permissions"] = v.Perms
-	return m
-}
-
 func (h *FolderHandler) list(c *gin.Context) {
 	fs, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("project_id"))
-	respond(c, http.StatusOK, mapSlice(fs, visibleFolderView), err)
+	respond(c, http.StatusOK, mapSlice(fs, mapper.VisibleFolderView), err)
 }
 
 func (h *FolderHandler) create(c *gin.Context) {
@@ -70,16 +58,16 @@ func (h *FolderHandler) create(c *gin.Context) {
 		return
 	}
 	if body.IsPrivate == nil {
-		writeErr(c, entity.Invalid("is_private is required"))
+		writeErr(c, model.Invalid("is_private is required"))
 		return
 	}
 	f, err := h.uc.Creator.Create(c, actor(c), tenant(c), usecase.CreateFolderInput{ProjectID: body.ProjectID, Name: body.Name, ParentID: body.ParentID, IsPrivate: *body.IsPrivate})
-	respond(c, http.StatusCreated, folderView(f), err)
+	respond(c, http.StatusCreated, mapper.FolderView(f), err)
 }
 
 func (h *FolderHandler) get(c *gin.Context) {
 	f, err := h.uc.Getter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, visibleFolderView(f), err)
+	respond(c, http.StatusOK, mapper.VisibleFolderView(f), err)
 }
 
 func (h *FolderHandler) rename(c *gin.Context) {
@@ -88,20 +76,20 @@ func (h *FolderHandler) rename(c *gin.Context) {
 		return
 	}
 	f, err := h.uc.Renamer.Rename(c, actor(c), tenant(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, folderView(f), err)
+	respond(c, http.StatusOK, mapper.FolderView(f), err)
 }
 
 func (h *FolderHandler) setVisibility(c *gin.Context) {
-	var body visibilityBody
+	var body mapper.VisibilityBody
 	if !bind(c, &body) {
 		return
 	}
 	if body.IsPrivate == nil {
-		writeErr(c, entity.Invalid("is_private is required"))
+		writeErr(c, model.Invalid("is_private is required"))
 		return
 	}
 	f, err := h.uc.VisibilitySetter.SetVisibility(c, actor(c), tenant(c), c.Param("id"), *body.IsPrivate)
-	respond(c, http.StatusOK, folderView(f), err)
+	respond(c, http.StatusOK, mapper.FolderView(f), err)
 }
 
 func (h *FolderHandler) delete(c *gin.Context) {
@@ -110,27 +98,27 @@ func (h *FolderHandler) delete(c *gin.Context) {
 
 func (h *FolderHandler) listGrants(c *gin.Context) {
 	gs, err := h.uc.GrantLister.ListGrants(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(gs, grantView), err)
+	respond(c, http.StatusOK, mapSlice(gs, mapper.GrantView), err)
 }
 
 func (h *FolderHandler) listShareCandidates(c *gin.Context) {
 	ms, err := h.uc.CandidateLister.ListShareCandidates(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, memberView), err)
+	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
 }
 
 func (h *FolderHandler) share(c *gin.Context) {
-	var body shareBody
+	var body mapper.ShareBody
 	if !bind(c, &body) {
 		return
 	}
-	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.input())
-	respond(c, http.StatusCreated, grantView(g), err)
+	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.Input())
+	respond(c, http.StatusCreated, mapper.GrantView(g), err)
 }
 
 func (h *FolderHandler) revoke(c *gin.Context) {
-	var body shareBody
+	var body mapper.ShareBody
 	if !bind(c, &body) {
 		return
 	}
-	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.input()))
+	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.Input()))
 }

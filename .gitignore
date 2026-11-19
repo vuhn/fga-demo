@@ -5,3 +5,10 @@ blueprint-engine/.venv
 blueprint-engine/out
 __pycache__
 .pytest_cache
+.claude/worktrees/
+.mcp.json
+agent/.venv
+agent/out
+agent/**/__pycache__
+.pytest_cache
+proto/python/.venv

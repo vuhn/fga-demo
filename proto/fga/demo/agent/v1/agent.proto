@@ -1,0 +1,136 @@
+syntax = "proto3";
+
+package fga.demo.agent.v1;
+
+import "fga/demo/common/v1/common.proto";
+
+option go_package = "github.com/vuhn/fga-demo/proto/go/fga/demo/agent/v1;agentv1";
+
+// All LLM work. Stateless: the API sends everything a call needs (including the opaque conversation state)
+// and stores what comes back. The Agent calls the Engine only as tools. A refusal before the first stream
+// message is a gRPC status with an ErrorDetail; after the first message it is an `Error` event.
+service AgentService {
+  rpc BriefFromText(BriefFromTextRequest) returns (BriefFromTextResponse);
+  rpc Revise(ReviseRequest) returns (stream BlueprintEvent);
+  rpc RevisePlan(RevisePlanRequest) returns (stream BlueprintEvent);
+  rpc Review(ReviewRequest) returns (stream BlueprintEvent);
+  rpc EstimateTurn(EstimateTurnRequest) returns (stream EstimateEvent);
+}
+
+// --- brief and plan chat ----------------------------------------------------------------------------------
+
+message BriefFromTextRequest {
+  string prompt = 1;  // at most 4000 characters (the API truncates)
+  bool enhance = 2;
+}
+
+message BriefFromTextResponse {
+  bytes brief_json = 1;
+  repeated string notes = 2;
+}
+
+message ReviseRequest {
+  bytes brief_json = 1;
+  bytes previous_model_json = 2;
+  string message = 3;
+  repeated string history = 4;  // earlier chat messages, oldest first
+}
+
+message RevisePlanRequest {
+  bytes model_json = 1;
+  string message = 2;
+  repeated string history = 3;
+}
+
+message ReviewRequest {
+  bytes brief_json = 1;
+  bytes previous_model_json = 2;
+  repeated string history = 3;
+  int32 max_rounds = 4;
+}
+
+// Progress is shown, never stored. kind is `step` (stage one of ask_model, retry, ops, layout, checks,
+// review) or `thinking` (a piece of the model's reasoning in `message`).
+message Progress {
+  string kind = 1;
+  string stage = 2;
+  string message = 3;
+}
+
+// The result of a revise or review: the same outcome the API stores as a version.
+message BlueprintOutcome {
+  bytes brief_json = 1;  // empty for a plan chat
+  bytes model_json = 2;
+  repeated fga.demo.common.v1.Check checks = 3;
+  repeated string issues = 4;
+  bool ok = 5;
+  repeated string notes = 6;
+  int32 attempts = 7;
+  repeated string history = 8;  // what each round did (review) or the applied ops
+  string message = 9;
+}
+
+message Error {
+  int32 status = 1;       // HTTP status the API relays: 422, 502, 504, 500
+  string error = 2;       // invalid_edit | llm_unavailable | engine_unavailable | timeout | internal
+  string message = 3;
+}
+
+message BlueprintEvent {
+  oneof event {
+    Progress progress = 1;
+    BlueprintOutcome result = 2;
+    Error error = 3;
+  }
+}
+
+// --- estimate chat ----------------------------------------------------------------------------------------
+
+message ChatMessage {
+  string role = 1;  // user | assistant
+  string content = 2;
+}
+
+message EstimateTurnRequest {
+  bytes model_json = 1;        // the blueprint version's plan
+  bytes state_json = 2;        // the Agent's conversation state, opaque to the API
+  string message = 3;          // at most 2000 characters
+  repeated ChatMessage messages = 4;
+  map<string, double> rate_overrides = 5;  // rate code -> VND per unit
+}
+
+message EstimateQuestion {
+  string id = 1;
+  string text = 2;
+  repeated string options = 3;
+  bool allow_unknown = 4;
+}
+
+message EstimateEvent {
+  message Token {
+    string text = 1;
+  }
+  message FactEvent {
+    string name = 1;
+    string value = 2;
+    string source = 3;  // user | plan | assumed
+  }
+  // The final message of a turn: the new state, the full reply text and, when the turn priced the plan,
+  // the estimate.
+  message Done {
+    bytes state_json = 1;
+    string status = 2;  // interviewing | researching | ready | failed
+    string reply = 3;
+    bytes estimate_json = 4;
+  }
+  oneof event {
+    Progress progress = 1;
+    Token token = 2;
+    FactEvent fact = 3;
+    EstimateQuestion question = 4;
+    fga.demo.common.v1.RateResult rate = 5;
+    bytes estimate_json = 6;
+    Done done = 7;
+    Error error = 8;
+  }
+}
