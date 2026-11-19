@@ -5,7 +5,7 @@ OpenFGA multi-tenant authorization demo: Go API in `api/` (its own module, Gin, 
 ## Source of truth
 
 - Architecture overviews: `ARCHITECTURE.md` (system; read first), `api/ARCHITECTURE.md` (read when touching Go layers), `web/ARCHITECTURE.md` (read when touching the panel). Detailed reference lives in `docs/`: `authorization-model.md` and `tuple-catalog.md` (model or relation builders), `decision-catalog.md` (any new action or Check), `http-api.md` (routes), `database-schema.md` and `seed-data.md` (migrations, seed), `web-ui.md` (UI), `testing.md` (tests), `operations.md` (compose, env). `README.md` is the story and the 11-step click script. **Keep code, the architecture files, `docs/`, and `README.md` aligned in the same change.** If behavior changes, update the spec first.
-- Session state lives in `docs/harness/`: `progress.md` (where we are), `decisions.md`, `clean-state-checklist.md`, `evaluator-rubric.md`, `quality.md`.
+- Session state lives in `docs/harness/`: `progress.md` (where we are), `decisions.md`, `sdlc.md`, `lessons.md`, `clean-state-checklist.md`, `evaluator-rubric.md`, `quality.md`.
 - `api/fga/model.fga` must equal the DSL block in `docs/authorization-model.md` exactly.
 - Seed ids/tuples (with each container's private/public flag) live once in `api/internal/seed/world.go` (one slice per domain); `cmd/seed` writes them and the integration tests assert against them. Do not duplicate ids elsewhere.
 
@@ -78,6 +78,10 @@ Restart `cmd/api` after every reseed (the store id changes). Seed accounts: ada,
 - Shared UI helpers live in `web/src/ui.tsx`: `run(fn, successMsg)` for mutations (toast on success or error), `notifyError`, `confirmDanger`, `PageHeader`, `RoleBadge`/`AffiliationBadge` (display only). Use them instead of inline error state.
 - Pages are `React.lazy` routes; vendor chunks are split in `vite.config.ts`. Keep icon imports named (`import { IconX } from "@tabler/icons-react"`) so they tree-shake.
 - The user's `~/.npm` cache has root-owned files; run npm with `npm_config_cache=$(mktemp -d)` instead of sudo.
+
+## AI-native SDLC (features, not small fixes)
+
+`/feature <name>` runs clarify requirements -> system design -> DB design -> plan -> build -> test -> release docs. Each stage has a skill in `.claude/skills/` and writes a committed artifact in `specs/<feature>/`; a person approves each artifact before the next stage. `design-reviewer` checks artifacts, `authz-reviewer` checks code. DB changes follow the `db-design` skill (never breaking the running system; `scripts/check-migrations.sh` and a hook enforce it; committed migrations are never edited). Go work follows the `go-api` skill. How to use it: `docs/harness/using-the-harness.md`. Full map: `docs/harness/sdlc.md`.
 
 ## Session protocol
 

@@ -4,3 +4,4 @@ Single source of agent instructions: [CLAUDE.md](CLAUDE.md). Read it first; do n
 
 - Verify with `make check` (static) and `make verify-live` (needs Docker; resets data).
 - Session state: `docs/harness/progress.md`.
+- Features follow the AI-native SDLC: `/feature <name>`, artifacts in `specs/`, map in `docs/harness/sdlc.md`.

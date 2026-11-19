@@ -31,6 +31,8 @@ test-integration:
 check:
 	cd api && go vet ./... && go vet -tags=integration ./... && go test ./...
 	bash scripts/check-architecture.sh
+	bash scripts/check-migrations.sh
+	bash scripts/check-specs.sh
 	cd blueprint-engine && uv run pytest -q
 	cd web && npm run build
 

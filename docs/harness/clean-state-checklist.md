@@ -10,3 +10,5 @@ Run before ending a session. A session is not done until every box holds.
 - [ ] `progress.md` has current state, blockers, and the next best action.
 - [ ] No stray debug output, commented-out code, TODOs, or temp files.
 - [ ] A fresh session can start with `make init` without manual fixes.
+- [ ] For a feature: each `specs/<feature>/` artifact is approved or `skipped: <reason>` and its README status table is current.
+- [ ] New migrations pass `scripts/check-migrations.sh` (part of `make check`) and are justified in `db-design.md`.

@@ -2,6 +2,11 @@
 
 Why the repo is shaped this way. One entry per decision; add new ones at the top.
 
+## AI-native SDLC: committed specs/, skills for stages, scripts and hooks for guarantees
+- **Reason:** the author's SDLC (requirements, design, DB design, plan, build, test, release, monitor) is run as an artifact chain in `specs/<feature>/` so each stage hands off a reviewed file and git is the audit trail. Skills are advisory, so the non-negotiable DB rule (never break the running system) is also a lint in `make check` and a hook that blocks edits to committed migrations.
+- **Rejected:** keeping artifacts in the gitignored `prds/` (no history); Jira-style tracking; scheduled error-triage automation (release and monitoring stay docs and templates, a person releases).
+- **Where:** `docs/harness/sdlc.md`, `.claude/skills/`, `.claude/settings.json`, `scripts/check-migrations.sh`, `scripts/check-specs.sh`.
+
 ## Allow-only model, no `but not`, no conditions
 - **Reason:** "Private wins" is an intersection over the ancestor chain, so deny semantics are unnecessary and every tuple is auditable in the Playground.
 - **Rejected:** deny tuples / `but not`: makes list results and ListObjects harder to reason about.
