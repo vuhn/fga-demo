@@ -27,7 +27,7 @@ The Agent calls the Engine only as tools. Nothing else is allowed: the Engine ne
 
 ## Errors
 
-Refusals are gRPC statuses with an `ErrorDetail` (`common.v1`):
+Refusals are gRPC statuses with an `ErrorDetail` (`common.v1`), serialized into the trailing metadata key `error-detail-bin` (the status message repeats the text):
 
 | Status + detail code | API error | HTTP |
 | --- | --- | --- |
@@ -50,4 +50,4 @@ Which API service calls which: Agent: `blueprint_drafter`, `blueprint_reviser`, 
 
 ## Status
 
-The contracts and generated stubs exist; nothing serves them yet. The HTTP engine on :8090 stays the live path until the plan's T9 and T14/T15 switch each flow (see the plan's strategy and release order).
+The contracts and generated stubs exist. The Engine serves the catalog, brief, plan and estimate RPCs in-process (`fga_engine/handler/grpc`: `EngineServicer`, `build_server` with health and 32 MB limits; T7a); the file RPCs and the `serve` entrypoint on :8092 come with T7b, so nothing listens yet. The HTTP engine on :8090 stays the live path until the plan's T9 and T14/T15 switch each flow (see the plan's strategy and release order).
