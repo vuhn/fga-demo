@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .handler.grpc.brief_handler import BriefHandler, BriefUsecases
+from .handler.grpc.catalog_handler import CatalogHandler, CatalogUsecases
+from .handler.grpc.estimate_handler import EstimateHandler, EstimateUsecases
+from .handler.grpc.file_handler import FileHandler, FileUsecases
+from .handler.grpc.plan_handler import PlanHandler, PlanUsecases
+from .handler.grpc.servicer import EngineServicer
 from .infrastructure.plan_drawing import (EzdxfDxfPatching, EzdxfDxfReading, EzdxfPlanDrawing, EzdxfPlanRendering,
                                           RasterPlanConversion)
 from .service.brief_ops_applier import BriefOpsApplierService
@@ -69,3 +75,18 @@ def build_engine() -> Engine:
                   plan_renderer=PlanRendererService(rendering), dxf_importer=DxfImporterService(EzdxfDxfReading(), rendering),
                   plan_converter=PlanConverterService(RasterPlanConversion()),
                   dxf_patcher=DxfPatcherService(EzdxfDxfPatching()))
+
+
+def build_servicer(engine: Engine | None = None) -> EngineServicer:
+    """The gRPC delivery layer: one handler per domain, each with only the use cases it calls."""
+    e = engine or build_engine()
+    return EngineServicer(
+        CatalogHandler(CatalogUsecases(tool_catalog=e.tool_catalog)),
+        BriefHandler(BriefUsecases(draft_normalizer=e.draft_normalizer, generator=e.generator,
+                                   brief_ops_applier=e.brief_ops_applier)),
+        PlanHandler(PlanUsecases(plan_creator=e.plan_creator, plan_drawer=e.plan_drawer,
+                                 plan_ops_applier=e.plan_ops_applier, checks_runner=e.checks_runner,
+                                 plan_summarizer=e.plan_summarizer)),
+        EstimateHandler(EstimateUsecases(takeoff=e.takeoff, estimate_pricer=e.estimate_pricer)),
+        FileHandler(FileUsecases(plan_converter=e.plan_converter, dxf_importer=e.dxf_importer,
+                                 dxf_patcher=e.dxf_patcher, plan_renderer=e.plan_renderer)))

@@ -23,17 +23,17 @@ done
 # 2. Tuple formatting lives only in infrastructure/fga.
 hits=$(grep -rnE '"(user|folder|document|album|photo|blueprint|tenant|role|product|platform|system)[:#]' --include='*.go' api/internal api/cmd \
   | grep -v 'api/internal/infrastructure/fga/' | grep -v '_test\.go' | grep -v 'api/internal/seed/' \
-  | grep -vE '^\S+:[0-9]+:\s*//' | grep -v 'domain/entity/authz.go')
+  | grep -vE '^\S+:[0-9]+:\s*//' | grep -v 'domain/model/authz.go')
 if [ -n "$hits" ]; then
   violation "tuple or object-id literal outside infrastructure/fga:
 $hits" \
-  "services pass entity.Tuple through; only the *Relations builders format 'type:id#relation' strings" \
+  "services pass model.Tuple through; only the *Relations builders format 'type:id#relation' strings" \
   "add or reuse a builder in api/internal/infrastructure/fga/*_relations.go and call it through the relation gateway"
 fi
 
 # 3. Never permit anything by branching on role/affiliation strings.
 allow='member_helper.go|member_role_changer.go|member_assignment.go'
-hits=$(grep -rnE '\.(Role|Affiliation) *(==|!=)|case +entity\.(Role|Affiliation)' --include='*.go' api/internal/service api/internal/usecase api/internal/handler \
+hits=$(grep -rnE '\.(Role|Affiliation) *(==|!=)|case +model\.(Role|Affiliation)' --include='*.go' api/internal/service api/internal/usecase api/internal/handler \
   | grep -v '_test\.go' | grep -vE "$allow")
 if [ -n "$hits" ]; then
   violation "branching on memberships.role/affiliation:
@@ -66,7 +66,22 @@ $hits" \
   "add a rule to FEATURES or ACTIONS and use useCan / useAllows / <Can> / canAct in the component"
 fi
 
-# 7. Layer rules of the Python services (their own script; known violations are ratcheted down).
+# 7. Go layer layout (the same words as the Python services): business data lives in domain/model (never domain/entity),
+# and a handler's DTOs and view conversions live in the domain's <domain>_mapper.go, not in the handler file.
+if [ -d api/internal/domain/entity ]; then
+  violation "api/internal/domain/entity exists" \
+    "business data is domain/model in every service; 'entity' only names a technology's own row or wire shape" \
+    "git mv api/internal/domain/entity api/internal/domain/model"
+fi
+hits=$(grep -nE '^(func [a-z][A-Za-z]*(View|Views|Summary)\(|type [a-z][A-Za-z]*JSON )' api/internal/handler/http/*_handler.go api/internal/handler/http/middleware.go 2>/dev/null)
+if [ -n "$hits" ]; then
+  violation "DTO or view conversion inside a handler file:
+$hits" \
+    "a handler decodes, calls one use case and encodes; the JSON shapes and the model <-> DTO conversions live in <domain>_mapper.go (one per domain, like the Python mapper/ folders)" \
+    "move it to api/internal/handler/http/<domain>_mapper.go"
+fi
+
+# 8. Layer rules of the Python services (their own script; known violations are ratcheted down).
 bash scripts/check-architecture-python.sh || fail=1
 
 if [ "$fail" -ne 0 ]; then

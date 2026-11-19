@@ -110,10 +110,23 @@ for svc in "$ROOT"/agent/src/*; do
   done
 done
 
+# The Engine's delivery layer follows the same DTO rule (its domain and infrastructure are refactored later).
+for svc in "$ROOT"/blueprint-engine/src/*; do
+  dir=handler/grpc
+  [ -d "$svc/$dir" ] || continue
+  while IFS= read -r f; do
+    case "$f" in */mapper/*) ;; *) report agent-dto-in-mapper "${f#$ROOT/}" "converting protobuf DTOs to and from domain models is the mappers' job" "move the conversion to $dir/mapper/<model>_mapper.py";; esac
+  done < <(grep -rlE '^[[:space:]]*from[[:space:]]+[A-Za-z_.]*gen\.fga[A-Za-z_.]*[[:space:]]+import[[:space:]]+[a-z]+_pb2([[:space:]]|$)' --include='*.py' "$svc/$dir" 2>/dev/null | grep -v '/gen/')
+  for f in "$svc/$dir"/mapper/*.py; do
+    [ -f "$f" ] || continue
+    n=$(basename "$f"); case "$n" in __init__.py|*_mapper.py) ;; *) report agent-dto-in-mapper "${f#$ROOT/}" "mapper files are named after the model they convert" "rename to <model>_mapper.py";; esac
+  done
+done
+
 # 9. handler/ is the delivery layer, like Go's handler/http: `<domain>_handler.py` endpoint classes (one per domain, own
 # use cases, thin: decode, call one use case, encode through mapper/) plus delivery plumbing (servicer, server, mapper/, and common/<kind>_helper.py for what the handlers share,
 # errors, mapper/). Delivery code imports no service, adapter or domain logic (only models, errors and gateway types).
-for svc in "$ROOT"/agent/src/*; do
+for svc in "$ROOT"/agent/src/* "$ROOT"/blueprint-engine/src/*; do
   dir="$svc/handler/grpc"
   [ -d "$dir" ] || continue
   for f in "$dir"/*.py; do
@@ -135,7 +148,7 @@ ROOT="$ROOT" python3 "$(cd "$(dirname "$0")" && pwd)/check-python-shape.py" || f
 
 # 11. Common code stays in the layer that uses it: a handler helper in handler/, a service helper in service/helper/ (its
 # interface in usecase/helper/), an infrastructure helper in infrastructure/. Nowhere else (domain has no helpers).
-for svc in "$ROOT"/agent/src/*; do
+for svc in "$ROOT"/agent/src/* "$ROOT"/blueprint-engine/src/*; do
   while IFS= read -r f; do
     rel=${f#$svc/}
     case "$rel" in
@@ -146,7 +159,7 @@ for svc in "$ROOT"/agent/src/*; do
   done < <(find "$svc" -type f -name '*.py' \( -name '*helper*' -o -path '*/common/*' -o -name '*util*' \) -not -path '*/gen/*' -not -name '__init__.py' 2>/dev/null)
 done
 # usecase/helper/<x>.py has its implementation in service/helper/<x>.py, like usecase/<x>.py has service/<x>.py.
-for svc in "$ROOT"/agent/src/*; do
+for svc in "$ROOT"/agent/src/* "$ROOT"/blueprint-engine/src/*; do
   for f in "$svc"/usecase/helper/*.py; do
     [ -f "$f" ] || continue
     n=$(basename "$f"); [ "$n" = "__init__.py" ] && continue
@@ -154,7 +167,7 @@ for svc in "$ROOT"/agent/src/*; do
   done
 done
 
-# 12. The layer layout of the Agent, as in the Go API: domain{model,gateway}, usecase{helper}, service{helper,prompts},
+# 12. The layer layout of the Agent (the Engine joins when its flat domain/ and root modules are refactored), as in the Go API: domain{model,gateway}, usecase{helper}, service{helper,prompts},
 # infrastructure/<technology>, handler/<transport>; the package root holds only the composition root and the entrypoint.
 layout() { # dir allowed-entry...   (every entry of dir must be one of the names; __pycache__ and gen are ignored)
   local dir=$1; shift
@@ -196,7 +209,7 @@ done
 
 # 13. wire.py is the composition root: it imports the layers, no layer imports it (a handler defines its own
 # <Domain>Usecases, like the Go handlers; wire builds them). Only serve.py, the entrypoint, may import it.
-for svc in "$ROOT"/agent/src/*; do
+for svc in "$ROOT"/agent/src/* "$ROOT"/blueprint-engine/src/*; do
   while IFS= read -r f; do
     [ "$(basename "$f")" = serve.py ] && continue
     report agent-wire-import "${f#$ROOT/}" "the composition root depends on the layers, never the other way round" \

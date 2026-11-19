@@ -46,8 +46,17 @@ echo 'class P: ...' >"$t/agent/src/fga_agent/service/prompts/draft.py"
 echo 'x = 1' >"$t/agent/src/fga_agent/loose.py"
 echo 'x = 1' >"$t/agent/src/fga_agent/infrastructure/loose.py"
 echo 'from ...wire import App' >"$t/agent/src/fga_agent/handler/grpc/servicer.py.tmp" && mv "$t/agent/src/fga_agent/handler/grpc/servicer.py.tmp" "$t/agent/src/fga_agent/handler/grpc/wired.py"
+# the Engine's delivery layer is held to the same rules
+e="$t/blueprint-engine/src/fga_engine/handler/grpc"; mkdir -p "$e/mapper"
+echo 'from ...wire import Engine' >"$e/wired.py"
+echo 'from ...gen.fga.demo.engine.v1 import engine_pb2 as e' >"$e/pb_direct.py"
+echo 'x = 1' >"$e/stray.py"
+printf 'class H:\n    def Go(self, request, context):\n        self._uc.a.run()\n        for x in request:\n            self._uc.b.run()\n' >"$e/bad_handler.py"
 out=$(ROOT="$t" ALLOW=/dev/null bash scripts/check-architecture-python.sh || true)
 for rule in inner-sdk inner-infra engine-no-network engine-no-llm agent-no-engine gateway-per-kind usecase-service-pair agent-no-ambient-state agent-prompts-in-service agent-model-folder agent-entity-folder agent-dto-in-mapper agent-handler-shape agent-thin-handler agent-pure-mapper agent-model-data-only agent-helper-in-layer agent-usecase-interface agent-service-implements agent-layer-layout agent-wire-import; do
   echo "$out" | grep -q "\[$rule\]" || { echo "planted violation not flagged: $rule"; exit 1; }
+done
+for planted in wired.py pb_direct.py stray.py bad_handler.py; do
+  echo "$out" | grep -q "blueprint-engine/src/fga_engine/handler/grpc/$planted" || { echo "planted Engine handler violation not flagged: $planted"; exit 1; }
 done
 echo "python architecture rules flag every planted violation"

@@ -28,4 +28,5 @@ Scripts check names, imports and sizes (`scripts/check-architecture-python.sh`, 
 - Does each mapper convert both ways with no decisions in it? Is a DTO field leaking into a model (empty string for "absent", JSON text instead of a value)?
 - Is a prompt a pure function in `service/prompts/`, with model-specific tuning left in the adapter?
 - Does a use case read as business steps (validate, ask the Engine, ask the model, retry with feedback), with its dependencies passed in?
+- Go: does a handler hold a `...View` function or a `...JSON` type, or a service import `handler`? (`<domain>_mapper.go` holds the first two.) Is `entity` used for anything but a technology's own row or wire shape?
 - Would a new Engine operation need only a proto method, a gateway method, one `@rpc` adapter method and a mapper pair?

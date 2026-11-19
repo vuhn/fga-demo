@@ -107,6 +107,23 @@ class BriefResult(BaseModel):
     changed: bool = False  # the ops changed the brief
 
 
+class CheckReport(BaseModel):
+    """The checks of a plan, judged: whether it is ok and how many issues weigh on it (10 per failed error, 1 per warning)."""
+
+    checks: list[CheckResult]
+    ok: bool
+    issue_score: int
+
+
+class PlanEdit(BaseModel):
+    """A person's edit of an imported plan: the checked step, what the plan is now, what each op did, and whether it changed."""
+
+    step: PlanStep
+    summary: str
+    descriptions: list[str]
+    changed: bool
+
+
 def issue_score(res: GenerateResult) -> int:
     """Lower is better: an unbuildable brief is 1000+, then 10 per failed error check and 1 per warning."""
     from .checks import failed

@@ -8,17 +8,16 @@ import grpc
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 from ...gen.fga.demo.engine.v1 import engine_pb2_grpc as rpc
-from ...wire import Engine
 from .servicer import EngineServicer
 
 MAX_MESSAGE = 32 << 20
 SERVICE = "fga.demo.engine.v1.EngineService"
 
 
-def build_server(engine: Engine, workers: int = 8) -> grpc.Server:
+def build_server(servicer: EngineServicer, workers: int = 8) -> grpc.Server:
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=workers), options=[
         ("grpc.max_receive_message_length", MAX_MESSAGE), ("grpc.max_send_message_length", MAX_MESSAGE)])
-    rpc.add_EngineServiceServicer_to_server(EngineServicer(engine), server)
+    rpc.add_EngineServiceServicer_to_server(servicer, server)
     hs = health.HealthServicer()
     hs.set("", health_pb2.HealthCheckResponse.SERVING)
     hs.set(SERVICE, health_pb2.HealthCheckResponse.SERVING)

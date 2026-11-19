@@ -156,3 +156,23 @@ def test_dxf_patcher_turns_bad_json_into_an_edit_error():
 
     with pytest.raises(EditError):
         DxfPatcherService(Patching()).patch(b"x", "not json", "{}")
+
+
+def test_check_plan_judges_the_checks_and_scores_the_issues(imported):
+    report = ChecksRunnerService().check_plan(imported)
+    failed_errors = [c for c in report.checks if not c.ok and c.severity == "error"]
+    failed_warnings = [c for c in report.checks if not c.ok and c.severity == "warning"]
+    assert report.ok is (not failed_errors)
+    assert report.issue_score == 10 * len(failed_errors) + len(failed_warnings)
+    assert report.checks == ChecksRunnerService().run_checks(imported)
+
+
+def test_edit_plan_reports_the_summary_descriptions_and_whether_it_changed(imported):
+    room = imported.rooms[0]
+    ops = PlanOps(ops=[PlanRenameRoom(op="rename_room", room=room.id, name="Renamed room")])
+    edit = PlanOpsApplierService(ChecksRunnerService()).edit_plan(imported, ops)
+    assert edit.changed is True and edit.step.result.model != imported
+    assert len(edit.descriptions) == 1 and "Renamed room" in edit.descriptions[0]
+    assert edit.summary and edit.step.notes == ["edited: " + edit.descriptions[0]]
+    same = PlanOpsApplierService(ChecksRunnerService()).edit_plan(imported, PlanOps(ops=[PlanRenameRoom(op="rename_room", room=room.id, name=room.name)]))
+    assert same.changed is False

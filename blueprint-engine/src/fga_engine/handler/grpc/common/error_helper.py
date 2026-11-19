@@ -1,4 +1,4 @@
-"""Status mapping: refusals are INVALID_ARGUMENT with an ErrorDetail in the `error-detail-bin` trailer."""
+"""Handler helper: status mapping. Refusals are INVALID_ARGUMENT with an ErrorDetail in the `error-detail-bin` trailer."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ import uuid
 import grpc
 from pydantic import ValidationError
 
-from ...domain.edits import EditError
-from ...gen.fga.demo.common.v1 import common_pb2 as c
+from ....domain.edits import EditError
+from ....gen.fga.demo.common.v1 import common_pb2 as c
 
 log = logging.getLogger("fga_engine.grpc")
 DETAIL_KEY = "error-detail-bin"
