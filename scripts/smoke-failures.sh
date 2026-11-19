@@ -3,9 +3,8 @@
 # routes answer 502 `engine_unavailable` and which keep working. Non-destructive (the running stack is not
 # touched); the second API shares the database, and a throwaway blueprint is created and deleted.
 #
-#   scripts/smoke-failures.sh engine-down      # every sidecar call fails
+#   scripts/smoke-failures.sh engine-down      # deterministic routes 502; LLM routes also need the Engine as a tool, so they 502 too
 #   scripts/smoke-failures.sh agent-down       # (after T14) LLM routes 502, deterministic routes 200
-#   scripts/smoke-failures.sh engine-addr-down # (after T9)  deterministic routes 502, Agent unaffected
 # Needs the normal stack (compose, seed, a first API on :8088 and a live engine) to create the fixture.
 set -u
 cd "$(dirname "$0")/.."
@@ -22,9 +21,8 @@ TOK=$(login); [ -n "$TOK" ] && [ "$TOK" != null ] || { echo "first API not reach
 TENANT=$(curl -s "$API1/tenants/mine" -H "authorization: Bearer $TOK" | jq -r '[.[]|select(.name=="Acme")][0].id')
 
 case $MODE in
-  engine-down) DEAD=(BLUEPRINT_ENGINE_URL=http://127.0.0.1:1) ;;
   agent-down)  DEAD=(AGENT_ADDR=127.0.0.1:1) ;;
-  engine-addr-down) DEAD=(BLUEPRINT_ENGINE_ADDR=127.0.0.1:1) ;;
+  engine-down) DEAD=(BLUEPRINT_ENGINE_ADDR=127.0.0.1:1) ;;
   *) echo "unknown mode $MODE" >&2; exit 2 ;;
 esac
 
@@ -57,7 +55,7 @@ expect 200 "rename"                  PATCH "/blueprints/$ID" "${J[@]}" -d '{"nam
 
 DET=502; LLM=502          # deterministic and LLM routes
 [ "$MODE" = agent-down ] && DET=200
-# engine-addr-down: LLM routes also need the Engine as a tool, so they stay 502 (refined at T11)
+# engine-down: LLM routes also need the Engine as a tool, so they stay 502 (refined at T11)
 expect $DET "import preview"  POST /blueprint-drafts/dxf-import -F "project_id=$PROJECT" -F "file=@$FIX/studio.dxf" -F unit=m
 expect $DET "create from brief" POST /blueprints "${J[@]}" -d "{\"project_id\":\"$PROJECT\",\"name\":\"x\",\"source_kind\":\"form\",\"brief\":{\"title\":\"s\",\"lot\":{\"width\":12,\"depth\":15},\"entrance_side\":\"east\",\"rooms\":[{\"id\":\"living\",\"name\":\"Studio\",\"type\":\"living\",\"target_area\":20},{\"id\":\"kitchen\",\"name\":\"K\",\"type\":\"kitchen\",\"target_area\":7},{\"id\":\"bath\",\"name\":\"B\",\"type\":\"bathroom\",\"target_area\":3.5}]}}"
 expect $DET "drawing svg (render)" GET "/blueprints/$ID/drawing?format=svg"

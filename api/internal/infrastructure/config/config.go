@@ -19,25 +19,23 @@ type Config struct {
 	JWTSecret        string
 	JWTTTL           time.Duration
 	CORSOrigin       string
-	BlueprintEngine  string
-	// BlueprintEngineAddr is the gRPC address of the Engine (host:port). When set the API calls the Engine over
-	// gRPC and BlueprintEngine (HTTP) serves only the LLM operations; unset keeps everything on the HTTP sidecar.
+	// BlueprintEngineAddr is the gRPC address of the deterministic Engine (host:port).
 	BlueprintEngineAddr string
-	// AgentAddr is the gRPC address of the Agent (host:port). When set the blueprint LLM operations (draft, revise,
-	// review) go to the Agent; unset keeps them on the HTTP sidecar.
+	// AgentAddr is the gRPC address of the Agent (host:port), which owns every LLM call.
 	AgentAddr string
 }
 
 var defaults = map[string]string{
-	"HTTP_ADDR":            ":8088",
-	"DATABASE_URL":         "postgres://fgademo:password@localhost:5432/fgademo?sslmode=disable",
-	"OPENFGA_API_URL":      "http://localhost:8080",
-	"OPENFGA_STORE_NAME":   "fga-demo",
-	"OPENFGA_MODEL_PATH":   "fga/model.fga",
-	"JWT_SECRET":           "dev-secret-change-me",
-	"JWT_TTL":              "12h",
-	"CORS_ORIGIN":          "http://localhost:5173",
-	"BLUEPRINT_ENGINE_URL": "http://localhost:8090",
+	"HTTP_ADDR":             ":8088",
+	"DATABASE_URL":          "postgres://fgademo:password@localhost:5432/fgademo?sslmode=disable",
+	"OPENFGA_API_URL":       "http://localhost:8080",
+	"OPENFGA_STORE_NAME":    "fga-demo",
+	"OPENFGA_MODEL_PATH":    "fga/model.fga",
+	"JWT_SECRET":            "dev-secret-change-me",
+	"JWT_TTL":               "12h",
+	"CORS_ORIGIN":           "http://localhost:5173",
+	"BLUEPRINT_ENGINE_ADDR": "localhost:8092",
+	"AGENT_ADDR":            "localhost:8091",
 }
 
 // dotEnvPaths is where Load looks for .env: the working directory (api/),
@@ -69,7 +67,6 @@ func Load() (Config, error) {
 		JWTSecret:           get("JWT_SECRET"),
 		JWTTTL:              ttl,
 		CORSOrigin:          get("CORS_ORIGIN"),
-		BlueprintEngine:     get("BLUEPRINT_ENGINE_URL"),
 		BlueprintEngineAddr: get("BLUEPRINT_ENGINE_ADDR"),
 		AgentAddr:           get("AGENT_ADDR"),
 	}, nil
