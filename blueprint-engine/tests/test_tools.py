@@ -94,3 +94,66 @@ def test_generate_brief_matches_generate():
     brief = _brief()
     r = e.generator.generate_brief(brief)
     assert r.ok == e.generator.generate(brief).result.ok and r.model is not None
+
+
+# --- deterministic checks that used to be exercised through the HTTP app (T16) -------------------------------------
+
+
+def _conflicting_sides() -> dict:
+    """Four public rooms all asking for the east wall: three side checks fail."""
+    from briefs import FAMILY_3BR
+
+    d = FAMILY_3BR.model_dump()
+    for r in d["rooms"]:
+        if r["id"] in ("kitchen", "living", "dining", "entry"):
+            r["side"] = "east"
+    return d
+
+
+def test_checks_carry_issue_ids_categories_and_hints():
+    from fga_engine.domain.schemas import Brief
+
+    res = build_engine().generator.generate_brief(Brief.model_validate(_conflicting_sides()))
+    side = [x for x in res.checks if x.rule == "side" and not x.ok]
+    assert side and all(x.issue_id.startswith("side:") and x.hint.startswith("set_side") for x in side)
+    ids = [x.issue_id for x in res.checks]
+    assert len(ids) == len(set(ids))
+    assert {x.category for x in res.checks} >= {"program", "geometry", "collision", "information", "design"}
+
+
+def test_a_draft_nests_rooms_merges_fixtures_and_builds():
+    e = build_engine()
+    draft = DraftBrief.model_validate({
+        "title": "Two bed", "lot_width": 18, "lot_depth": 28, "entrance_side": "south",
+        "rooms": [
+            {"name": "Living", "type": "living", "target_area": 24},
+            {"name": "Master bedroom", "type": "bedroom", "target_area": 15, "fixtures": ["desk", "bed"]},
+            {"name": "Ensuite", "type": "bathroom", "target_area": 4.5, "inside": "master bedroom", "side": "north"},
+            {"name": "Bedroom 2", "type": "bedroom", "target_area": 11, "inside": "Master bedroom"},
+            {"name": "Bathroom", "type": "bathroom", "target_area": 5},
+        ]})
+    brief, notes = e.draft_normalizer.normalize_draft(draft)
+    rooms = {r.id: r for r in brief.rooms}
+    assert rooms["ensuite"].parent == "master_bedroom" and rooms["ensuite"].side is None
+    assert rooms["bedroom_2"].parent is None  # a bedroom cannot be nested
+    assert rooms["master_bedroom"].fixtures == ["bed", "wardrobe", "desk"]
+    assert any("Bedroom 2" in n for n in notes)
+    built = e.generator.generate_brief(brief)
+    assert built.ok, [c.message for c in built.checks if not c.ok]
+
+
+def test_a_draft_can_ask_for_open_plan():
+    draft = DraftBrief.model_validate({
+        "title": "Open house", "lot_width": 20, "lot_depth": 30, "entrance_side": "south", "open_plan": True,
+        "rooms": [{"name": "Living", "type": "living", "target_area": 22}, {"name": "Kitchen", "type": "kitchen", "target_area": 10},
+                  {"name": "Bedroom", "type": "bedroom", "target_area": 12}]})
+    brief, _ = build_engine().draft_normalizer.normalize_draft(draft)
+    assert brief.open_plan is True
+
+
+def test_set_open_plan_opens_the_walls_between_the_public_rooms():
+    from briefs import FAMILY_3BR
+
+    r = build_engine().brief_ops_applier.apply_brief_ops(
+        FAMILY_3BR.model_copy(deep=True), EditOps.model_validate({"ops": [{"op": "set_open_plan", "open": True}]}))
+    assert r.brief.open_plan is True and r.model is not None and any(o.kind == "open" for o in r.model.openings)

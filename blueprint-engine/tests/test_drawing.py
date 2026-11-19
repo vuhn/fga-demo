@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import io
+import json
 from collections import Counter
 from pathlib import Path
 
 import ezdxf
 import pytest
-from fastapi.testclient import TestClient
 
-from fga_engine.app import create_app
 from fga_engine.domain.checks import run_imported_checks
 from fga_engine.infrastructure.draw import build_dxf, to_dxf_bytes, to_pdf, to_svg
 from fga_engine.infrastructure.dxf_patch import patch_dxf
@@ -120,16 +119,16 @@ def test_a_file_with_no_entities_is_refused():
         import_dxf(data)
 
 
-def test_endpoint_imports_a_plain_drawing():
+def test_a_plain_drawing_imports_as_a_drawing_with_no_rooms(stub):
     path = Path(__file__).parent / "samples" / "jscad" / "splines.dxf"
-    c = TestClient(create_app(llm=object()))
-    r = c.post("/v1/import/dxf", files={"file": (path.name, path.read_bytes(), "image/vnd.dxf")})
-    assert r.status_code == 200, r.text
-    body = r.json()
-    plan = body["plans"][0]
+    from fga.demo.common.v1 import common_pb2 as c
+    from fga.demo.engine.v1 import engine_pb2 as e
+
+    got = stub.ImportDXF(e.ImportDXFRequest(file=c.Upload(name=path.name, mime="image/vnd.dxf", data=path.read_bytes())))
+    plan, report = json.loads(got.plans_json)[0], json.loads(got.report_json)
     assert plan["room_count"] == 0 and plan["ok"] and plan["checks"] == [] and "<svg" in plan["svg"]
-    assert len(plan["model"]["drawing"]) == 2 and body["report"]["plans_found"] == 1
-    assert any("no floor plan" in w for w in body["report"]["warnings"])
+    assert len(plan["model"]["drawing"]) == 2 and report["plans_found"] == 1
+    assert any("no floor plan" in w for w in report["warnings"])
 
 
 @pytest.mark.parametrize("path", [p for p in SAMPLES if p.name != "blocks2.dxf"], ids=lambda p: p.name)

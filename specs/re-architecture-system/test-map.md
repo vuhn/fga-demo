@@ -6,12 +6,12 @@
 | `tests/test_app.py::test_revise_applies_ops_and_regenerates` | agent/tests/test_brief_services.py::test_revising_applies_the_ops_through_the_engine_and_reports_what_was_done | mapped (T11a) |
 | `tests/test_app.py::test_revise_unknown_room_is_422` | agent/tests/test_blueprint_handler.py::test_operations_the_engine_refuses_three_times_end_the_stream_with_an_in_band_422 | mapped (T11a) |
 | `tests/test_app.py::test_unsupported_request_is_422` | agent/tests/test_brief_services.py::test_an_unsupported_request_is_not_retried | mapped (T11a) |
-| `tests/test_app.py::test_repair_only_when_requested_and_never_uses_the_llm` | | pending |
-| `tests/test_app.py::test_render_formats` | | pending |
-| `tests/test_app.py::test_harness_page_served` | | pending |
-| `tests/test_app.py::test_schemas_are_json_schema_ready` | | pending |
+| `tests/test_app.py::test_repair_only_when_requested_and_never_uses_the_llm` | blueprint-engine/tests/test_services.py::test_generator_repair_shrinks_rooms_to_fit (+ ::test_generator_without_repair_reports_a_brief_that_does_not_fit; the Engine has no LLM) | mapped (T16) |
+| `tests/test_app.py::test_render_formats` | blueprint-engine/tests/test_grpc.py::test_render_each_format | mapped (T16) |
+| `tests/test_app.py::test_harness_page_served` | removed with the harness page (T16) | mapped (T16) |
+| `tests/test_app.py::test_schemas_are_json_schema_ready` | blueprint-engine/tests/test_tools.py::test_each_tool_has_schema_signature_and_description (the schemas the Agent hands to the model) | mapped (T16) |
 | `tests/test_app.py::test_from_text_drops_sides_the_user_never_named` | agent/tests/test_brief_services.py::test_drafting_drops_sides_the_person_never_named | mapped (T11a) |
-| `tests/test_app.py::test_from_text_nests_rooms_and_merges_fixtures` | | pending |
+| `tests/test_app.py::test_from_text_nests_rooms_and_merges_fixtures` | blueprint-engine/tests/test_tools.py::test_a_draft_nests_rooms_merges_fixtures_and_builds | mapped (T16) |
 | `tests/test_app.py::test_enhancer_requirements_feed_the_draft_and_assumptions_become_notes` | agent/tests/test_brief_services.py::test_enhancer_requirements_feed_the_draft_and_assumptions_become_notes | mapped (T11a) |
 | `tests/test_app.py::test_enhancer_is_off_by_default` | agent/tests/test_brief_services.py::test_the_enhancer_is_off_by_default | mapped (T11a) |
 | `tests/test_app.py::test_revise_retries_with_the_error_and_succeeds` | agent/tests/test_brief_services.py::test_revising_retries_with_the_error_and_says_so | mapped (T11a) |
@@ -21,69 +21,69 @@
 | `tests/test_app.py::test_reviewer_keeps_an_improving_round` | agent/tests/test_review_services.py::test_the_reviewer_keeps_an_improving_round | mapped (T11b) |
 | `tests/test_app.py::test_reviewer_refuses_forbidden_ops_and_never_returns_a_worse_plan` | agent/tests/test_review_services.py::test_the_reviewer_refuses_forbidden_operations_and_never_returns_a_worse_plan (+ ::test_the_reviewer_discards_a_round_that_does_not_help_and_stops) | mapped (T11b) |
 | `tests/test_app.py::test_reviewer_caps_total_area_change` | agent/tests/test_review_services.py::test_the_reviewer_caps_the_total_area_change | mapped (T11b) |
-| `tests/test_app.py::test_checks_carry_issue_ids_categories_and_hints` | | pending |
+| `tests/test_app.py::test_checks_carry_issue_ids_categories_and_hints` | blueprint-engine/tests/test_tools.py::test_checks_carry_issue_ids_categories_and_hints | mapped (T16) |
 | `tests/test_app.py::test_reviewer_retries_an_answer_that_changes_nothing` | agent/tests/test_review_services.py::test_the_reviewer_retries_an_answer_that_changes_nothing | mapped (T11b) |
-| `tests/test_app.py::test_removing_the_hall_is_steered_to_open_plan` | | pending |
-| `tests/test_app.py::test_draft_can_ask_for_open_plan` | | pending |
+| `tests/test_app.py::test_removing_the_hall_is_steered_to_open_plan` | blueprint-engine/tests/test_tools.py::test_set_open_plan_opens_the_walls_between_the_public_rooms (the Engine's half; the steering prompt is the Agent's) | mapped (T16) |
+| `tests/test_app.py::test_draft_can_ask_for_open_plan` | blueprint-engine/tests/test_tools.py::test_a_draft_can_ask_for_open_plan | mapped (T16) |
 | `tests/test_app.py::test_revise_stream_emits_progress_then_result` | agent/tests/test_blueprint_handler.py::test_revise_streams_progress_then_one_result | mapped (T11a) |
 | `tests/test_app.py::test_revise_stream_reports_retry_and_error` | agent/tests/test_blueprint_handler.py::test_operations_the_engine_refuses_three_times_end_the_stream_with_an_in_band_422 | mapped (T11a) |
 | `tests/test_app.py::test_revise_stream_empty_message_is_plain_422` | agent/tests/test_blueprint_handler.py::test_an_empty_message_is_a_plain_status_before_any_event | mapped (T11a) |
-| `tests/test_app.py::test_thinking_is_streamed_only_while_a_sink_listens` | | pending |
-| `tests/test_convert.py::test_pdf_vector_areas[family_3br]` | | pending |
-| `tests/test_convert.py::test_pdf_vector_areas[studio]` | | pending |
-| `tests/test_convert.py::test_raster_areas_with_known_length[family_3br]` | | pending |
-| `tests/test_convert.py::test_raster_areas_with_known_length[studio]` | | pending |
-| `tests/test_convert.py::test_implausible_scale_is_reported` | | pending |
-| `tests/test_convert.py::test_bad_input` | | pending |
-| `tests/test_convert.py::test_endpoint` | | pending |
-| `tests/test_convert.py::test_raster_reads_its_own_scale_and_room_names` | | pending |
-| `tests/test_convert.py::test_raster_without_a_readable_scale_asks_for_one` | | pending |
-| `tests/test_convert.py::test_labelled_screenshot_keeps_windows_fixtures_and_rooms` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[accumulatortest.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[blocks1.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[blocks2.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[circlesellipsesarcs.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[closedlwpolylinebug.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[dimensions.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[ellipticalarcs.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[ellipticalarcs2.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[hatches.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[layers.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[lines.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[lwpolylines.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[openscad_export.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[points.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[splineA.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[splines.dxf]` | | pending |
-| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[texts.dxf]` | | pending |
-| `tests/test_drawing.py::test_circles_arcs_ellipses_and_splines_become_curves` | | pending |
-| `tests/test_drawing.py::test_all_entity_kinds_in_one_file` | | pending |
-| `tests/test_drawing.py::test_a_floor_plan_keeps_its_rooms_and_gets_the_other_entities_as_drawing_items` | | pending |
-| `tests/test_drawing.py::test_a_file_with_no_entities_is_refused` | | pending |
-| `tests/test_drawing.py::test_endpoint_imports_a_plain_drawing` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[accumulatortest.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[blocks1.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[circlesellipsesarcs.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[closedlwpolylinebug.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[dimensions.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[ellipticalarcs.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[ellipticalarcs2.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[hatches.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[layers.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[lines.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[lwpolylines.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[openscad_export.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[points.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[splineA.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[splines.dxf]` | | pending |
-| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[texts.dxf]` | | pending |
-| `tests/test_estimate.py::test_takeoff_areas_and_walls_are_hand_checkable` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
-| `tests/test_estimate.py::test_existing_rooms_are_not_built_and_replaced_rooms_get_demolition` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
-| `tests/test_estimate.py::test_assumed_height_makes_dependent_lines_assumed` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
-| `tests/test_estimate.py::test_new_build_adds_structure_and_mep_points` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
-| `tests/test_estimate.py::test_a_drawing_with_no_rooms_is_unsupported_not_zero` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
-| `tests/test_estimate.py::test_cascade_to_the_dong` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
-| `tests/test_estimate.py::test_contingency_rises_with_assumed_share_and_unpriced_lines_stay_out` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
+| `tests/test_app.py::test_thinking_is_streamed_only_while_a_sink_listens` | agent/tests/test_llm.py::test_nobody_listening_means_no_thinking_stream (+ ::test_endless_thinking_is_cut_and_redone_without_thinking) | mapped (T16) |
+| `tests/test_convert.py::test_pdf_vector_areas[family_3br]` | blueprint-engine/tests/test_convert.py::test_pdf_vector_areas[family_3br] (same ID; left in place) | mapped (T16) |
+| `tests/test_convert.py::test_pdf_vector_areas[studio]` | blueprint-engine/tests/test_convert.py::test_pdf_vector_areas[studio] (same ID; left in place) | mapped (T16) |
+| `tests/test_convert.py::test_raster_areas_with_known_length[family_3br]` | blueprint-engine/tests/test_convert.py::test_raster_areas_with_known_length[family_3br] (same ID; left in place) | mapped (T16) |
+| `tests/test_convert.py::test_raster_areas_with_known_length[studio]` | blueprint-engine/tests/test_convert.py::test_raster_areas_with_known_length[studio] (same ID; left in place) | mapped (T16) |
+| `tests/test_convert.py::test_implausible_scale_is_reported` | blueprint-engine/tests/test_convert.py::test_implausible_scale_is_reported (same ID; left in place) | mapped (T16) |
+| `tests/test_convert.py::test_bad_input` | blueprint-engine/tests/test_convert.py::test_bad_input (same ID; left in place) | mapped (T16) |
+| `tests/test_convert.py::test_endpoint` | blueprint-engine/tests/test_convert.py::test_convert_over_grpc | mapped (T16) |
+| `tests/test_convert.py::test_raster_reads_its_own_scale_and_room_names` | blueprint-engine/tests/test_convert.py::test_raster_reads_its_own_scale_and_room_names (same ID; left in place) | mapped (T16) |
+| `tests/test_convert.py::test_raster_without_a_readable_scale_asks_for_one` | blueprint-engine/tests/test_convert.py::test_raster_without_a_readable_scale_asks_for_one (same ID; left in place) | mapped (T16) |
+| `tests/test_convert.py::test_labelled_screenshot_keeps_windows_fixtures_and_rooms` | blueprint-engine/tests/test_convert.py::test_labelled_screenshot_keeps_windows_fixtures_and_rooms (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[accumulatortest.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[accumulatortest.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[blocks1.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[blocks1.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[blocks2.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[blocks2.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[circlesellipsesarcs.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[circlesellipsesarcs.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[closedlwpolylinebug.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[closedlwpolylinebug.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[dimensions.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[dimensions.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[ellipticalarcs.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[ellipticalarcs.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[ellipticalarcs2.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[ellipticalarcs2.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[hatches.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[hatches.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[layers.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[layers.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[lines.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[lines.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[lwpolylines.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[lwpolylines.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[openscad_export.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[openscad_export.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[points.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[points.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[splineA.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[splineA.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[splines.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[splines.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_every_sample_file_imports_and_renders[texts.dxf]` | blueprint-engine/tests/test_drawing.py::test_every_sample_file_imports_and_renders[texts.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_circles_arcs_ellipses_and_splines_become_curves` | blueprint-engine/tests/test_drawing.py::test_circles_arcs_ellipses_and_splines_become_curves (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_all_entity_kinds_in_one_file` | blueprint-engine/tests/test_drawing.py::test_all_entity_kinds_in_one_file (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_floor_plan_keeps_its_rooms_and_gets_the_other_entities_as_drawing_items` | blueprint-engine/tests/test_drawing.py::test_a_floor_plan_keeps_its_rooms_and_gets_the_other_entities_as_drawing_items (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_file_with_no_entities_is_refused` | blueprint-engine/tests/test_drawing.py::test_a_file_with_no_entities_is_refused (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_endpoint_imports_a_plain_drawing` | blueprint-engine/tests/test_drawing.py::test_a_plain_drawing_imports_as_a_drawing_with_no_rooms (over gRPC) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[accumulatortest.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[accumulatortest.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[blocks1.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[blocks1.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[circlesellipsesarcs.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[circlesellipsesarcs.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[closedlwpolylinebug.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[closedlwpolylinebug.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[dimensions.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[dimensions.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[ellipticalarcs.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[ellipticalarcs.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[ellipticalarcs2.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[ellipticalarcs2.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[hatches.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[hatches.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[layers.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[layers.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[lines.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[lines.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[lwpolylines.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[lwpolylines.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[openscad_export.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[openscad_export.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[points.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[points.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[splineA.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[splineA.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[splines.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[splines.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_drawing.py::test_a_drawing_fills_its_sheet[texts.dxf]` | blueprint-engine/tests/test_drawing.py::test_a_drawing_fills_its_sheet[texts.dxf] (same ID; left in place) | mapped (T16) |
+| `tests/test_estimate.py::test_takeoff_areas_and_walls_are_hand_checkable` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | mapped (T16) |
+| `tests/test_estimate.py::test_existing_rooms_are_not_built_and_replaced_rooms_get_demolition` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | mapped (T16) |
+| `tests/test_estimate.py::test_assumed_height_makes_dependent_lines_assumed` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | mapped (T16) |
+| `tests/test_estimate.py::test_new_build_adds_structure_and_mep_points` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | mapped (T16) |
+| `tests/test_estimate.py::test_a_drawing_with_no_rooms_is_unsupported_not_zero` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | mapped (T16) |
+| `tests/test_estimate.py::test_cascade_to_the_dong` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | mapped (T16) |
+| `tests/test_estimate.py::test_contingency_rises_with_assumed_share_and_unpriced_lines_stay_out` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | mapped (T16) |
 | `tests/test_estimate.py::test_quote_must_be_on_the_page_and_carry_the_number` | agent/tests/test_price_checks.py::test_quote_must_be_on_the_page_and_carry_the_number | mapped (T13a) |
 | `tests/test_estimate.py::test_units_and_currency_convert_or_are_rejected` | agent/tests/test_price_checks.py::test_units_and_currency_convert_or_are_rejected | mapped (T13a) |
 | `tests/test_estimate.py::test_aggregation_drops_outliers_and_flags_thin_evidence` | agent/tests/test_price_checks.py::test_aggregation_drops_outliers_and_flags_thin_evidence | mapped (T13a) |
@@ -117,7 +117,7 @@
 | `tests/test_estimate.py::test_the_region_is_pinned_by_code_not_the_model` | agent/tests/test_price_checks.py::test_the_region_is_pinned_by_code | mapped (T13b) |
 | `tests/test_estimate.py::test_a_query_naming_the_wrong_city_never_reaches_the_search_provider` | agent/tests/test_price_researcher.py::test_a_query_naming_another_city_falls_back_to_a_query_for_the_region | mapped (T13b) |
 | `tests/test_estimate.py::test_the_cited_sources_are_only_those_the_rate_rests_on` | agent/tests/test_price_researcher.py::test_an_injected_price_far_from_the_others_is_dropped_with_its_source | mapped (T13b) |
-| `tests/test_estimate.py::test_fixtures_are_assumed_absent_and_priced_unless_they_exist` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | pending |
+| `tests/test_estimate.py::test_fixtures_are_assumed_absent_and_priced_unless_they_exist` | `blueprint-engine/tests/test_estimate.py` (same ID; calls the legacy `takeoff`/`price` adapters, which convert the session with `facts_of` and call the `Takeoff`/`PriceEstimate` services, T5; moves to the engine tests in T16) | mapped (T16) |
 | `tests/test_estimate.py::test_the_agent_asks_which_fixtures_exist_before_it_prices` | agent/tests/test_estimate_turn.py::test_the_agent_asks_which_fixtures_exist_before_it_prices | mapped (T13b) |
 | `tests/test_estimate.py::test_some_fixtures_exist_only_those_the_message_refers_to` | agent/tests/test_estimate_turn.py::test_some_fixtures_exist_only_those_the_message_refers_to | mapped (T13b) |
 | `tests/test_estimate.py::test_i_dont_know_assumes_no_fixture_exists_and_says_so` | agent/tests/test_estimate_turn.py::test_i_dont_know_assumes_no_fixture_exists_and_says_so | mapped (T13b) |
@@ -146,72 +146,72 @@
 | `tests/test_estimate.py::test_the_model_reads_an_exception_in_any_language[Tr\u1eeb c\u1eeda ch\xednh, thi\u1ebft b\u1ecb ch\u01b0a c\xf3 c\xe1i n\xe0o-Tr\u1eeb c\u1eeda ch\xednh-items1]` | agent/tests/test_estimate_reading.py::test_the_model_reads_an_exception_in_any_language[Tr\u1eeb c\u1eeda ch\xednh, thi\u1ebft b\u1ecb ch\u01b0a c\xf3 c\xe1i n\xe0o-Tr\u1eeb c\u1eeda ch\xednh-items1] | mapped (T12) |
 | `tests/test_estimate.py::test_the_model_reads_an_exception_in_any_language[\u5165\u53e3\u306e\u30c9\u30a2\u3092\u9664\u3044\u3066\u3001\u8a2d\u5099\u306f\u4f55\u3082\u3042\u308a\u307e\u305b\u3093-\u5165\u53e3\u306e\u30c9\u30a2\u3092\u9664\u3044\u3066-items2]` | agent/tests/test_estimate_reading.py::test_the_model_reads_an_exception_in_any_language[\u5165\u53e3\u306e\u30c9\u30a2\u3092\u9664\u3044\u3066\u3001\u8a2d\u5099\u306f\u4f55\u3082\u3042\u308a\u307e\u305b\u3093-\u5165\u53e3\u306e\u30c9\u30a2\u3092\u9664\u3044\u3066-items2] | mapped (T12) |
 | `tests/test_estimate.py::test_the_two_readings_run_for_every_message_and_a_failure_is_not_hidden` | agent/tests/test_estimate_reading.py::test_four_readings_run_for_every_message_with_no_live_thinking_and_a_short_budget (+ ::test_a_dead_model_is_not_hidden) | mapped (T12) |
-| `tests/test_import.py::test_sheet_splits_into_three_plans` | | pending |
-| `tests/test_import.py::test_known_answer[1]` | | pending |
-| `tests/test_import.py::test_known_answer[2]` | | pending |
-| `tests/test_import.py::test_known_answer[3]` | | pending |
-| `tests/test_import.py::test_labels_and_types` | | pending |
-| `tests/test_import.py::test_angled_wall_is_kept` | | pending |
-| `tests/test_import.py::test_imported_plans_render_and_check[0]` | | pending |
-| `tests/test_import.py::test_imported_plans_render_and_check[1]` | | pending |
-| `tests/test_import.py::test_imported_plans_render_and_check[2]` | | pending |
-| `tests/test_import.py::test_unitless_file_is_guessed_and_confirmed_by_dimensions` | | pending |
-| `tests/test_import.py::test_unit_override` | | pending |
-| `tests/test_import.py::test_garbage_and_empty_files_are_refused` | | pending |
-| `tests/test_import.py::test_endpoint_returns_plans_with_checks_and_svg` | | pending |
-| `tests/test_import.py::test_single_line_walls_are_read_with_a_default_thickness` | | pending |
-| `tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[studio-brief0]` | | pending |
-| `tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[west_entry_study-brief1]` | | pending |
-| `tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[family_3br-brief2]` | | pending |
-| `tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[studio-brief3]` | | pending |
-| `tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[north_entry_2br-brief4]` | | pending |
-| `tests/test_import.py::test_round_trip_keeps_fixtures_and_reports_unsupported_items` | | pending |
-| `tests/test_import.py::test_dimensions_and_other_entities_are_kept_as_drawing_items` | | pending |
+| `tests/test_import.py::test_sheet_splits_into_three_plans` | blueprint-engine/tests/test_import.py::test_sheet_splits_into_three_plans (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_known_answer[1]` | blueprint-engine/tests/test_import.py::test_known_answer[1] (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_known_answer[2]` | blueprint-engine/tests/test_import.py::test_known_answer[2] (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_known_answer[3]` | blueprint-engine/tests/test_import.py::test_known_answer[3] (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_labels_and_types` | blueprint-engine/tests/test_import.py::test_labels_and_types (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_angled_wall_is_kept` | blueprint-engine/tests/test_import.py::test_angled_wall_is_kept (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_imported_plans_render_and_check[0]` | blueprint-engine/tests/test_import.py::test_imported_plans_render_and_check[0] (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_imported_plans_render_and_check[1]` | blueprint-engine/tests/test_import.py::test_imported_plans_render_and_check[1] (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_imported_plans_render_and_check[2]` | blueprint-engine/tests/test_import.py::test_imported_plans_render_and_check[2] (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_unitless_file_is_guessed_and_confirmed_by_dimensions` | blueprint-engine/tests/test_import.py::test_unitless_file_is_guessed_and_confirmed_by_dimensions (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_unit_override` | blueprint-engine/tests/test_import.py::test_unit_override (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_garbage_and_empty_files_are_refused` | blueprint-engine/tests/test_import.py::test_garbage_and_empty_files_are_refused (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_endpoint_returns_plans_with_checks_and_svg` | blueprint-engine/tests/test_grpc.py::test_import_dxf_returns_the_plans_with_checks_and_svg | mapped (T16) |
+| `tests/test_import.py::test_single_line_walls_are_read_with_a_default_thickness` | blueprint-engine/tests/test_import.py::test_single_line_walls_are_read_with_a_default_thickness (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[studio-brief0]` | blueprint-engine/tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[studio-brief0] (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[west_entry_study-brief1]` | blueprint-engine/tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[west_entry_study-brief1] (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[family_3br-brief2]` | blueprint-engine/tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[family_3br-brief2] (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[studio-brief3]` | blueprint-engine/tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[studio-brief3] (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[north_entry_2br-brief4]` | blueprint-engine/tests/test_import.py::test_our_own_dxf_export_imports_back_to_the_same_rooms[north_entry_2br-brief4] (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_round_trip_keeps_fixtures_and_reports_unsupported_items` | blueprint-engine/tests/test_import.py::test_round_trip_keeps_fixtures_and_reports_unsupported_items (same ID; left in place) | mapped (T16) |
+| `tests/test_import.py::test_dimensions_and_other_entities_are_kept_as_drawing_items` | blueprint-engine/tests/test_import.py::test_dimensions_and_other_entities_are_kept_as_drawing_items (same ID; left in place) | mapped (T16) |
 | `tests/test_import.py::test_plan_revise_renames_adds_and_resizes` | agent/tests/test_review_services.py::test_a_plan_chat_applies_the_ops_through_the_engine_and_reports_what_was_done (applying the ops is the Engine's `ApplyPlanOps`, covered by its tests) | mapped (T11b) |
 | `tests/test_import.py::test_plan_revise_adds_and_removes_fixtures` | agent/tests/test_review_services.py::test_a_plan_chat_applies_the_ops_through_the_engine_and_reports_what_was_done (the fixture edit itself is the Engine's `ApplyPlanOps`) | mapped (T11b) |
 | `tests/test_import.py::test_plan_revise_refuses_geometry_changes_and_unknown_names` | agent/tests/test_review_services.py::test_a_plan_chat_asks_for_geometry_changes_to_be_refused_and_does_not_retry (+ ::test_a_plan_chat_retries_an_unknown_name_with_the_error_and_says_so) | mapped (T11b) |
 | `tests/test_import.py::test_plan_revise_stream_reports_result` | agent/tests/test_blueprint_handler.py::test_revise_plan_streams_progress_then_one_result_without_a_brief | mapped (T11b) |
-| `tests/test_import.py::test_a_loose_leaf_and_arc_door_sits_in_its_wall_and_a_free_wall_end_adds_no_wall` | | pending |
-| `tests/test_patch.py::test_provenance_is_recorded` | | pending |
-| `tests/test_patch.py::test_no_change_leaves_the_file_as_it_was` | | pending |
-| `tests/test_patch.py::test_rename_changes_only_the_label` | | pending |
-| `tests/test_patch.py::test_every_opening_can_be_removed_without_merging_rooms` | | pending |
-| `tests/test_patch.py::test_window_resize_keeps_the_position` | | pending |
-| `tests/test_patch.py::test_fixture_move_remove_and_add` | | pending |
-| `tests/test_patch.py::test_added_fixture_without_a_template_is_drawn_on_the_added_layer` | | pending |
-| `tests/test_patch.py::test_unsupported_changes_are_reported_not_dropped` | | pending |
-| `tests/test_patch.py::test_a_generated_plan_cannot_be_patched` | | pending |
-| `tests/test_patch.py::test_direct_edit_moves_turns_and_slides_without_an_llm` | | pending |
-| `tests/test_patch.py::test_a_direct_edit_then_export_writes_the_change_into_the_file` | | pending |
-| `tests/test_patch.py::test_delete_fixture_by_id_and_the_chat_help_lists_the_new_ops` | | pending |
-| `tests/test_patch.py::test_a_created_plan_is_an_editable_cad_plan` | | pending |
-| `tests/test_patch.py::test_a_brief_that_cannot_be_built_creates_nothing` | | pending |
-| `tests/test_patch.py::test_a_plan_made_from_a_brief_can_be_drawn_into_an_editable_cad_plan` | | pending |
-| `tests/test_patch.py::test_an_open_plan_reads_back_as_fewer_spaces_and_says_so` | `tests/test_patch.py` (same ID; now calls the `PlanDrawer` usecase via `wire.build_engine`, T4a) | pending |
-| `tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[family_3br]` | | pending |
-| `tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[north_entry_2br]` | | pending |
-| `tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[studio]` | | pending |
-| `tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[west_entry_study]` | | pending |
-| `tests/test_pipeline.py::test_infeasible_brief_reports_area_fact` | | pending |
-| `tests/test_pipeline.py::test_deterministic` | | pending |
-| `tests/test_pipeline.py::test_rooms_tile_the_footprint_without_overlap` | | pending |
-| `tests/test_pipeline.py::test_side_constraint_and_entrance` | | pending |
-| `tests/test_pipeline.py::test_revision_moves_one_room_and_keeps_the_rest_stable` | | pending |
-| `tests/test_pipeline.py::test_outputs_render` | | pending |
-| `tests/test_pipeline.py::test_brief_rejects_unknown_adjacency` | | pending |
-| `tests/test_pipeline.py::test_nested_rooms_sit_inside_their_parent_block_and_open_only_into_it` | | pending |
-| `tests/test_pipeline.py::test_nested_room_without_hall_keeps_the_door_chain` | | pending |
-| `tests/test_pipeline.py::test_brief_rejects_bad_nesting` | | pending |
-| `tests/test_pipeline.py::test_fixtures_default_by_type_and_stay_inside_their_room` | | pending |
-| `tests/test_pipeline.py::test_explicit_empty_fixtures_and_unfit_fixture_warns` | | pending |
-| `tests/test_pipeline.py::test_edit_ops_for_nesting_and_fixtures` | | pending |
-| `tests/test_pipeline.py::test_add_fixture_is_idempotent` | | pending |
-| `tests/test_pipeline.py::test_plans_are_drawn_at_1_to_50_on_a_sheet_that_fits` | | pending |
-| `tests/test_pipeline.py::test_defensive_rules_fire_on_a_broken_model` | | pending |
-| `tests/test_pipeline.py::test_design_warning_for_a_bedroom_on_the_street` | | pending |
-| `tests/test_pipeline.py::test_ifc_export_matches_the_model` | | pending |
-| `tests/test_pipeline.py::test_open_plan_removes_the_walls_between_hall_living_kitchen_and_dining` | | pending |
-| `tests/test_pipeline.py::test_the_hall_cannot_be_edited_and_says_how_to_open_it` | | pending |
+| `tests/test_import.py::test_a_loose_leaf_and_arc_door_sits_in_its_wall_and_a_free_wall_end_adds_no_wall` | blueprint-engine/tests/test_import.py::test_a_loose_leaf_and_arc_door_sits_in_its_wall_and_a_free_wall_end_adds_no_wall (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_provenance_is_recorded` | blueprint-engine/tests/test_patch.py::test_provenance_is_recorded (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_no_change_leaves_the_file_as_it_was` | blueprint-engine/tests/test_patch.py::test_no_change_leaves_the_file_as_it_was (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_rename_changes_only_the_label` | blueprint-engine/tests/test_patch.py::test_rename_changes_only_the_label (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_every_opening_can_be_removed_without_merging_rooms` | blueprint-engine/tests/test_patch.py::test_every_opening_can_be_removed_without_merging_rooms (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_window_resize_keeps_the_position` | blueprint-engine/tests/test_patch.py::test_window_resize_keeps_the_position (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_fixture_move_remove_and_add` | blueprint-engine/tests/test_patch.py::test_fixture_move_remove_and_add (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_added_fixture_without_a_template_is_drawn_on_the_added_layer` | blueprint-engine/tests/test_patch.py::test_added_fixture_without_a_template_is_drawn_on_the_added_layer (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_unsupported_changes_are_reported_not_dropped` | blueprint-engine/tests/test_patch.py::test_unsupported_changes_are_reported_not_dropped (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_a_generated_plan_cannot_be_patched` | blueprint-engine/tests/test_patch.py::test_a_generated_plan_cannot_be_patched (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_direct_edit_moves_turns_and_slides_without_an_llm` | blueprint-engine/tests/test_patch.py::test_direct_edit_moves_turns_and_slides_without_an_llm (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_a_direct_edit_then_export_writes_the_change_into_the_file` | blueprint-engine/tests/test_patch.py::test_a_direct_edit_then_export_writes_the_change_into_the_file (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_delete_fixture_by_id_and_the_chat_help_lists_the_new_ops` | blueprint-engine/tests/test_patch.py::test_delete_fixture_by_id_and_the_chat_help_lists_the_new_ops (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_a_created_plan_is_an_editable_cad_plan` | blueprint-engine/tests/test_patch.py::test_a_created_plan_is_an_editable_cad_plan (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_a_brief_that_cannot_be_built_creates_nothing` | blueprint-engine/tests/test_patch.py::test_a_brief_that_cannot_be_built_creates_nothing (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_a_plan_made_from_a_brief_can_be_drawn_into_an_editable_cad_plan` | blueprint-engine/tests/test_patch.py::test_a_plan_made_from_a_brief_can_be_drawn_into_an_editable_cad_plan (same ID; left in place) | mapped (T16) |
+| `tests/test_patch.py::test_an_open_plan_reads_back_as_fewer_spaces_and_says_so` | `tests/test_patch.py` (same ID; now calls the `PlanDrawer` usecase via `wire.build_engine`, T4a) | mapped (T16) |
+| `tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[family_3br]` | blueprint-engine/tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[family_3br] (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[north_entry_2br]` | blueprint-engine/tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[north_entry_2br] (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[studio]` | blueprint-engine/tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[studio] (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[west_entry_study]` | blueprint-engine/tests/test_pipeline.py::test_feasible_briefs_pass_every_error_check[west_entry_study] (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_infeasible_brief_reports_area_fact` | blueprint-engine/tests/test_pipeline.py::test_infeasible_brief_reports_area_fact (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_deterministic` | blueprint-engine/tests/test_pipeline.py::test_deterministic (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_rooms_tile_the_footprint_without_overlap` | blueprint-engine/tests/test_pipeline.py::test_rooms_tile_the_footprint_without_overlap (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_side_constraint_and_entrance` | blueprint-engine/tests/test_pipeline.py::test_side_constraint_and_entrance (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_revision_moves_one_room_and_keeps_the_rest_stable` | blueprint-engine/tests/test_pipeline.py::test_revision_moves_one_room_and_keeps_the_rest_stable (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_outputs_render` | blueprint-engine/tests/test_pipeline.py::test_outputs_render (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_brief_rejects_unknown_adjacency` | blueprint-engine/tests/test_pipeline.py::test_brief_rejects_unknown_adjacency (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_nested_rooms_sit_inside_their_parent_block_and_open_only_into_it` | blueprint-engine/tests/test_pipeline.py::test_nested_rooms_sit_inside_their_parent_block_and_open_only_into_it (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_nested_room_without_hall_keeps_the_door_chain` | blueprint-engine/tests/test_pipeline.py::test_nested_room_without_hall_keeps_the_door_chain (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_brief_rejects_bad_nesting` | blueprint-engine/tests/test_pipeline.py::test_brief_rejects_bad_nesting (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_fixtures_default_by_type_and_stay_inside_their_room` | blueprint-engine/tests/test_pipeline.py::test_fixtures_default_by_type_and_stay_inside_their_room (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_explicit_empty_fixtures_and_unfit_fixture_warns` | blueprint-engine/tests/test_pipeline.py::test_explicit_empty_fixtures_and_unfit_fixture_warns (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_edit_ops_for_nesting_and_fixtures` | blueprint-engine/tests/test_pipeline.py::test_edit_ops_for_nesting_and_fixtures (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_add_fixture_is_idempotent` | blueprint-engine/tests/test_pipeline.py::test_add_fixture_is_idempotent (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_plans_are_drawn_at_1_to_50_on_a_sheet_that_fits` | blueprint-engine/tests/test_pipeline.py::test_plans_are_drawn_at_1_to_50_on_a_sheet_that_fits (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_defensive_rules_fire_on_a_broken_model` | blueprint-engine/tests/test_pipeline.py::test_defensive_rules_fire_on_a_broken_model (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_design_warning_for_a_bedroom_on_the_street` | blueprint-engine/tests/test_pipeline.py::test_design_warning_for_a_bedroom_on_the_street (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_ifc_export_matches_the_model` | blueprint-engine/tests/test_pipeline.py::test_ifc_export_matches_the_model (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_open_plan_removes_the_walls_between_hall_living_kitchen_and_dining` | blueprint-engine/tests/test_pipeline.py::test_open_plan_removes_the_walls_between_hall_living_kitchen_and_dining (same ID; left in place) | mapped (T16) |
+| `tests/test_pipeline.py::test_the_hall_cannot_be_edited_and_says_how_to_open_it` | blueprint-engine/tests/test_pipeline.py::test_the_hall_cannot_be_edited_and_says_how_to_open_it (same ID; left in place) | mapped (T16) |
 
 ## New tests added by T5 (not in the baseline)
 
