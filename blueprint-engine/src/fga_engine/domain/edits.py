@@ -34,11 +34,15 @@ from .schemas import (
 
 
 class EditError(ValueError):
-    pass
+    """An edit that cannot be applied; the same request may work corrected (an LLM retries with the error)."""
+
+    code = "edit_error"
 
 
 class UnsupportedEdit(EditError):
     """The request is outside what the ops can express; retrying the LLM will not help."""
+
+    code = "unsupported"
 
 
 def _norm(s: str) -> str:
