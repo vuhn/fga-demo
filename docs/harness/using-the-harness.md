@@ -50,6 +50,8 @@ Typical uses: `requirements` to align with the PO before anyone designs; `design
 | Resume the build of one planned task | `/build-task T3` |
 | Only a schema change, no feature | `/db-design` |
 | Small Go change (a route, a field, a fix) with no spec | `/go-api` |
+| Small Python Agent change (a use case, a prompt, an RPC) with no spec | `/python-agent` |
+| Small Python Engine change (a rule, a tool, a handler) with no spec | `/python-engine` |
 | Re-run one stage after changing an earlier artifact | that stage's skill, e.g. `/system-design` |
 | Production errors | `/monitor-triage` |
 | Just need release docs for finished work | `/release-docs` |
