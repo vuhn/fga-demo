@@ -60,10 +60,12 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		blueprintRels     = fga.BlueprintRelations{}
 
 		legacy = blueprintengine.New(cfg.BlueprintEngine)
-		// the HTTP sidecar also implements the LLM gateways (BlueprintAgent, EstimateAgent); the estimate stays on it until T15
-		estimateAgent = legacy
-		agent         = blueprintAgent(cfg, legacy, log)
-		engine        = engineGateway(cfg, legacy, log)
+		// the HTTP sidecar also implements the LLM gateways (BlueprintAgent, EstimateAgent); the Agent replaces both
+		// when AGENT_ADDR is set
+		agent        = dialAgent(cfg, log)
+		blueprintLLM = blueprintAgent(agent, legacy)
+		estimateLLM  = estimateAgent(agent, legacy)
+		engine       = engineGateway(cfg, legacy, log)
 
 		tokens = auth.JWT{Secret: []byte(cfg.JWTSecret), TTL: cfg.JWTTTL}
 		hasher = auth.Bcrypt{}
@@ -188,7 +190,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		}),
 		httph.NewEstimateHandler(httph.EstimateUsecases{
 			SessionCreator: service.NewEstimateSessionCreator(blueprints, estSessions, authz),
-			Messenger:      service.NewEstimateSessionMessenger(blueprints, estSessions, estimateAgent, authz, ids),
+			Messenger:      service.NewEstimateSessionMessenger(blueprints, estSessions, estimateLLM, authz, ids),
 			SessionGetter:  service.NewEstimateSessionGetter(blueprints, estSessions, authz),
 			EstimateGetter: service.NewEstimateGetter(blueprints, estimates, authz),
 			EstimateLister: service.NewEstimateLister(blueprints, estimates, authz),
@@ -196,7 +198,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		httph.NewBlueprintHandler(httph.BlueprintUsecases{
 			Lister:          service.NewBlueprintLister(blueprints, authz),
 			Getter:          service.NewBlueprintGetter(blueprints, authz),
-			Drafter:         service.NewBlueprintDrafter(projects, agent, authz),
+			Drafter:         service.NewBlueprintDrafter(projects, blueprintLLM, authz),
 			ImportPreviewer: service.NewBlueprintDXFImportPreviewer(projects, engine, authz),
 			Importer:        service.NewBlueprintImporter(projects, blueprints, blueprintRels, engine, authz, guard, ids),
 			OriginalGetter:  service.NewBlueprintOriginalGetter(blueprints, authz),
@@ -204,9 +206,9 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 			PlanEditor:      service.NewBlueprintPlanEditor(blueprints, engine, authz),
 			PlanConverter:   service.NewBlueprintPlanConverter(blueprints, engine, authz),
 			Creator:         service.NewBlueprintCreator(projects, blueprints, blueprintRels, engine, authz, guard, ids),
-			Reviser:         service.NewBlueprintReviser(blueprints, agent, authz),
-			ReviseStreamer:  service.NewBlueprintReviseStreamer(blueprints, agent, authz),
-			Reviewer:        service.NewBlueprintReviewer(blueprints, agent, authz),
+			Reviser:         service.NewBlueprintReviser(blueprints, blueprintLLM, authz),
+			ReviseStreamer:  service.NewBlueprintReviseStreamer(blueprints, blueprintLLM, authz),
+			Reviewer:        service.NewBlueprintReviewer(blueprints, blueprintLLM, authz),
 			BriefUpdater:    service.NewBlueprintBriefUpdater(blueprints, engine, authz),
 			VersionLister:   service.NewBlueprintVersionLister(blueprints, authz),
 			Restorer:        service.NewBlueprintVersionRestorer(blueprints, authz),
@@ -236,16 +238,32 @@ func engineGateway(cfg config.Config, legacy gateway.BlueprintEngine, log *slog.
 	return c
 }
 
-// blueprintAgent is the Agent, which owns every LLM call: the gRPC client when AGENT_ADDR is set (the connection is
-// lazy and lives as long as the process), else the legacy HTTP sidecar.
-func blueprintAgent(cfg config.Config, legacy gateway.BlueprintAgent, log *slog.Logger) gateway.BlueprintAgent {
+// dialAgent connects to the Agent when AGENT_ADDR is set (the connection is lazy and lives as long as the
+// process), else nil.
+func dialAgent(cfg config.Config, log *slog.Logger) *agentclient.Client {
 	if cfg.AgentAddr == "" {
-		return legacy
+		return nil
 	}
 	c, _, err := agentclient.Dial(cfg.AgentAddr)
 	if err != nil {
 		panic(fmt.Errorf("AGENT_ADDR %q: %w", cfg.AgentAddr, err)) // a malformed address is a config error
 	}
 	log.Info("agent over gRPC", "addr", cfg.AgentAddr)
+	return c
+}
+
+// blueprintAgent is the Agent for the blueprint LLM operations when there is one, else the legacy HTTP sidecar.
+func blueprintAgent(c *agentclient.Client, legacy gateway.BlueprintAgent) gateway.BlueprintAgent {
+	if c == nil {
+		return legacy
+	}
+	return c
+}
+
+// estimateAgent is the Agent for the estimate chat when there is one, else the legacy HTTP sidecar.
+func estimateAgent(c *agentclient.Client, legacy gateway.EstimateAgent) gateway.EstimateAgent {
+	if c == nil {
+		return legacy
+	}
 	return c
 }
