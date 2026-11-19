@@ -19,12 +19,12 @@ scan() { # rule regex why fix dir...   (files under dir importing a module that 
   local d f
   for d in "$@"; do
     [ -d "$d" ] || continue
-    while IFS= read -r f; do report "$rule" "${f#$ROOT/}" "$why" "$fix"; done < <(grep -rlE "^[[:space:]]*(from|import)[[:space:]]+($re)" --include='*.py' "$d" 2>/dev/null | grep -v '/gen/')
+    while IFS= read -r f; do report "$rule" "${f#$ROOT/}" "$why" "$fix"; done < <(grep -rlE "^[[:space:]]*(from|import)[[:space:]]+($re)" --include='*.py' "$d" 2>/dev/null)
   done
 }
 
 SDK='grpc|httpx|ollama|ezdxf|ifcopenshell|cv2|pypdfium2|rapidocr[a-z_]*|google\.protobuf|requests|aiohttp|urllib\.request|socket|fastapi|uvicorn'
-# 1. Inner layers import no transport, storage or file-format SDKs and never the generated stubs or infrastructure.
+# 1. Inner layers import no transport, storage or file-format SDKs and never the generated stubs (package fga) or infrastructure.
 inner=()
 for svc in "$ROOT"/blueprint-engine/src/* "$ROOT"/agent/src/*; do
   [ -d "$svc" ] || continue
@@ -32,7 +32,7 @@ for svc in "$ROOT"/blueprint-engine/src/* "$ROOT"/agent/src/*; do
 done
 scan inner-sdk "$SDK" "domain, usecase and service depend on interfaces so they stay testable and backend-agnostic" \
   "move the SDK call behind a Protocol in domain/gateway and implement it under infrastructure/" "${inner[@]}"
-scan inner-infra '[a-z_.]*(infrastructure|handler|gen)(\.|[[:space:]]|$)' "inner layers never import infrastructure, handlers or generated stubs" \
+scan inner-infra '[a-z_.]*(infrastructure|handler)(\.|[[:space:]]|$)|fga(\.demo)?(\.|[[:space:]]|$)' "inner layers never import infrastructure, handlers or the generated stubs (package fga)" \
   "depend on a Protocol in domain/gateway; wire.py injects the implementation" "${inner[@]}"
 # 2. The engine has no LLM and no network egress.
 scan engine-no-network 'httpx|ollama|requests|aiohttp|urllib\.request|socket|http\.client' \
@@ -81,7 +81,7 @@ for svc in "$ROOT"/agent/src/*; do
     while IFS= read -r f; do
       report agent-prompts-in-service "${f#$ROOT/}" "prompts encode what the Agent asks the model; infrastructure/ollama only talks to the model" \
         "move it to service/prompts/"
-    done < <(find "$svc/$layer" \( -iname '*prompt*.py' -o -type d -iname '*prompt*' \) -not -path '*/gen/*' 2>/dev/null)
+    done < <(find "$svc/$layer" \( -iname '*prompt*.py' -o -type d -iname '*prompt*' \) 2>/dev/null)
   done
 done
 
@@ -89,11 +89,11 @@ done
 # infrastructure/entity/, protobuf DTO conversion in mapper/ folders (named <model>_mapper.py).
 for svc in "$ROOT"/agent/src/*; do
   while IFS= read -r f; do
-    case "$f" in */domain/model/*|*/gen/*) ;; *) report agent-model-folder "${f#$ROOT/}" "business data is a domain model, one file per concept" "move the dataclass to domain/model/<concept>.py";; esac
+    case "$f" in */domain/model/*) ;; *) report agent-model-folder "${f#$ROOT/}" "business data is a domain model, one file per concept" "move the dataclass to domain/model/<concept>.py";; esac
   done < <(grep -rlE '^@dataclass' --include='*.py' "$svc/domain" 2>/dev/null)
   while IFS= read -r f; do
     case "$f" in */infrastructure/entity/*) ;; *) report agent-entity-folder "${f#$ROOT/}" "a technology's wire shapes are infrastructure entities, kept out of the adapter logic" "move the dataclass to infrastructure/entity/<technology>_<shape>.py";; esac
-  done < <(grep -rlE '^@dataclass' --include='*.py' "$svc/infrastructure" 2>/dev/null | grep -v '/gen/')
+  done < <(grep -rlE '^@dataclass' --include='*.py' "$svc/infrastructure" 2>/dev/null)
   # protobuf message modules (requests, responses, details) are touched only by mapper/, which converts both ways
   for dir in handler/grpc infrastructure/engine_grpc; do
     [ -d "$svc/$dir" ] || continue
@@ -102,7 +102,7 @@ for svc in "$ROOT"/agent/src/*; do
         */mapper/*) ;;
         *) report agent-dto-in-mapper "${f#$ROOT/}" "converting protobuf DTOs to and from domain models is the mappers' job" "move the conversion to $dir/mapper/<model>_mapper.py";;
       esac
-    done < <(grep -rlE '^[[:space:]]*from[[:space:]]+[A-Za-z_.]*gen\.fga[A-Za-z_.]*[[:space:]]+import[[:space:]]+[a-z]+_pb2([[:space:]]|$)' --include='*.py' "$svc/$dir" 2>/dev/null)
+    done < <(grep -rlE '^[[:space:]]*from[[:space:]]+fga\.demo[A-Za-z_.]*[[:space:]]+import[[:space:]]+[a-z]+_pb2([[:space:]]|$)' --include='*.py' "$svc/$dir" 2>/dev/null)
     for f in "$svc/$dir"/mapper/*.py; do
       [ -f "$f" ] || continue
       n=$(basename "$f"); case "$n" in __init__.py|*_mapper.py) ;; *) report agent-dto-in-mapper "${f#$ROOT/}" "mapper files are named after the model they convert" "rename to <model>_mapper.py";; esac
@@ -116,7 +116,7 @@ for svc in "$ROOT"/blueprint-engine/src/*; do
   [ -d "$svc/$dir" ] || continue
   while IFS= read -r f; do
     case "$f" in */mapper/*) ;; *) report agent-dto-in-mapper "${f#$ROOT/}" "converting protobuf DTOs to and from domain models is the mappers' job" "move the conversion to $dir/mapper/<model>_mapper.py";; esac
-  done < <(grep -rlE '^[[:space:]]*from[[:space:]]+[A-Za-z_.]*gen\.fga[A-Za-z_.]*[[:space:]]+import[[:space:]]+[a-z]+_pb2([[:space:]]|$)' --include='*.py' "$svc/$dir" 2>/dev/null | grep -v '/gen/')
+  done < <(grep -rlE '^[[:space:]]*from[[:space:]]+fga\.demo[A-Za-z_.]*[[:space:]]+import[[:space:]]+[a-z]+_pb2([[:space:]]|$)' --include='*.py' "$svc/$dir" 2>/dev/null)
   for f in "$svc/$dir"/mapper/*.py; do
     [ -f "$f" ] || continue
     n=$(basename "$f"); case "$n" in __init__.py|*_mapper.py) ;; *) report agent-dto-in-mapper "${f#$ROOT/}" "mapper files are named after the model they convert" "rename to <model>_mapper.py";; esac
@@ -156,7 +156,7 @@ for svc in "$ROOT"/agent/src/* "$ROOT"/blueprint-engine/src/*; do
       *) report agent-helper-in-layer "${f#$ROOT/}" "common code stays in the layer that uses it (handler/*/common, usecase/helper + service/helper, infrastructure)" \
            "move it into the layer that calls it";;
     esac
-  done < <(find "$svc" -type f -name '*.py' \( -name '*helper*' -o -path '*/common/*' -o -name '*util*' \) -not -path '*/gen/*' -not -name '__init__.py' 2>/dev/null)
+  done < <(find "$svc" -type f -name '*.py' \( -name '*helper*' -o -path '*/common/*' -o -name '*util*' \) -not -name '__init__.py' 2>/dev/null)
 done
 # usecase/helper/<x>.py has its implementation in service/helper/<x>.py, like usecase/<x>.py has service/<x>.py.
 for svc in "$ROOT"/agent/src/* "$ROOT"/blueprint-engine/src/*; do
@@ -169,7 +169,7 @@ done
 
 # 12. The layer layout of the Agent (the Engine joins when its flat domain/ and root modules are refactored), as in the Go API: domain{model,gateway}, usecase{helper}, service{helper,prompts},
 # infrastructure/<technology>, handler/<transport>; the package root holds only the composition root and the entrypoint.
-layout() { # dir allowed-entry...   (every entry of dir must be one of the names; __pycache__ and gen are ignored)
+layout() { # dir allowed-entry...   (every entry of dir must be one of the names; __pycache__ is ignored)
   local dir=$1; shift
   [ -d "$dir" ] || return 0
   local e n ok a
@@ -181,7 +181,7 @@ layout() { # dir allowed-entry...   (every entry of dir must be one of the names
 }
 for svc in "$ROOT"/agent/src/*; do
   [ -d "$svc" ] || continue
-  layout "$svc" __init__.py py.typed wire.py serve.py gen domain usecase service infrastructure handler
+  layout "$svc" __init__.py py.typed wire.py serve.py domain usecase service infrastructure handler
   layout "$svc/domain" __init__.py errors.py model gateway
   layout "$svc/handler" __init__.py grpc http
   # infrastructure holds technology folders only (entity holds their wire shapes)
@@ -214,7 +214,7 @@ for svc in "$ROOT"/agent/src/* "$ROOT"/blueprint-engine/src/*; do
     [ "$(basename "$f")" = serve.py ] && continue
     report agent-wire-import "${f#$ROOT/}" "the composition root depends on the layers, never the other way round" \
       "take what you need as a constructor argument (a handler declares its own <Domain>Usecases)"
-  done < <(grep -rlE '^[[:space:]]*(from[[:space:]]+[.A-Za-z_]*wire[[:space:]]+import|from[[:space:]]+\.+[[:space:]]+import[[:space:]]+wire|import[[:space:]]+[A-Za-z_.]*wire)' --include='*.py' "$svc" 2>/dev/null | grep -v '/gen/')
+  done < <(grep -rlE '^[[:space:]]*(from[[:space:]]+[.A-Za-z_]*wire[[:space:]]+import|from[[:space:]]+\.+[[:space:]]+import[[:space:]]+wire|import[[:space:]]+[A-Za-z_.]*wire)' --include='*.py' "$svc" 2>/dev/null)
 done
 
 [ $fail = 0 ] && echo "python architecture: ok"

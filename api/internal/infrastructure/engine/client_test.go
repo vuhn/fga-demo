@@ -17,8 +17,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
-	commonv1 "github.com/vuhn/fga-demo/api/internal/infrastructure/grpcgen/fga/demo/common/v1"
-	enginev1 "github.com/vuhn/fga-demo/api/internal/infrastructure/grpcgen/fga/demo/engine/v1"
+	commonv1 "github.com/vuhn/fga-demo/proto/go/fga/demo/common/v1"
+	enginev1 "github.com/vuhn/fga-demo/proto/go/fga/demo/engine/v1"
 	"github.com/vuhn/fga-demo/api/internal/infrastructure/grpcutil"
 )
 

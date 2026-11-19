@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from ....domain.results import CheckReport
 from ....domain.schemas import Brief, BuildingModel, CheckResult
-from ....gen.fga.demo.common.v1 import common_pb2 as c
-from ....gen.fga.demo.engine.v1 import engine_pb2 as e
+from fga.demo.common.v1 import common_pb2 as c
+from fga.demo.engine.v1 import engine_pb2 as e
 from ..common.json_helper import load_json, load_optional_json
 
 

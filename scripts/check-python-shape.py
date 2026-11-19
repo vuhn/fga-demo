@@ -83,7 +83,7 @@ for src in SOURCES:
     if not src.is_dir():
         continue
     for path in sorted(src.rglob("*.py")):
-        if "/gen/" in str(path) or "__pycache__" in str(path):
+        if "__pycache__" in str(path):
             continue
         tree = ast.parse(path.read_text(), str(path))
         rel = path.relative_to(src).as_posix()

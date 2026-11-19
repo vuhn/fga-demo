@@ -4,7 +4,7 @@ package fga.demo.agent.v1;
 
 import "fga/demo/common/v1/common.proto";
 
-option go_package = "github.com/vuhn/fga-demo/api/internal/infrastructure/grpcgen/fga/demo/agent/v1;agentv1";
+option go_package = "github.com/vuhn/fga-demo/proto/go/fga/demo/agent/v1;agentv1";
 
 // All LLM work. Stateless: the API sends everything a call needs (including the opaque conversation state)
 // and stores what comes back. The Agent calls the Engine only as tools. A refusal before the first stream

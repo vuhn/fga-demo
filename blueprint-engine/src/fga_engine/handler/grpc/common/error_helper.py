@@ -10,7 +10,7 @@ import grpc
 from pydantic import ValidationError
 
 from ....domain.edits import EditError
-from ....gen.fga.demo.common.v1 import common_pb2 as c
+from fga.demo.common.v1 import common_pb2 as c
 
 log = logging.getLogger("fga_engine.grpc")
 DETAIL_KEY = "error-detail-bin"

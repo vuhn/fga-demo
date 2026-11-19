@@ -5,7 +5,7 @@ from __future__ import annotations
 from ....domain.draft import DraftBrief
 from ....domain.results import BriefResult
 from ....domain.schemas import Brief, BuildingModel, EditOps
-from ....gen.fga.demo.engine.v1 import engine_pb2 as e
+from fga.demo.engine.v1 import engine_pb2 as e
 from ..common.json_helper import dump_json, load_json, load_optional_json
 from . import check_mapper
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ....domain.model.brief import BriefDraft
-from ....gen.fga.demo.agent.v1 import agent_pb2 as a
+from fga.demo.agent.v1 import agent_pb2 as a
 
 
 def draft_to_domain(req: a.BriefFromTextRequest) -> tuple[str, bool]:

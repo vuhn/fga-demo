@@ -218,10 +218,10 @@ agent/                                   blueprint-engine/
       page_fetch (robots), engine_grpc, config
     handler/grpc/    AgentService servicer  handler/grpc/    EngineService servicer
     wire.py          the only graph builder wire.py
-    gen/             generated stubs        gen/             generated stubs
+    (stubs are not here: imported from the shared `fga` package, proto/python)
   tests/  eval/
 ```
-Rules enforced by `check-architecture.sh` (grep on imports, mirroring rule 1): `domain`, `usecase`, `service` never import `grpc`, `httpx`, `ollama`, `ezdxf`, `ifcopenshell`, `cv2`, `pypdfium2`, `rapidocr`, `google.protobuf`, generated `gen`; `engine` imports no `httpx`/`ollama`/`urllib.request`/`socket` anywhere; `agent` imports no engine package (only the generated client); only `wire.py` instantiates infrastructure; `handler` calls exactly one usecase method per RPC and maps errors in one place.
+Rules enforced by `check-architecture.sh` (grep on imports, mirroring rule 1): `domain`, `usecase`, `service` never import `grpc`, `httpx`, `ollama`, `ezdxf`, `ifcopenshell`, `cv2`, `pypdfium2`, `rapidocr`, `google.protobuf`, the generated stubs (package `fga`, `proto/python`); `engine` imports no `httpx`/`ollama`/`urllib.request`/`socket` anywhere; `agent` imports no engine package (only the generated client); only `wire.py` instantiates infrastructure; `handler` calls exactly one usecase method per RPC and maps errors in one place.
 
 Move map (no behavior change; each module goes whole to its layer, split only along existing seams):
 | Today (`blueprint_engine/`) | Goes to |

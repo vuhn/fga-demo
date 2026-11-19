@@ -1,3 +1,2 @@
-api/internal/infrastructure/grpcgen/** linguist-generated=true
-blueprint-engine/src/*/gen/** linguist-generated=true
-agent/src/*/gen/** linguist-generated=true
+proto/go/** linguist-generated=true
+proto/python/fga/** linguist-generated=true

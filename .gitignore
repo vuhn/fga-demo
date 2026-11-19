@@ -11,3 +11,4 @@ agent/.venv
 agent/out
 agent/**/__pycache__
 .pytest_cache
+proto/python/.venv

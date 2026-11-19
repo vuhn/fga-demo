@@ -5,7 +5,7 @@ from __future__ import annotations
 from ....domain.estimate import EstimateFacts
 from ....domain.results import PlanSummary
 from ....domain.schemas import BuildingModel
-from ....gen.fga.demo.engine.v1 import engine_pb2 as e
+from fga.demo.engine.v1 import engine_pb2 as e
 from ..common.json_helper import load_json
 from .estimate_mapper import facts_to_domain
 

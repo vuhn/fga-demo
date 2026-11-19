@@ -7,9 +7,9 @@ import pytest
 from grpc_health.v1 import health_pb2, health_pb2_grpc
 
 from briefs import STUDIO
-from fga_engine.gen.fga.demo.common.v1 import common_pb2 as c
-from fga_engine.gen.fga.demo.engine.v1 import engine_pb2 as e
-from fga_engine.gen.fga.demo.engine.v1 import engine_pb2_grpc as rpc
+from fga.demo.common.v1 import common_pb2 as c
+from fga.demo.engine.v1 import engine_pb2 as e
+from fga.demo.engine.v1 import engine_pb2_grpc as rpc
 from fga_engine.handler.grpc.common.error_helper import DETAIL_KEY
 from fga_engine.handler.grpc.server import SERVICE, build_server
 from fga_engine.wire import build_servicer

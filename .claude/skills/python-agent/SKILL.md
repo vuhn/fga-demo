@@ -27,6 +27,7 @@ Stateless gRPC service (`fga.demo.agent.v1.AgentService`, :8091). It owns every 
 11. Tests in `agent/tests/`: service tests with the scripted/fake Engine and fake language model (no real LLM), real-gRPC handler tests, mapper tests. Bug fixes: failing test first, then the fix without editing that test.
 
 ## Rules that bite
+- Generated stubs are shared: import `from fga.demo.<svc>.v1 import <svc>_pb2` (package `fga`, from `proto/python` via the `fga-proto` path dependency), only in a `mapper/`. Never generate stubs into this service or hand edit them; change the `.proto` and run `make proto-gen`.
 - Name things in the business domain (`BriefDrafter`, `PlanCheck`), not the mechanism (`Tool`, `Registry`, `Loader`).
 - No `contextvars`; no ambient state. Dependencies are explicit arguments.
 - `domain/model` is data only; `entity` is only a technology's own wire/row shape. A token, an exception, a factory or a callback type is not a model.

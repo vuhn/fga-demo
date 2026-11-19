@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from ....domain.model.operation_catalog import EditOperation, OperationCatalog
-from ....gen.fga.demo.engine.v1 import engine_pb2 as e
+from fga.demo.engine.v1 import engine_pb2 as e
 
 
 def request() -> e.ListToolsRequest:

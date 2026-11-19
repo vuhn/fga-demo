@@ -26,6 +26,7 @@ The delivery side already follows the target layout: `handler/grpc/<domain>_hand
 7. Tests in `blueprint-engine/tests/` (no LLM): pure geometry and checks, services with fake gateways, real-gRPC handler tests (`test_grpc.py`). Bug fixes: failing test first, then the fix without editing that test. `make engine-eval` (live LLM golden prompts) is only for prompt behavior and is not part of `make check`.
 
 ## Rules that bite
+- Generated stubs are shared: import `from fga.demo.<svc>.v1 import <svc>_pb2` (package `fga`, from `proto/python` via the `fga-proto` path dependency), only in a `mapper/`. Never generate stubs into this service or hand edit them; change the `.proto` and run `make proto-gen`.
 - Determinism: same input, same output; layouts stay stable against the previous version. No randomness, no clock, no network.
 - Inner layers (`domain`, `usecase`, `service`) import no SDK (`grpc`, `ezdxf`, `ifcopenshell`, `cv2`, `pypdfium2`, `rapidocr`, `fastapi`, protobuf) and never `infrastructure`, `handler`, `gen`.
 - The Engine never imports Agent code and never sees tenant or user ids; the Agent never imports Engine code.

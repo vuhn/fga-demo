@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Text2Blueprint engine: brief JSON -> floor plan (DXF, SVG, PDF). Stateless; called only by the Go API."
 requires-python = ">=3.13"
 dependencies = [
+    "fga-proto",
     "ezdxf==1.4.5",
     "fastapi==0.162.5",
     "grpcio==1.80.0",
@@ -21,6 +22,9 @@ dependencies = [
     "uvicorn[standard]==0.54.0",
 ]
 
+[tool.uv.sources]
+fga-proto = { path = "../proto/python", editable = true }
+
 [build-system]
 requires = ["uv_build>=0.12.3,<0.13.0"]
 build-backend = "uv_build"
@@ -30,7 +34,6 @@ module-name = "fga_engine"
 
 [dependency-groups]
 dev = [
-    "grpcio-tools==1.80.0",
     "pytest==9.2.0",
     "watchfiles==1.3.0",
 ]

@@ -9,9 +9,9 @@ from fake_language_model import FakeLanguageModel
 from scripted_engine import BRIEF
 
 from fga_agent.domain.errors import LlmUnavailable
-from fga_agent.gen.fga.demo.agent.v1 import agent_pb2 as a
-from fga_agent.gen.fga.demo.agent.v1 import agent_pb2_grpc as rpc
-from fga_agent.gen.fga.demo.common.v1 import common_pb2 as c
+from fga.demo.agent.v1 import agent_pb2 as a
+from fga.demo.agent.v1 import agent_pb2_grpc as rpc
+from fga.demo.common.v1 import common_pb2 as c
 from fga_agent.handler.grpc.blueprint_handler import BlueprintHandler, BlueprintUsecases
 from fga_agent.handler.grpc.common.error_helper import DETAIL_KEY
 from fga_agent.handler.grpc.server import build_server

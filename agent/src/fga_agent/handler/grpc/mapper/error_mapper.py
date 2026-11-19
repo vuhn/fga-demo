@@ -6,8 +6,8 @@ from __future__ import annotations
 import grpc
 
 from ....domain.errors import EngineUnavailable, InvalidEdit, LlmUnavailable
-from ....gen.fga.demo.agent.v1 import agent_pb2 as a
-from ....gen.fga.demo.common.v1 import common_pb2 as c
+from fga.demo.agent.v1 import agent_pb2 as a
+from fga.demo.common.v1 import common_pb2 as c
 
 _INTERNAL = "internal error"
 

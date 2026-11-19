@@ -6,9 +6,9 @@ from concurrent import futures
 
 import grpc
 
-from fga_agent.gen.fga.demo.common.v1 import common_pb2 as c
-from fga_agent.gen.fga.demo.engine.v1 import engine_pb2 as e
-from fga_agent.gen.fga.demo.engine.v1 import engine_pb2_grpc as rpc
+from fga.demo.common.v1 import common_pb2 as c
+from fga.demo.engine.v1 import engine_pb2 as e
+from fga.demo.engine.v1 import engine_pb2_grpc as rpc
 
 
 class FakeEngine(rpc.EngineServiceServicer):

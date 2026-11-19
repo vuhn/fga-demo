@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from ....domain.model.plan_check import PlanCheck, PlanCheckReport
-from ....gen.fga.demo.common.v1 import common_pb2 as c
-from ....gen.fga.demo.engine.v1 import engine_pb2 as e
+from fga.demo.common.v1 import common_pb2 as c
+from fga.demo.engine.v1 import engine_pb2 as e
 
 
 def run_checks_request(model: bytes, brief: bytes) -> e.RunChecksRequest:
