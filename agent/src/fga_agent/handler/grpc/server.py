@@ -18,6 +18,7 @@ from ...domain.model.call_context import CallContext
 from .servicer import AgentServicer
 
 MAX_MESSAGE = 32 << 20
+MAX_BACKOFF = 15  # the retry pause grows to this many times the first one
 SERVICE = "fga.demo.agent.v1.AgentService"
 log = logging.getLogger("fga_agent.server")
 
@@ -37,6 +38,9 @@ class AgentServer:
         self._hs.set(SERVICE, status)
 
     def _load(self) -> None:
+        """Retries until the Engine answers. The pause doubles up to 15 times the first one (2 s becomes 30 s), and a
+        failure is a warning only when it differs from the last one logged, so a down Engine is one line, not a flood."""
+        pause, last = self._retry, ""
         while not self._stop.is_set():
             try:
                 self._ready_check(CallContext(request_id="startup"))
@@ -44,8 +48,13 @@ class AgentServer:
                 log.info("engine catalog loaded; serving")
                 return
             except EngineUnavailable as e:
-                log.warning("engine catalog not loaded yet: %s", e)
-            self._stop.wait(self._retry)
+                if str(e) != last:
+                    log.warning("engine catalog not loaded yet, retrying (up to every %.0fs): %s", self._retry * MAX_BACKOFF, e)
+                    last = str(e)
+                else:
+                    log.debug("engine catalog still not loaded: %s", e)
+            self._stop.wait(pause)
+            pause = min(pause * 2, self._retry * MAX_BACKOFF)
 
     def watch_catalog(self) -> None:
         self._thread.start()

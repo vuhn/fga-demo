@@ -117,3 +117,23 @@ def test_cancel_token():
     t.cancel()
     with pytest.raises(Cancelled):
         t.check()
+
+
+def test_a_down_engine_is_warned_about_once_and_retried_with_growing_pauses(caplog):
+    eng = Running()
+    eng.engine.down = True
+    engine = GrpcBlueprintEngine(open_channel(eng.addr), timeout=5)
+    built = build_server(AgentServicer(None), DesignCatalogLoaderService(engine).load, retry_s=0.02)
+    built.server.add_insecure_port("127.0.0.1:0")
+    built.server.start()
+    caplog.set_level("DEBUG", logger="fga_agent.server")
+    built.watch_catalog()
+    try:
+        assert _until(lambda: eng.engine.calls.count("ListTools") >= 4)  # it keeps trying
+        warned = [r for r in caplog.records if r.levelname == "WARNING"]
+        assert len(warned) == 1 and "not loaded yet" in warned[0].getMessage()
+        eng.engine.down = False
+        assert _until(lambda: any("serving" in r.getMessage() for r in caplog.records))
+    finally:
+        built.stop(0)
+        eng.stop()
