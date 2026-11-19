@@ -36,3 +36,20 @@ def describe_op(op: dict) -> str:
     """One applied operation as a line: `set area room=kitchen, area=12`."""
     rest = {k: v for k, v in op.items() if k != "op" and v is not None}
     return str(op.get("op", "")).replace("_", " ") + " " + ", ".join(f"{k}={v}" for k, v in rest.items())
+
+
+def plan_for_prompt(model: bytes) -> str:
+    """A plan kept as drawn, as the model reads it: rooms with their fixtures, and openings with the rooms they join."""
+    m = json.loads(model)
+    names = {r["id"]: r["name"] for r in m.get("rooms", [])}
+    rooms = [{"name": r["name"], "type": r["type"], "area": round(r.get("net_area", 0), 1),
+              "fixtures": [f["kind"] for f in m.get("fixtures", []) if f.get("room_id") == r["id"]]}
+             for r in m.get("rooms", [])]
+    openings = [{"id": o["id"], "kind": o["kind"], "width": round(o.get("width", 0), 2),
+                 "rooms": [names.get(x, x) for x in o.get("rooms", [])]} for o in m.get("openings", [])]
+    return json.dumps({"rooms": rooms, "openings": openings})
+
+
+def plan_chat_instructions() -> str:
+    return ("You turn a revision request for an existing floor plan, imported from a CAD file, into edit operations. "
+            "The plan is kept as drawn: walls and rooms cannot be moved or resized, so answer 'unsupported' for that.")

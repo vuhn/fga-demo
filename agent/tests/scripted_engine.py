@@ -5,6 +5,8 @@ from __future__ import annotations
 from fga_agent.domain.model.brief import BriefBuild, BriefDraft
 from fga_agent.domain.model.design_limits import DesignLimits
 from fga_agent.domain.model.operation_catalog import EditOperation, OperationCatalog
+from fga_agent.domain.model.plan import PlanRevision
+from fga_agent.domain.model.plan_check import PlanCheck
 
 BRIEF = (b'{"title":"House","lot":{"width":20,"depth":30},"entrance_side":"south","open_plan":false,"rooms":['
          b'{"id":"living","name":"Living","type":"living","target_area":22,"adjacent_to":["kitchen"],"fixtures":[]},'
@@ -28,10 +30,26 @@ def build(**over) -> BriefBuild:
     return BriefBuild(**{**base, **over})
 
 
+PLAN = (b'{"rooms":[{"id":"r1","name":"Kitchen","type":"kitchen","net_area":11.2},{"id":"r2","name":"Bed","type":"bedroom",'
+        b'"net_area":12}],"fixtures":[{"kind":"sink","room_id":"r1"}],"openings":[{"id":"d1","kind":"door","width":0.9,'
+        b'"rooms":["r1","r2"]}]}')
+
+
+def check(rule="side", ok=False, severity="error", hint="set_side {room, side}") -> PlanCheck:
+    return PlanCheck(rule=rule, severity=severity, ok=ok, message=f"{rule} problem", issue_id=f"{rule}:kitchen", hint=hint)
+
+
+def revision(**over) -> PlanRevision:
+    base = dict(model=PLAN, checks=[], ok=True, notes=[], summary="s", descriptions=["rename room Kitchen"], changed=True)
+    return PlanRevision(**{**base, **over})
+
+
 class ScriptedEngine:
-    def __init__(self, drafts=(), builds=()) -> None:
-        self.drafts, self.builds = list(drafts), list(builds)
+    def __init__(self, drafts=(), builds=(), generates=(), plans=()) -> None:
+        self.drafts, self.builds, self.generates, self.plans = list(drafts), list(builds), list(generates), list(plans)
         self.normalized: list[bytes] = []
+        self.generated: list[tuple[bytes, bytes]] = []
+        self.plan_ops: list[tuple[bytes, bytes]] = []
         self.applied: list[tuple[bytes, bytes, bytes]] = []
         self.down = False
 
@@ -60,3 +78,11 @@ class ScriptedEngine:
     def apply_brief_ops(self, ctx, brief: bytes, ops: bytes, previous_model: bytes = b"") -> BriefBuild:
         self.applied.append((brief, ops, previous_model))
         return self._next(self.builds)
+
+    def generate(self, ctx, brief: bytes, previous_model: bytes = b"", repair: bool = False) -> BriefBuild:
+        self.generated.append((brief, previous_model))
+        return self._next(self.generates)
+
+    def apply_plan_ops(self, ctx, model: bytes, ops: bytes) -> PlanRevision:
+        self.plan_ops.append((model, ops))
+        return self._next(self.plans)

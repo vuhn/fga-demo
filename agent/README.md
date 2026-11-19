@@ -9,7 +9,7 @@ make agent        # serve on :8091 with reload (needs the Engine on :8092 and Ol
 make agent-test   # pytest, no LLM
 ```
 
-Served so far: `BriefFromText` (unary) and `Revise` (stream: progress, then a result or an in-band error) from `handler/grpc/blueprint_handler.py`. `RevisePlan`, `Review` (T11b) and `EstimateTurn` (T13b) answer UNIMPLEMENTED. A refusal before the first stream message is a gRPC status with an `ErrorDetail`; after it, an `Error` event.
+Served so far, from `handler/grpc/blueprint_handler.py`: `BriefFromText` (unary) and the streams `Revise`, `RevisePlan` (plan kept as drawn) and `Review` (each: progress, then a result or an in-band error). `Revise` ends with one automatic review round when the edit introduced errors the plan did not have (`BriefReviewer`: forbidden ops, 15% area cap, a round kept only when the issue score drops). `EstimateTurn` (T13b) answers UNIMPLEMENTED. A refusal before the first stream message is a gRPC status with an `ErrorDetail`; after it, an `Error` event.
 
 ## Layers
 
