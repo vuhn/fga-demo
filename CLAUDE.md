@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-OpenFGA multi-tenant authorization demo: Go API in `api/` (its own module, Gin, pgx, goose) + OpenFGA + React admin panel in `web/` + `blueprint-engine/` (Python FastAPI sidecar, uv, local Ollama; stateless, no auth; only the API calls it, plus the Agent that will call its deterministic tools once the Agent exists; it never sees a tenant or user id). Postgres is the display record; OpenFGA makes every allow/deny decision.
+OpenFGA multi-tenant authorization demo: Go API in `api/` (its own module, Gin, pgx, goose) + OpenFGA + React admin panel in `web/` + `blueprint-engine/` (Python gRPC Engine, uv, deterministic, no LLM; stateless, no auth) + `agent/` (Python gRPC Agent, uv, local Ollama, owns every LLM call; stateless, no auth; calls the Engine's tools); the API calls both, and neither sees a tenant or user id. Postgres is the display record; OpenFGA makes every allow/deny decision.
 
 ## Source of truth
 
-- Architecture overviews: `ARCHITECTURE.md` (system; read first), `api/ARCHITECTURE.md` (read when touching Go layers), `web/ARCHITECTURE.md` (read when touching the panel). Detailed reference lives in `docs/`: `authorization-model.md` and `tuple-catalog.md` (model or relation builders), `decision-catalog.md` (any new action or Check), `http-api.md` (routes), `database-schema.md` and `seed-data.md` (migrations, seed), `web-ui.md` (UI), `testing.md` (tests), `operations.md` (compose, env). `README.md` is the story and the 11-step click script. **Keep code, the architecture files, `docs/`, and `README.md` aligned in the same change.** If behavior changes, update the spec first.
+- Architecture overviews: `ARCHITECTURE.md` (system; read first), `api/ARCHITECTURE.md` (read when touching Go layers), `web/ARCHITECTURE.md` (read when touching the panel). `agent/ARCHITECTURE.md` and `blueprint-engine/ARCHITECTURE.md` (read when touching those services). Detailed reference lives in `docs/`: `authorization-model.md` and `tuple-catalog.md` (model or relation builders), `decision-catalog.md` (any new action or Check), `http-api.md` (routes), `database-schema.md` and `seed-data.md` (migrations, seed), `web-ui.md` (UI), `testing.md` (tests), `operations.md` (compose, env). `README.md` is the story and the 11-step click script. **Keep code, the architecture files, `docs/`, and `README.md` aligned in the same change.** If behavior changes, update the spec first.
 - Session state lives in `docs/harness/`: `progress.md` (where we are), `decisions.md`, `sdlc.md`, `lessons.md`, `clean-state-checklist.md`, `evaluator-rubric.md`, `quality.md`.
 - `api/fga/model.fga` must equal the DSL block in `docs/authorization-model.md` exactly.
 - Seed ids/tuples (with each container's private/public flag) live once in `api/internal/seed/world.go` (one slice per domain); `cmd/seed` writes them and the integration tests assert against them. Do not duplicate ids elsewhere.
@@ -19,8 +19,9 @@ make compose-up         # Postgres :5432, OpenFGA :8080 (gRPC :8081, Playground 
 make seed               # RESETS everything: truncates app tables, recreates the fga-demo store, writes the seed
 make api                # :8088 — migrates, opens existing store + newest model; never seeds
 make web                # Vite :5173, proxies /api -> :8088
-make engine             # blueprint-engine :8090 (needs Ollama: qwen3:latest, only for describe/chat; uploads need no LLM)
-make engine-test        # engine pytest (no LLM); make engine-eval runs golden prompts on the live LLM
+make engine             # the Engine, gRPC :8092 (no LLM; uploads, edits, drawings, takeoff)
+make agent              # the Agent, gRPC :8091 (needs Ollama: qwen3:latest, for describe, chat and the estimate chat)
+make engine-test        # engine pytest (no LLM, no network); make agent-test the Agent's; make agent-eval / agent-eval-estimate run golden prompts on the live LLM
 make test               # cd api && go test ./... (pure tuple builders)
 make test-integration   # live OpenFGA: model vs README script, internal_admin ⊇ internal_user
 cd web && npm run build # tsc --noEmit + vite build

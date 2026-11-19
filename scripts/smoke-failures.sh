@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Failure matrix: start a second API on :8089 whose sidecar address points at a dead port and assert which
+# Failure matrix: start a second API on :8089 whose Engine or Agent address points at a dead port and assert which
 # routes answer 502 `engine_unavailable` and which keep working. Non-destructive (the running stack is not
 # touched); the second API shares the database, and a throwaway blueprint is created and deleted.
 #
@@ -46,7 +46,7 @@ J=(-H 'content-type: application/json')
 V=$(curl -s "$API1/blueprints/$ID" -H "authorization: Bearer $TOK" -H "X-Tenant-ID: $TENANT" | jq -r '.version.version // 1')
 ROOM=$(curl -s "$API1/blueprints/$ID" -H "authorization: Bearer $TOK" -H "X-Tenant-ID: $TENANT" | jq -r '.version.model.rooms[0].id')
 
-# Always unaffected by a dead sidecar: reads of stored data and the restore.
+# Always unaffected by a dead Engine or Agent: reads of stored data and the restore.
 expect 200 "get (stored)"            GET "/blueprints/$ID"
 expect 200 "list"                    GET "/blueprints?project_id=$PROJECT"
 expect 200 "versions"                GET "/blueprints/$ID/versions"

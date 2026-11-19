@@ -1,6 +1,6 @@
 ---
 name: python-engine
-description: Implement or change Python code in blueprint-engine/ (the deterministic Engine: geometry, DXF/IFC, checks, plan ops, estimates; gRPC and legacy FastAPI) following the repo's Clean Architecture mixed with DDD. Use for any task touching blueprint-engine/src/fga_engine, blueprint-engine/tests, or the Engine's gRPC API.
+description: Implement or change Python code in blueprint-engine/ (the deterministic Engine: geometry, DXF/IFC, checks, plan ops, estimates; gRPC only) following the repo's Clean Architecture mixed with DDD. Use for any task touching blueprint-engine/src/fga_engine, blueprint-engine/tests, or the Engine's gRPC API.
 ---
 
 # Implement Engine changes
@@ -8,10 +8,10 @@ description: Implement or change Python code in blueprint-engine/ (the determini
 Source of truth: CLAUDE.md "Architecture rules" (Python services bullet), `blueprint-engine/README.md`, `docs/service-contracts.md`, `docs/harness/evaluator-rubric.md` (Python layering checklist), and `specs/re-architecture-system/plan.md` for what is being moved. This skill is the working checklist.
 
 ## The Engine in one paragraph
-Stateless and deterministic: **the LLM only produces or edits the brief; code does every piece of geometry.** No auth, no storage, no tenant or user ids. The Go API calls it (legacy FastAPI `app.py`), and the Agent calls its tools over gRPC (`NormalizeDraft`, `ApplyBriefOps`, `ListTools`, `GetCatalog`, plan ops, checks). New work belongs in the gRPC path; the Engine must not gain LLM or network code (`engine-no-llm`, `engine-no-network` checks).
+Stateless and deterministic: **the LLM only produces or edits the brief; code does every piece of geometry.** No auth, no storage, no tenant or user ids. The Go API and the Agent call it over gRPC (the Agent as tools), and the Agent calls its tools over gRPC (`NormalizeDraft`, `ApplyBriefOps`, `ListTools`, `GetCatalog`, plan ops, checks). New work belongs in the gRPC path; the Engine must not gain LLM or network code (`engine-no-llm`, `engine-no-network` checks).
 
 ## State of the refactor (read before choosing where code goes)
-The delivery side already follows the target layout: `handler/grpc/<domain>_handler.py` (own `<Domain>Usecases`), `mapper/`, `common/*_helper.py`, one gateway per file in `domain/gateway/`, `usecase/<op>.py` paired with `service/<op>.py`, `wire.py` as the only composition root. Its `domain/` is still flat modules and some root modules (`llm_steps.py`, `prompts.py`, `pipeline.py`, `app.py`, ...) are legacy, listed in `scripts/python-arch-allow.txt`. Rules:
+The delivery side already follows the target layout: `handler/grpc/<domain>_handler.py` (own `<Domain>Usecases`), `mapper/`, `common/*_helper.py`, one gateway per file in `domain/gateway/`, `usecase/<op>.py` paired with `service/<op>.py`, `wire.py` as the only composition root. Its `domain/` is still flat modules and a few root modules (`pipeline.py`, `estimate.py`, `takeoff.py`, `estimate_models.py`) are legacy adapters; `scripts/python-arch-allow.txt` is empty and stays empty. Rules:
 - New code follows the target layout (CLAUDE.md), never the legacy shape. Do not add a new root module or a new allow-list line.
 - Touching a legacy module for a task: only move what the task needs. A later plan task refactors the rest (`specs/re-architecture-system/plan.md`); do not widen the PR.
 - The layout, model, usecase and service checks run on the Agent only for now; follow them in the Engine anyway.
@@ -23,7 +23,7 @@ The delivery side already follows the target layout: `handler/grpc/<domain>_hand
 4. `usecase/<operation>.py` (Protocol, verb methods) + `service/<operation>.py` (the implementation, same file name). Deps through the constructor.
 5. `handler/grpc/<domain>_handler.py`: decode, call ONE use case, encode through `handler/grpc/mapper/<model>_mapper.py` (both ways, no decisions). At most 15 statements, no loops. Errors via `common/error_helper.py`. `servicer.py` only delegates. No `*_pb2` message module outside `mapper/`.
 6. `wire.py`: build the graph there and nowhere else; no layer imports it.
-7. Tests in `blueprint-engine/tests/` (no LLM): pure geometry and checks, services with fake gateways, real-gRPC handler tests (`test_grpc.py`). Bug fixes: failing test first, then the fix without editing that test. `make engine-eval` (live LLM golden prompts) is only for prompt behavior and is not part of `make check`.
+7. Tests in `blueprint-engine/tests/` (no LLM): pure geometry and checks, services with fake gateways, real-gRPC handler tests (`test_grpc.py`). Bug fixes: failing test first, then the fix without editing that test. Prompt behavior is the Agent's (`make agent-eval*`), not the Engine's.
 
 ## Rules that bite
 - Generated stubs are shared: import `from fga.demo.<svc>.v1 import <svc>_pb2` (package `fga`, from `proto/python` via the `fga-proto` path dependency), only in a `mapper/`. Never generate stubs into this service or hand edit them; change the `.proto` and run `make proto-gen`.

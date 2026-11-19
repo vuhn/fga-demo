@@ -1,7 +1,7 @@
 """Estimate-reading eval against the live model: does the Agent understand a message in English, Vietnamese and Japanese?
 
     uv run python eval/estimate_run.py [--rules on|off|both] [--model qwen3:latest] [--limit N] [--only id,id] [-v]
-                                                                     (needs `make engine-grpc` for the catalog, and Ollama)
+                                                                     (needs `make engine` for the catalog, and Ollama)
 
 Each case in estimate_golden.json is one message (optionally with the question it answers) and the fields it must produce; `null`
 lists fields that must stay empty (the unprompted-guess checks). `--rules both` runs every case with the keyword rules on and off,
