@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -155,4 +156,35 @@ func Call[R any](service string, invoke func(trailer *metadata.MD) (R, error)) (
 		return zero, FromStatus(service, err, Trailer(tr))
 	}
 	return out, nil
+}
+
+// ChecksJSON is the plan checks in the shape the HTTP engine always returned (room_id null when absent), so
+// stored results and the web panel see no difference.
+func ChecksJSON(cs []*commonv1.Check) json.RawMessage {
+	type check struct {
+		Rule     string   `json:"rule"`
+		Severity string   `json:"severity"`
+		OK       bool     `json:"ok"`
+		Message  string   `json:"message"`
+		RoomID   *string  `json:"room_id"`
+		Category string   `json:"category"`
+		IssueID  string   `json:"issue_id"`
+		Elements []string `json:"elements"`
+		Hint     string   `json:"hint"`
+	}
+	out := make([]check, 0, len(cs))
+	for _, c := range cs {
+		ck := check{Rule: c.Rule, Severity: c.Severity, OK: c.Ok, Message: c.Message, Category: c.Category,
+			IssueID: c.IssueId, Elements: c.Elements, Hint: c.Hint}
+		if ck.Elements == nil {
+			ck.Elements = []string{}
+		}
+		if c.RoomId != "" {
+			id := c.RoomId
+			ck.RoomID = &id
+		}
+		out = append(out, ck)
+	}
+	b, _ := json.Marshal(out)
+	return b
 }

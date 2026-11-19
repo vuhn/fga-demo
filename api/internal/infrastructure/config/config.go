@@ -23,6 +23,9 @@ type Config struct {
 	// BlueprintEngineAddr is the gRPC address of the Engine (host:port). When set the API calls the Engine over
 	// gRPC and BlueprintEngine (HTTP) serves only the LLM operations; unset keeps everything on the HTTP sidecar.
 	BlueprintEngineAddr string
+	// AgentAddr is the gRPC address of the Agent (host:port). When set the blueprint LLM operations (draft, revise,
+	// review) go to the Agent; unset keeps them on the HTTP sidecar.
+	AgentAddr string
 }
 
 var defaults = map[string]string{
@@ -68,6 +71,7 @@ func Load() (Config, error) {
 		CORSOrigin:          get("CORS_ORIGIN"),
 		BlueprintEngine:     get("BLUEPRINT_ENGINE_URL"),
 		BlueprintEngineAddr: get("BLUEPRINT_ENGINE_ADDR"),
+		AgentAddr:           get("AGENT_ADDR"),
 	}, nil
 }
 

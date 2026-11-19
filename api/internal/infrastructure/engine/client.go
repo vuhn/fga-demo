@@ -58,7 +58,7 @@ func (c *Client) Generate(ctx context.Context, brief, previous []byte, repair bo
 	if err != nil {
 		return model.BlueprintOutcome{}, err
 	}
-	return model.BlueprintOutcome{Brief: raw(r.BriefJson), Model: raw(r.ModelJson), Checks: checksJSON(r.Checks),
+	return model.BlueprintOutcome{Brief: raw(r.BriefJson), Model: raw(r.ModelJson), Checks: grpcutil.ChecksJSON(r.Checks),
 		Issues: r.Issues, OK: r.Ok, Notes: r.Notes}, nil
 }
 
@@ -80,7 +80,7 @@ func planOutcome(r *enginev1.PlanOutcome, err error) (model.BlueprintOutcome, er
 	if err != nil {
 		return model.BlueprintOutcome{}, err
 	}
-	return model.BlueprintOutcome{Model: raw(r.ModelJson), Checks: checksJSON(r.Checks), Issues: r.Issues, OK: r.Ok,
+	return model.BlueprintOutcome{Model: raw(r.ModelJson), Checks: grpcutil.ChecksJSON(r.Checks), Issues: r.Issues, OK: r.Ok,
 		Notes: r.Notes, DXF: r.Dxf}, nil
 }
 
@@ -91,7 +91,7 @@ func (c *Client) EditPlan(ctx context.Context, plan, ops []byte) (model.Blueprin
 	if err != nil {
 		return model.BlueprintOutcome{}, err
 	}
-	return model.BlueprintOutcome{Model: raw(r.ModelJson), Checks: checksJSON(r.Checks), OK: r.Ok, Notes: r.Notes}, nil
+	return model.BlueprintOutcome{Model: raw(r.ModelJson), Checks: grpcutil.ChecksJSON(r.Checks), OK: r.Ok, Notes: r.Notes}, nil
 }
 
 func (c *Client) PatchDXF(ctx context.Context, original model.Upload, base, current []byte) (model.PatchedFile, error) {
@@ -178,35 +178,4 @@ func raw(b []byte) json.RawMessage {
 		return nil
 	}
 	return json.RawMessage(b)
-}
-
-// checksJSON is the plan checks in the shape the HTTP engine always returned (room_id null when absent), so
-// stored results and the web panel see no difference.
-func checksJSON(cs []*commonv1.Check) json.RawMessage {
-	type check struct {
-		Rule     string   `json:"rule"`
-		Severity string   `json:"severity"`
-		OK       bool     `json:"ok"`
-		Message  string   `json:"message"`
-		RoomID   *string  `json:"room_id"`
-		Category string   `json:"category"`
-		IssueID  string   `json:"issue_id"`
-		Elements []string `json:"elements"`
-		Hint     string   `json:"hint"`
-	}
-	out := make([]check, 0, len(cs))
-	for _, c := range cs {
-		ck := check{Rule: c.Rule, Severity: c.Severity, OK: c.Ok, Message: c.Message, Category: c.Category,
-			IssueID: c.IssueId, Elements: c.Elements, Hint: c.Hint}
-		if ck.Elements == nil {
-			ck.Elements = []string{}
-		}
-		if c.RoomId != "" {
-			id := c.RoomId
-			ck.RoomID = &id
-		}
-		out = append(out, ck)
-	}
-	b, _ := json.Marshal(out)
-	return b
 }
