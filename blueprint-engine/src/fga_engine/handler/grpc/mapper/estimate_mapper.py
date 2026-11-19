@@ -5,8 +5,8 @@ from __future__ import annotations
 from ....domain.estimate import (Estimate, EstimateFacts, Fact, RateResult, RateSource, RoomScope, Takeoff,
                                  TakeoffLine)
 from ....domain.schemas import BuildingModel
-from ....gen.fga.demo.common.v1 import common_pb2 as c
-from ....gen.fga.demo.engine.v1 import engine_pb2 as e
+from fga.demo.common.v1 import common_pb2 as c
+from fga.demo.engine.v1 import engine_pb2 as e
 from ..common.json_helper import dump_json, load_json
 
 _SOURCE = {"user": c.FACT_SOURCE_USER, "plan": c.FACT_SOURCE_PLAN, "assumed": c.FACT_SOURCE_ASSUMED}

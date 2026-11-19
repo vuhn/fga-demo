@@ -4,7 +4,7 @@ package fga.demo.engine.v1;
 
 import "fga/demo/common/v1/common.proto";
 
-option go_package = "github.com/vuhn/fga-demo/api/internal/infrastructure/grpcgen/fga/demo/engine/v1;enginev1";
+option go_package = "github.com/vuhn/fga-demo/proto/go/fga/demo/engine/v1;enginev1";
 
 // Deterministic blueprint tools. No LLM, no database, no network egress. Plans, briefs and edit operations
 // cross as JSON bytes in the schema the Engine publishes through ListTools; typed messages are used where a

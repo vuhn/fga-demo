@@ -5,7 +5,7 @@ from __future__ import annotations
 import grpc
 
 from ....domain.errors import EngineUnavailable, InvalidEdit, UnsupportedEdit
-from ....gen.fga.demo.common.v1 import common_pb2 as c
+from fga.demo.common.v1 import common_pb2 as c
 
 DETAIL_KEY = "error-detail-bin"
 

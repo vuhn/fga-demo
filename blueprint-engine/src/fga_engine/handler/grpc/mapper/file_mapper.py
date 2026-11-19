@@ -8,7 +8,7 @@ import json
 from ....domain.edits import EditError
 from ....domain.files import ConvertOut, ImportOut, PatchOut, TitleBlock
 from ....domain.schemas import BuildingModel
-from ....gen.fga.demo.engine.v1 import engine_pb2 as e
+from fga.demo.engine.v1 import engine_pb2 as e
 from ..common.json_helper import load_json
 
 _FORMATS = {e.RENDER_FORMAT_SVG: "svg", e.RENDER_FORMAT_PDF: "pdf", e.RENDER_FORMAT_DXF: "dxf", e.RENDER_FORMAT_IFC: "ifc"}

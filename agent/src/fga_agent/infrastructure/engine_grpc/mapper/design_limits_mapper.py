@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ....domain.model.design_limits import DesignLimits, RateSpec
-from ....gen.fga.demo.engine.v1 import engine_pb2 as e
+from fga.demo.engine.v1 import engine_pb2 as e
 
 
 def request() -> e.GetCatalogRequest:

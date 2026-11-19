@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ....domain.model.plan import PlanRevision
-from ....gen.fga.demo.engine.v1 import engine_pb2 as e
+from fga.demo.engine.v1 import engine_pb2 as e
 from . import plan_check_mapper
 
 

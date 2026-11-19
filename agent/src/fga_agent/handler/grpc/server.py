@@ -11,7 +11,7 @@ import grpc
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 from ...domain.errors import EngineUnavailable
-from ...gen.fga.demo.agent.v1 import agent_pb2_grpc as rpc
+from fga.demo.agent.v1 import agent_pb2_grpc as rpc
 from collections.abc import Callable
 
 from ...domain.model.call_context import CallContext

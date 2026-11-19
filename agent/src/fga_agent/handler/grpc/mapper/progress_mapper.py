@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ....domain.model.progress import Progress
-from ....gen.fga.demo.agent.v1 import agent_pb2 as a
+from fga.demo.agent.v1 import agent_pb2 as a
 
 
 def to_pb(p: Progress) -> a.Progress:

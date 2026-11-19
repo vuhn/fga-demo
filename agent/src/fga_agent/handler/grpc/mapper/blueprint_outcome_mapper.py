@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ....domain.model.blueprint_outcome import BlueprintOutcome
-from ....gen.fga.demo.agent.v1 import agent_pb2 as a
+from fga.demo.agent.v1 import agent_pb2 as a
 from . import plan_check_mapper
 
 

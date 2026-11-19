@@ -7,7 +7,7 @@ import base64
 from ....domain import plan_edits
 from ....domain.results import PlanCreated, PlanEdit
 from ....domain.schemas import Brief, BuildingModel
-from ....gen.fga.demo.engine.v1 import engine_pb2 as e
+from fga.demo.engine.v1 import engine_pb2 as e
 from ..common.json_helper import dump_json, load_json
 from . import check_mapper
 

@@ -5,7 +5,7 @@ import grpc
 from fga_agent.domain.errors import EngineUnavailable, InvalidEdit, LlmUnavailable, UnsupportedEdit
 from fga_agent.domain.model.plan_check import PlanCheck
 from fga_agent.domain.model.progress import Progress
-from fga_agent.gen.fga.demo.common.v1 import common_pb2 as c
+from fga.demo.common.v1 import common_pb2 as c
 from fga_agent.handler.grpc.mapper import error_mapper, plan_check_mapper, progress_mapper
 
 

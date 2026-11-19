@@ -14,7 +14,7 @@ from ...domain.model.design_limits import DesignLimits
 from ...domain.model.operation_catalog import OperationCatalog
 from ...domain.model.plan import PlanRevision
 from ...domain.model.plan_check import PlanCheckReport
-from ...gen.fga.demo.engine.v1 import engine_pb2_grpc as stubs
+from fga.demo.engine.v1 import engine_pb2_grpc as stubs
 from .mapper import brief_mapper, design_limits_mapper, error_mapper, operation_catalog_mapper, plan_check_mapper, plan_mapper
 
 MAX_MESSAGE = 32 << 20

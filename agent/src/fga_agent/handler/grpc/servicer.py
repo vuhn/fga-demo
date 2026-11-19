@@ -4,7 +4,7 @@ their tasks land."""
 
 from __future__ import annotations
 
-from ...gen.fga.demo.agent.v1 import agent_pb2_grpc as rpc
+from fga.demo.agent.v1 import agent_pb2_grpc as rpc
 from .blueprint_handler import BlueprintHandler
 
 

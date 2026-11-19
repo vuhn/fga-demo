@@ -3,7 +3,7 @@ Business logic is in the services, conversion in mapper/, status mapping in comm
 
 from __future__ import annotations
 
-from ...gen.fga.demo.engine.v1 import engine_pb2_grpc as rpc
+from fga.demo.engine.v1 import engine_pb2_grpc as rpc
 from .brief_handler import BriefHandler
 from .catalog_handler import CatalogHandler
 from .estimate_handler import EstimateHandler

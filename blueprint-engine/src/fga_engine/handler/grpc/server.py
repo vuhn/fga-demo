@@ -7,7 +7,7 @@ from concurrent import futures
 import grpc
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
-from ...gen.fga.demo.engine.v1 import engine_pb2_grpc as rpc
+from fga.demo.engine.v1 import engine_pb2_grpc as rpc
 from .servicer import EngineServicer
 
 MAX_MESSAGE = 32 << 20
