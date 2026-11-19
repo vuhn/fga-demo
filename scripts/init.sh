@@ -4,11 +4,15 @@ set -eu
 cd "$(dirname "$0")/.."
 
 need() { command -v "$1" >/dev/null || { echo "missing: $1 ($2)"; exit 1; }; }
+export PATH="$PATH:$HOME/go/bin"
 need go "Go 1.26+"
 need node "Node 20+"
 need npm "bundled with node"
 need docker "needed for make compose-up"
 need uv "Python toolchain for blueprint-engine (brew install uv)"
+need buf "protobuf lint and codegen (brew install buf)"
+need protoc-gen-go "GOBIN=$HOME/go/bin go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12 (and add ~/go/bin to PATH)"
+need protoc-gen-go-grpc "GOBIN=$HOME/go/bin go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1"
 
 [ -f .env ] || { cp .env.example .env; echo "created .env from .env.example"; }
 

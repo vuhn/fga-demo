@@ -1,0 +1,8 @@
+# Known violations (rule<TAB>path). Only shrinks; empty at T16. See scripts/check-architecture-python.sh.
+engine-no-llm	blueprint-engine/src/blueprint_engine/app.py
+engine-no-llm	blueprint-engine/src/blueprint_engine/estimate_agent.py
+engine-no-llm	blueprint-engine/src/blueprint_engine/llm_steps.py
+engine-no-llm	blueprint-engine/src/blueprint_engine/plan_edits.py
+engine-no-llm	blueprint-engine/src/blueprint_engine/price_research.py
+engine-no-network	blueprint-engine/src/blueprint_engine/llm.py
+engine-no-network	blueprint-engine/src/blueprint_engine/price_research.py

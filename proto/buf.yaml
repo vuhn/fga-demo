@@ -1,0 +1,16 @@
+version: v2
+modules:
+  - path: .
+lint:
+  use:
+    - STANDARD
+  except:
+    - PACKAGE_VERSION_SUFFIX
+    # Result messages are shared on purpose (Generate and ApplyBriefOps both return BriefResult; the three
+    # stream RPCs share BlueprintEvent), so responses are not one-per-RPC.
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - RPC_RESPONSE_STANDARD_NAME
+  disallow_comment_ignores: false
+breaking:
+  use:
+    - FILE

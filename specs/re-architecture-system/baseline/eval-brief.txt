@@ -1,0 +1,18 @@
+model qwen3:latest, 15 prompts, enhancer off
+  PASS  family_3br              41.4s  
+  PASS  cottage_east            10.3s  
+  PASS  studio                   7.8s  
+  PASS  north_entry             15.6s  
+  PASS  home_office             14.5s  
+  PASS  areas_given             12.0s  
+  PASS  four_bed                46.7s  
+  PASS  west_entry              21.5s  
+  PASS  minimal                 13.3s  
+  PASS  ensuite_adj             29.5s  
+  PASS  storage                 21.7s  
+  PASS  kitchen_north           23.4s  
+  FAIL  tight_lot               21.7s  built=False expected=True
+  FAIL  too_big                  6.9s  bedroom=0≠6; bathroom=0≠4; built=True expected=False
+  PASS  vague                   22.3s  
+
+extraction 14/15, end-to-end 13/15, avg brief latency 20.6s

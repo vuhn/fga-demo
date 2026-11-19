@@ -1,0 +1,3 @@
+syntax = "proto3";
+package x;
+message Req { string tenant_id = 1; string user_message = 2; string username_hint = 3; }
