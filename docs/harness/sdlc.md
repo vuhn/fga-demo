@@ -10,15 +10,30 @@ Principle: the agent drafts and checks; a person approves at each gate. Skills g
 | 2 | System design | `system-design` | `system-design.md` (sequence + data flow) | `design-reviewer` | Approve design |
 | 3 | DB design | `db-design` | `db-design.md` + migration | `design-reviewer`, `check-migrations.sh`, hook | Approve schema |
 | 4 | Plan | `plan-tasks` | `plan.md` (tasks, hours, deps, release order) | `design-reviewer` | Approve plan |
-| 5 | Build | `build-task` + `go-api` | PR per task, tests | `make check`, `authz-reviewer` | Code review (15-30 min) |
+| 5 | Build | `build-task` + the service's skill (`go-api`, `python-agent`, `python-engine`) | PR per task, tests | `make check`, `authz-reviewer` | Code review (15-30 min) |
 | 6 | Test | `test-plan` | test section of `plan.md` | `make verify-live` | Confirm manual results |
 | 7 | Release | `release-docs` | `release.md` | - | A person releases from the doc |
 | 8 | Monitor | `monitor-triage` | new `requirements.md`, `lessons.md` | - | Owner triages |
 
 Entry point: `/feature <name or prds/file.md> [--until <stage>]`; the run can stop after any stage (see `using-the-harness.md`). Stages that do not apply are `skipped: <reason>` in the feature README.
 
+## Skill per service
+
+Before editing code in a service, load that service's skill (the Skill tool, or `/<name>`). It holds the layer map, the "touch exactly these" checklist for a new operation, the rules that bite and what "done" means. It does not replace CLAUDE.md; it points at it.
+
+| You edit | Load | Deterministic check |
+| --- | --- | --- |
+| `api/` (Go: handlers, services, gateways, fga, postgres, wire) | `go-api` | `scripts/check-architecture.sh`, `go vet`, `go test` |
+| `agent/` (Python Agent: LLM work, gRPC API) | `python-agent` | `scripts/check-architecture-python.sh`, `scripts/check-python-shape.py`, agent pytest |
+| `blueprint-engine/` (Python Engine: geometry, DXF/IFC, plan ops) | `python-engine` | same Python scripts, engine pytest |
+| `api/migrations/` | `db-design` | `scripts/check-migrations.sh` |
+| `web/` | no skill; CLAUDE.md "Frontend permissions" and `web/ARCHITECTURE.md` | `npm run build` |
+| `proto/` (a contract between services) | the skill of each side that implements it (`go-api` for the API client, `python-agent`, `python-engine`), contract first in `docs/service-contracts.md` | `make proto` |
+
+A change that spans two services (a new Engine operation the Agent calls) loads both skills. When you notice a service has a repeated mistake or a new rule, add it to that service's skill (see Maintenance).
+
 ## Enforcement layers
-- Skills (advisory): `.claude/skills/*`.
+- Skills (advisory): `.claude/skills/*`; one per service (see "Skill per service") plus one per SDLC stage.
 - Deterministic: `make check` runs `scripts/check-architecture.sh`, `check-migrations.sh` (breaking-change lint for migrations above baseline 11; opt out per line with `-- breaking-ok: <reason>`), `check-specs.sh` (artifact structure). `.claude/settings.json` hooks block edits to committed migrations and lint after migration edits.
 - Review: `design-reviewer` (artifacts), `authz-reviewer` (code). The agent that wrote something does not approve it.
 

@@ -95,11 +95,12 @@ Restart `cmd/api` after every reseed (the store id changes). Seed accounts: ada,
 
 ## AI-native SDLC (features, not small fixes)
 
-`/feature <name>` runs clarify requirements -> system design -> DB design -> plan -> build -> test -> release docs. Each stage has a skill in `.claude/skills/` and writes a committed artifact in `specs/<feature>/`; a person approves each artifact before the next stage. `design-reviewer` checks artifacts, `authz-reviewer` checks code. DB changes follow the `db-design` skill (never breaking the running system; `scripts/check-migrations.sh` and a hook enforce it; committed migrations are never edited). Go work follows the `go-api` skill. How to use it: `docs/harness/using-the-harness.md`. Full map: `docs/harness/sdlc.md`.
+`/feature <name>` runs clarify requirements -> system design -> DB design -> plan -> build -> test -> release docs. Each stage has a skill in `.claude/skills/` and writes a committed artifact in `specs/<feature>/`; a person approves each artifact before the next stage. `design-reviewer` checks artifacts, `authz-reviewer` checks code. DB changes follow the `db-design` skill (never breaking the running system; `scripts/check-migrations.sh` and a hook enforce it; committed migrations are never edited). Go work follows the `go-api` skill, Agent work the `python-agent` skill, Engine work the `python-engine` skill. How to use it: `docs/harness/using-the-harness.md`. Full map: `docs/harness/sdlc.md`.
 
 ## Session protocol
 
 - Clock-in: first `scripts/sync-base.sh [integration-branch]` (fetch and fast-forward the branch the task's PR targets, e.g. `feat/re-architecture` or `main`; on a task branch, rebase or merge the updated base before starting), then read `docs/harness/progress.md`, run `make check`.
+- Before the first edit in a service, load its skill (Skill tool or `/<name>`): `api/` -> `go-api`, `agent/` -> `python-agent`, `blueprint-engine/` -> `python-engine`, `api/migrations/` -> `db-design`. Each skill is that service's layer map, "touch exactly these" checklist and definition of done; a change spanning services loads each one. Map: `docs/harness/sdlc.md` "Skill per service".
 - One task at a time; call it done only after `make check` (and `make verify-live` for authorization changes) pass.
 - After touching `service/`, `fga/`, or `model.fga`, run the `authz-reviewer` subagent (rubric: `docs/harness/evaluator-rubric.md`).
 - Clock-out: walk `docs/harness/clean-state-checklist.md`, update `progress.md`.
