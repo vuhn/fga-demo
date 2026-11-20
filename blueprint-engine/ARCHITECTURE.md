@@ -2,8 +2,10 @@
 
 The Engine (`blueprint-engine/`, gRPC :8092) is deterministic: no LLM, no network, no auth, no storage, no tenant or user ids. **Code does every piece of geometry.** The API and the Agent call it. Contracts: `proto/fga/demo/engine/v1/engine.proto`, summary in `docs/service-contracts.md`. What each piece does and the DXF/IFC conventions: `README.md`.
 
-```text
-API :8088 ----gRPC----> Engine :8092 <----gRPC tools---- Agent :8091
+```mermaid
+flowchart LR
+    api["API :8088"] -->|gRPC| engine["Engine :8092"]
+    agent["Agent :8091"] -->|"gRPC tools"| engine
 ```
 
 The Engine opens no outgoing connection: no database, no OpenFGA, no LLM, no web. It only answers calls.
