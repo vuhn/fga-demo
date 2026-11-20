@@ -47,7 +47,7 @@ Wrong: "T3 api: all usecases for estimates", "T4 agent+api: revise flow", "T5 ap
 
 ## DB design coverage (required whenever `db-design.md` exists and is not skipped)
 
-`plan.md` carries a table with one row per item of `db-design.md` (each table/column/index/constraint change, each migration step expand/backfill/contract, each checklist box, each `breaking-ok` exception) naming the task that delivers it, the proof (test, lint, dry run, query) and the rollout step per environment. An item with no task is a plan defect. Also: the order "migration before the code that reads or writes it" appears in Depends on; backfill and contract are separate tasks with their own gates (soak gate for contract); and the plan states how old and new application builds coexist while the migration is applied.
+`plan.md` carries a table with one row per item of `db-design.md` (each table/column/index/constraint change, each migration step expand/backfill/contract, each checklist box, each `force-allow-breaking` exception) naming the task that delivers it, the proof (test, lint, dry run, query) and the rollout step per environment. An item with no task is a plan defect. Also: the order "migration before the code that reads or writes it" appears in Depends on; backfill and contract are separate tasks with their own gates (soak gate for contract); and the plan states how old and new application builds coexist while the migration is applied.
 
 ## Task types
 

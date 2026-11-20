@@ -50,6 +50,7 @@ check:
 	bash scripts/test-architecture-python.sh
 	bash scripts/test-git-guard.sh
 	bash scripts/check-architecture.sh
+	bash scripts/test-check-migrations.sh
 	bash scripts/check-migrations.sh
 	bash scripts/check-specs.sh
 	cd blueprint-engine && uv run pytest -q
