@@ -2,6 +2,18 @@
 
 The Go service (module `github.com/vuhn/fga-demo/api`, Gin, pgx, goose). It is the only authenticated edge of the system; see the [system overview](../ARCHITECTURE.md).
 
+## Network
+
+```text
+web :5173 --HTTP /api (Bearer JWT + X-Tenant-ID)--> API :8088
+API :8088 --pgx-------------> Postgres :5432   (db fgademo: display record)
+API :8088 --HTTP Check/BatchCheck/ListObjects/Write--> OpenFGA :8080
+API :8088 --gRPC (x-request-id)--> Agent :8091  (draft, revise, review, estimate chat)
+API :8088 --gRPC (x-request-id)--> Engine :8092 (layout, plan ops, DXF, render, takeoff)
+Agent :8091 --gRPC tools--> Engine :8092
+OpenFGA :8080 --SQL--> Postgres :5432          (db openfga)
+```
+
 ## Layers
 
 Dependencies point inward. Paths are under `internal/`.

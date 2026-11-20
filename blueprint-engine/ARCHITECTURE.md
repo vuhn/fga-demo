@@ -6,6 +6,8 @@ The Engine (`blueprint-engine/`, gRPC :8092) is deterministic: no LLM, no networ
 API :8088 ----gRPC----> Engine :8092 <----gRPC tools---- Agent :8091
 ```
 
+The Engine opens no outgoing connection: no database, no OpenFGA, no LLM, no web. It only answers calls.
+
 ## Layers
 
 `domain/` (pure geometry, rules, models: `layout`, `building`, `fixtures`, `checks`, `edits`, `plan_edits`, `schemas`, `estimate*`, `rate_catalog`, `tools`) with `domain/gateway/` (one Protocol per file for DXF read/draw/patch, rendering, conversion) -> `usecase/<op>.py` (Protocol) -> `service/<op>.py` (same file name) -> `infrastructure/` (ezdxf, ifcopenshell, OpenCV, pdfium, rapidocr live only here) -> `handler/grpc/` (`<domain>_handler.py` with its own use cases, `mapper/`, `common/`, `servicer.py`, `server.py`). `wire.py` is the only composition root; `serve.py` the entry point. Inner layers import no SDK. `scripts/check-architecture-python.sh` (with an empty allow-list) and `scripts/check-python-shape.py` enforce this; `.claude/skills/python-engine/SKILL.md` is the checklist.
