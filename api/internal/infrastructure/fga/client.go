@@ -46,13 +46,13 @@ func NewClient(apiURL, storeID, modelID string) (*Client, error) {
 	return &Client{sdk: sdk, StoreID: storeID, ModelID: modelID}, nil
 }
 
-func (c *Client) Check(ctx context.Context, userID, relation, objectType, objectID string) (bool, error) {
+func (c *Client) Check(ctx context.Context, check model.CheckRequest) (bool, error) {
 	resp, err := c.sdk.Check(ctx).
-		Body(fgaclient.ClientCheckRequest{User: userRef(userID), Relation: relation, Object: obj(objectType, objectID)}).
+		Body(fgaclient.ClientCheckRequest{User: userRef(check.UserID), Relation: check.Relation, Object: obj(check.ObjectType, check.ObjectID)}).
 		Options(fgaclient.ClientCheckOptions{AuthorizationModelId: &c.ModelID, Consistency: &consistency}).
 		Execute()
 	if err != nil {
-		return false, fmt.Errorf("openfga check %s %s %s:%s: %w", userID, relation, objectType, objectID, err)
+		return false, fmt.Errorf("openfga check %s %s %s:%s: %w", check.UserID, check.Relation, check.ObjectType, check.ObjectID, err)
 	}
 	return resp.GetAllowed(), nil
 }

@@ -36,7 +36,7 @@ func TestAssignRole(t *testing.T) {
 		{"external", "external_user", []string{"internal_admin", "internal_user", "external_admin"}},
 	}
 	for _, c := range cases {
-		w, d, err := MembershipRelations{}.AssignRole(tT, tU, c.aff, c.role)
+		w, d, err := MembershipRelations{}.AssignRole(model.AssignMemberRoleParams{TenantID: tT, UserID: tU, Affiliation: c.aff, Role: c.role})
 		if err != nil {
 			t.Fatalf("%s: %v", c.role, err)
 		}
@@ -51,7 +51,7 @@ func TestAssignRole(t *testing.T) {
 }
 
 func TestAssignRoleMismatch(t *testing.T) {
-	w, d, err := MembershipRelations{}.AssignRole(tT, tU, "external", "internal_admin")
+	w, d, err := MembershipRelations{}.AssignRole(model.AssignMemberRoleParams{TenantID: tT, UserID: tU, Affiliation: "external", Role: "internal_admin"})
 	if !errors.Is(err, model.ErrAffiliationRoleMismatch) {
 		t.Fatalf("err = %v", err)
 	}
@@ -211,7 +211,7 @@ func TestProjectCreated(t *testing.T) {
 }
 
 func TestProjectAssignRole(t *testing.T) {
-	w, d, err := ProjectMemberRelations{}.AssignRole(tP, tU, "external", "external_admin")
+	w, d, err := ProjectMemberRelations{}.AssignRole(model.AssignProjectMemberRoleParams{ProjectID: tP, UserID: tU, Affiliation: "external", Role: "external_admin"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +220,7 @@ func TestProjectAssignRole(t *testing.T) {
 		t.Fatalf("writes %v deletes %v", w, d)
 	}
 	// The role-type rule: an internal role never reaches an external member.
-	if _, _, err := (ProjectMemberRelations{}).AssignRole(tP, tU, "external", "internal_user"); !errors.Is(err, model.ErrAffiliationRoleMismatch) {
+	if _, _, err := (ProjectMemberRelations{}).AssignRole(model.AssignProjectMemberRoleParams{ProjectID: tP, UserID: tU, Affiliation: "external", Role: "internal_user"}); !errors.Is(err, model.ErrAffiliationRoleMismatch) {
 		t.Fatalf("err = %v", err)
 	}
 }

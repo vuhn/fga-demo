@@ -60,18 +60,18 @@ func (RoleRelations) Assignee(roleID, userID string) model.Tuple {
 }
 
 // Removal deletes the anchors, each grant, and each assignee.
-func (r RoleRelations) Removal(tenantID, roleID, affiliation string, permissions, userIDs []string) ([]model.Tuple, error) {
-	out, err := r.Created(tenantID, roleID, affiliation)
+func (r RoleRelations) Removal(p model.RemoveRoleParams) ([]model.Tuple, error) {
+	out, err := r.Created(p.TenantID, p.RoleID, p.Affiliation)
 	if err != nil {
 		return nil, err
 	}
-	grants, err := r.Permissions(tenantID, roleID, permissions)
+	grants, err := r.Permissions(p.TenantID, p.RoleID, p.Permissions)
 	if err != nil {
 		return nil, err
 	}
 	out = append(out, grants...)
-	for _, id := range userIDs {
-		out = append(out, r.Assignee(roleID, id))
+	for _, id := range p.UserIDs {
+		out = append(out, r.Assignee(p.RoleID, id))
 	}
 	return out, nil
 }

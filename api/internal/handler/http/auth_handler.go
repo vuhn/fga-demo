@@ -7,6 +7,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type AuthHandler struct {
@@ -31,7 +32,7 @@ func (h *AuthHandler) login(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	res, err := h.authenticator.Login(c, body.Email, body.Password)
+	res, err := h.authenticator.Login(c, input.Authenticator{Email: body.Email, Password: body.Password})
 	if err != nil {
 		writeErr(c, err)
 		return
@@ -40,10 +41,10 @@ func (h *AuthHandler) login(c *gin.Context) {
 }
 
 func (h *AuthHandler) me(c *gin.Context) {
-	u, tenants, err := h.profile.Me(c, actor(c))
+	res, err := h.profile.Me(c, input.ProfileGetter{Actor: actor(c)})
 	if err != nil {
 		writeErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": mapper.UserView(u), "tenants": mapper.TenantViews(tenants)})
+	c.JSON(http.StatusOK, gin.H{"user": mapper.UserView(res.User), "tenants": mapper.TenantViews(res.Tenants)})
 }

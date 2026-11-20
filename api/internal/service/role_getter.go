@@ -6,20 +6,24 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type roleGetter struct {
 	roles gateway.RoleGateway
-	authz usecase.Authorizer
+	authz helper.Authorizer
 }
 
-func NewRoleGetter(roles gateway.RoleGateway, authz usecase.Authorizer) usecase.RoleGetter {
+func NewRoleGetter(roles gateway.RoleGateway, authz helper.Authorizer) usecase.RoleGetter {
 	return &roleGetter{roles: roles, authz: authz}
 }
 
-func (s *roleGetter) Get(ctx context.Context, actor, tenantID, roleID string) (model.Role, error) {
-	if err := s.authz.PlatformOr(ctx, actor, "can_manage_members", tenantID, model.ErrForbidden); err != nil {
-		return model.Role{}, err
+func (s *roleGetter) Get(ctx context.Context, in input.RoleGetter) (output.RoleGetter, error) {
+	if err := s.authz.PlatformOr(ctx, in.Actor, "can_manage_members", in.TenantID, model.ErrForbidden); err != nil {
+		return output.RoleGetter{}, err
 	}
-	return s.roles.Get(ctx, tenantID, roleID)
+	got, err := s.roles.Get(ctx, in.TenantID, in.RoleID)
+	return output.RoleGetter{Role: roleOutput(got)}, err
 }

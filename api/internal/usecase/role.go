@@ -3,29 +3,30 @@ package usecase
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type RoleLister interface {
-	List(ctx context.Context, actor, tenantID string) ([]model.Role, error)
+	List(ctx context.Context, in input.RoleLister) (output.RoleLister, error)
 }
 
 type RoleGetter interface {
-	Get(ctx context.Context, actor, tenantID, roleID string) (model.Role, error)
+	Get(ctx context.Context, in input.RoleGetter) (output.RoleGetter, error)
 }
 
 type RoleCreator interface {
-	Create(ctx context.Context, actor, tenantID, name, affiliation string) (model.Role, error)
+	Create(ctx context.Context, in input.RoleCreator) (output.RoleCreator, error)
 }
 
 type RoleUpdater interface {
-	UpdateName(ctx context.Context, actor, tenantID, roleID, name string) (model.Role, error)
+	UpdateName(ctx context.Context, in input.RoleUpdater) (output.RoleUpdater, error)
 }
 
 type RolePermissionSetter interface {
-	SetPermissions(ctx context.Context, actor, tenantID, roleID string, permissions []string) (model.Role, error)
+	SetPermissions(ctx context.Context, in input.RolePermissionSetter) (output.RolePermissionSetter, error)
 }
 
 type RoleDeleter interface {
-	Delete(ctx context.Context, actor, tenantID, roleID string) error
+	Delete(ctx context.Context, in input.RoleDeleter) error
 }

@@ -7,32 +7,33 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type documentShareRevoker struct {
 	documents gateway.DocumentGateway
 	grants    gateway.DocumentGrantGateway
 	relations gateway.DocumentRelationGateway
-	authz     usecase.Authorizer
+	authz     helper.Authorizer
 	policy    helper.SharePolicy
 	guard     helper.WriteGuard
 }
 
 func NewDocumentShareRevoker(documents gateway.DocumentGateway, grants gateway.DocumentGrantGateway, relations gateway.DocumentRelationGateway,
-	authz usecase.Authorizer, policy helper.SharePolicy, guard helper.WriteGuard) usecase.DocumentShareRevoker {
+	authz helper.Authorizer, policy helper.SharePolicy, guard helper.WriteGuard) usecase.DocumentShareRevoker {
 	return &documentShareRevoker{documents: documents, grants: grants, relations: relations, authz: authz, policy: policy, guard: guard}
 }
 
 // Revoke deletes the matching grant's tuple, then its row.
-func (s *documentShareRevoker) Revoke(ctx context.Context, actor, tenantID, id string, in model.ShareInput) error {
-	g, err := s.policy.NewGrant(tenantID, model.ObjectTypeDocument, id, in)
+func (s *documentShareRevoker) Revoke(ctx context.Context, in input.DocumentShareRevoker) error {
+	g, err := s.policy.NewGrant(in.TenantID, model.ObjectTypeDocument, in.ID, model.ShareInput{Relation: in.Relation, Subject: in.Subject, UserID: in.UserID})
 	if err != nil {
 		return err
 	}
-	if err := requireDocumentShare(ctx, s.documents, s.authz, actor, tenantID, id); err != nil {
+	if err := requireDocumentShare(ctx, s.documents, s.authz, in.Actor, in.TenantID, in.ID); err != nil {
 		return err
 	}
-	existing, err := s.grants.List(ctx, id)
+	existing, err := s.grants.List(ctx, in.ID)
 	if err != nil {
 		return err
 	}

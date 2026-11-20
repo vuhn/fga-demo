@@ -1,7 +1,7 @@
 package mapper
 
 import (
-	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 // CompanyRefJSON is the company shown next to a person everywhere user info is displayed.
@@ -18,6 +18,6 @@ type UserJSON struct {
 	Company       CompanyRefJSON `json:"company"`
 }
 
-func UserView(u model.User) UserJSON {
+func UserView(u output.User) UserJSON {
 	return UserJSON{u.ID, u.Email, u.Name, u.IsSystemAdmin, CompanyRefJSON{u.CompanyID, u.CompanyName}}
 }

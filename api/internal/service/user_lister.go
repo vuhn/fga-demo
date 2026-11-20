@@ -4,23 +4,26 @@ import (
 	"context"
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
-	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type userLister struct {
 	users gateway.UserGateway
-	authz usecase.Authorizer
+	authz helper.Authorizer
 }
 
-func NewUserLister(users gateway.UserGateway, authz usecase.Authorizer) usecase.UserLister {
+func NewUserLister(users gateway.UserGateway, authz helper.Authorizer) usecase.UserLister {
 	return &userLister{users: users, authz: authz}
 }
 
 // List is platform only.
-func (s *userLister) List(ctx context.Context, actor string) ([]model.User, error) {
-	if err := s.authz.RequirePlatform(ctx, actor); err != nil {
-		return nil, err
+func (s *userLister) List(ctx context.Context, in input.UserLister) (output.UserLister, error) {
+	if err := s.authz.RequirePlatform(ctx, in.Actor); err != nil {
+		return output.UserLister{}, err
 	}
-	return s.users.List(ctx)
+	got, err := s.users.List(ctx)
+	return output.UserLister{Items: mapOutput(got, userOutput)}, err
 }

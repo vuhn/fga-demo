@@ -1,0 +1,767 @@
+## login ok  ->  200
+   access_token
+   expires_at
+   user.company.id
+   user.company.name
+   user.email
+   user.id
+   user.name
+## login wrong password (401)  ->  401
+   error
+## me bob  ->  200
+   tenants[].affiliation
+   tenants[].created_at
+   tenants[].id
+   tenants[].name
+   tenants[].products[].enabled
+   tenants[].products[].product
+   tenants[].products[].updated_at
+   tenants[].role
+   tenants[].slug
+   user.company.id
+   user.company.name
+   user.email
+   user.id
+   user.name
+## me without token (401)  ->  401
+   error
+## my permissions bob platform  ->  200
+## my permissions bob acme  ->  200
+   tenant.blueprints_enabled
+   tenant.can_contribute
+   tenant.can_manage_members
+   tenant.can_manage_projects
+   tenant.can_read_tenant
+   tenant.can_view_products
+   tenant.documents_enabled
+   tenant.photos_enabled
+   tenant_id
+## my permissions dan acme  ->  200
+   tenant.blueprints_enabled
+   tenant.can_read_tenant
+   tenant.documents_enabled
+   tenant.photos_enabled
+   tenant_id
+## my permissions ada  ->  200
+   platform.can_manage_platform
+## inspector check allow  ->  400
+   error
+   message
+## inspector check dan  ->  400
+   error
+   message
+## inspector batch  ->  400
+   error
+   message
+## access report bob  ->  200
+   direct_tuples[].object
+   direct_tuples[].relation
+   direct_tuples[].user
+   members[].can_delete
+   members[].can_edit
+   members[].can_view
+   members[].name
+   members[].user_id
+   object
+## access report dan (403/404)  ->  403
+   check.object
+   check.relation
+   error
+## users list ada  ->  200
+   [].company.id
+   [].company.name
+   [].email
+   [].id
+   [].is_system_admin
+   [].name
+## users list bob (403)  ->  403
+   check.object
+   check.relation
+   error
+## user create ada  ->  201
+   company.id
+   company.name
+   email
+   id
+   name
+## user create bob (403)  ->  403
+   check.object
+   check.relation
+   error
+## user rename  ->  200
+   company.id
+   company.name
+   email
+   id
+   name
+## tenants list ada  ->  200
+   [].created_at
+   [].id
+   [].name
+   [].products[].enabled
+   [].products[].product
+   [].products[].updated_at
+   [].slug
+## tenants list bob (403)  ->  403
+   check.object
+   check.relation
+   error
+## tenants mine bob  ->  200
+   [].affiliation
+   [].created_at
+   [].id
+   [].name
+   [].products[].enabled
+   [].products[].product
+   [].products[].updated_at
+   [].role
+   [].slug
+## tenant get acme  ->  200
+   created_at
+   id
+   name
+   products[].enabled
+   products[].product
+   products[].updated_at
+   slug
+## tenant get globex as bob (403/404)  ->  200
+   created_at
+   id
+   name
+   products[].enabled
+   products[].product
+   products[].updated_at
+   slug
+## tenant create bob (403)  ->  403
+   check.object
+   check.relation
+   error
+## tenant create ada  ->  201
+   created_at
+   id
+   name
+   products[].product
+   products[].updated_at
+   slug
+## tenant rename  ->  200
+   created_at
+   id
+   name
+   products[].product
+   products[].updated_at
+   slug
+## companies all  ->  200
+   [].claimed
+   [].claimed_at
+   [].created_at
+   [].created_by_tenant_id
+   [].id
+   [].member_count
+   [].name
+   [].tax_id
+   [].tenant_id
+## companies of acme  ->  200
+   [].claimed
+   [].claimed_at
+   [].created_at
+   [].created_by_tenant_id
+   [].id
+   [].member_count
+   [].name
+   [].tax_id
+   [].tenant_id
+## company create  ->  201
+   created_at
+   created_by_tenant_id
+   id
+   member_count
+   name
+## company create dan (403)  ->  403
+   check.object
+   check.relation
+   error
+## products bob  ->  200
+   [].enabled
+   [].product
+   [].updated_at
+## products dan (403)  ->  403
+   check.object
+   check.relation
+   error
+## product toggle bob (403)  ->  400
+   error
+   message
+## product toggle ada  ->  400
+   error
+   message
+## members list bob  ->  200
+   [].affiliation
+   [].company.id
+   [].company.name
+   [].email
+   [].name
+   [].role
+   [].user_id
+## members list dan (403)  ->  403
+   check.object
+   check.relation
+   error
+## member add (new user)  ->  201
+   affiliation
+   company.id
+   company.name
+   email
+   name
+   role
+   user_id
+## member change role  ->  200
+   affiliation
+   company.id
+   company.name
+   email
+   name
+   role
+   user_id
+## member change role dan (403)  ->  403
+   check.object
+   check.relation
+   error
+## member remove  ->  204
+   (non-JSON body)
+## roles list  ->  200
+   [].affiliation
+   [].created_at
+   [].id
+   [].name
+   [].permissions[]
+   [].tenant_id
+## role create (platform only: bob 403)  ->  403
+   check.object
+   check.relation
+   error
+## role create ada  ->  201
+   affiliation
+   created_at
+   id
+   name
+   tenant_id
+## role get  ->  200
+   affiliation
+   created_at
+   id
+   name
+   tenant_id
+## role rename  ->  200
+   affiliation
+   created_at
+   id
+   name
+   tenant_id
+## role set permissions  ->  200
+   affiliation
+   created_at
+   id
+   name
+   permissions[]
+   tenant_id
+## role set permissions (bad name 400)  ->  400
+   error
+   message
+## role delete  ->  204
+   (non-JSON body)
+## projects list bob  ->  200
+   [].created_at
+   [].created_by
+   [].id
+   [].name
+   [].permissions.can_contribute
+   [].permissions.can_create_album
+   [].permissions.can_create_blueprint
+   [].permissions.can_create_folder
+   [].permissions.can_create_private_album
+   [].permissions.can_create_private_folder
+   [].permissions.can_manage_members
+   [].permissions.can_view
+   [].tenant_id
+## projects list dan  ->  200
+   [].created_at
+   [].created_by
+   [].id
+   [].name
+   [].permissions.can_view
+   [].tenant_id
+## project get tower  ->  200
+   created_at
+   created_by
+   id
+   name
+   permissions.can_contribute
+   permissions.can_create_album
+   permissions.can_create_blueprint
+   permissions.can_create_folder
+   permissions.can_create_private_album
+   permissions.can_create_private_folder
+   permissions.can_manage_members
+   permissions.can_view
+   tenant_id
+## project get as eve (403/404)  ->  404
+   check.object
+   check.relation
+   error
+## project create  ->  201
+   created_at
+   created_by
+   id
+   name
+   tenant_id
+## project create dan (403)  ->  403
+   check.object
+   check.relation
+   error
+## project rename  ->  200
+   created_at
+   created_by
+   id
+   name
+   tenant_id
+## project member candidates  ->  200
+   [].affiliation
+   [].company.id
+   [].company.name
+   [].email
+   [].name
+   [].role
+   [].user_id
+## project member add dan  ->  201
+   affiliation
+   company.id
+   company.name
+   email
+   name
+   role
+   user_id
+## project members list  ->  200
+   [].affiliation
+   [].company.id
+   [].company.name
+   [].email
+   [].name
+   [].role
+   [].user_id
+## project member change role  ->  200
+   affiliation
+   company.id
+   company.name
+   email
+   name
+   role
+   user_id
+## project member add as dan (403)  ->  403
+   check.object
+   check.relation
+   error
+## project roles list  ->  200
+## project role create  ->  201
+   affiliation
+   created_at
+   id
+   name
+   project_id
+   tenant_id
+## project role set permissions  ->  200
+   affiliation
+   created_at
+   id
+   name
+   permissions[]
+   project_id
+   tenant_id
+## project role delete  ->  204
+   (non-JSON body)
+## project member remove  ->  204
+   (non-JSON body)
+## folders list bob  ->  200
+   [].created_at
+   [].created_by
+   [].id
+   [].is_private
+   [].name
+   [].parent_id
+   [].permissions.can_change_visibility
+   [].permissions.can_create_document
+   [].permissions.can_delete
+   [].permissions.can_edit
+   [].permissions.can_manage
+   [].permissions.can_share
+   [].permissions.can_view
+   [].project_id
+   [].tenant_id
+## folders list dan  ->  200
+   [].created_at
+   [].created_by
+   [].id
+   [].is_private
+   [].name
+   [].permissions.can_view
+   [].project_id
+   [].tenant_id
+## folder get  ->  200
+   created_at
+   created_by
+   id
+   is_private
+   name
+   permissions.can_change_visibility
+   permissions.can_create_document
+   permissions.can_delete
+   permissions.can_edit
+   permissions.can_manage
+   permissions.can_share
+   permissions.can_view
+   project_id
+   tenant_id
+## folder get as dan (404)  ->  404
+   check.object
+   check.relation
+   error
+## folder create  ->  201
+   created_at
+   created_by
+   id
+   name
+   project_id
+   tenant_id
+## folder create dan (403)  ->  403
+   check.object
+   check.relation
+   error
+## subfolder create  ->  201
+   created_at
+   created_by
+   id
+   is_private
+   name
+   parent_id
+   project_id
+   tenant_id
+## folder rename  ->  200
+   created_at
+   created_by
+   id
+   name
+   project_id
+   tenant_id
+## folder visibility  ->  200
+   created_at
+   created_by
+   id
+   is_private
+   name
+   project_id
+   tenant_id
+## folder visibility (back)  ->  200
+   created_at
+   created_by
+   id
+   name
+   project_id
+   tenant_id
+## folder share candidates  ->  200
+   [].affiliation
+   [].company.id
+   [].company.name
+   [].email
+   [].name
+   [].role
+   [].user_id
+## folder share dan viewer  ->  201
+   id
+   relation
+   subject
+   user_id
+## folder share dan editor (400 cannot_upload)  ->  400
+   error
+## folder grants  ->  200
+   [].id
+   [].name
+   [].relation
+   [].subject
+   [].user_id
+## document create  ->  201
+   byte_size
+   created_at
+   created_by
+   folder_id
+   id
+   mime_type
+   name
+   project_id
+   tenant_id
+## document create bad size (400)  ->  400
+   error
+   message
+## documents list  ->  200
+   [].byte_size
+   [].created_at
+   [].created_by
+   [].folder_id
+   [].id
+   [].mime_type
+   [].name
+   [].permissions.can_delete
+   [].permissions.can_edit
+   [].permissions.can_manage
+   [].permissions.can_share
+   [].permissions.can_view
+   [].project_id
+   [].tenant_id
+## documents list dan  ->  200
+   [].byte_size
+   [].created_at
+   [].created_by
+   [].folder_id
+   [].id
+   [].mime_type
+   [].name
+   [].permissions.can_view
+   [].project_id
+   [].tenant_id
+## document get  ->  200
+   byte_size
+   created_at
+   created_by
+   folder_id
+   id
+   mime_type
+   name
+   permissions.can_delete
+   permissions.can_edit
+   permissions.can_manage
+   permissions.can_share
+   permissions.can_view
+   project_id
+   tenant_id
+## document get as eve (404)  ->  404
+   check.object
+   check.relation
+   error
+## document rename  ->  200
+   byte_size
+   created_at
+   created_by
+   folder_id
+   id
+   mime_type
+   name
+   project_id
+   tenant_id
+## document share candidates  ->  200
+   [].affiliation
+   [].company.id
+   [].company.name
+   [].email
+   [].name
+   [].role
+   [].user_id
+## document share dan  ->  201
+   id
+   relation
+   subject
+   user_id
+## document grants  ->  200
+   [].id
+   [].name
+   [].relation
+   [].subject
+   [].user_id
+## document revoke dan  ->  204
+   (non-JSON body)
+## document delete as dan (403)  ->  403
+   check.object
+   check.relation
+   error
+## document delete  ->  204
+   (non-JSON body)
+## folder revoke dan  ->  204
+   (non-JSON body)
+## folder delete with child (409/400)  ->  409
+   error
+   message
+## subfolder delete  ->  204
+   (non-JSON body)
+## folder delete  ->  204
+   (non-JSON body)
+## albums list bob  ->  200
+   [].created_at
+   [].created_by
+   [].id
+   [].is_private
+   [].name
+   [].permissions.can_change_visibility
+   [].permissions.can_create_photo
+   [].permissions.can_delete
+   [].permissions.can_edit
+   [].permissions.can_manage
+   [].permissions.can_share
+   [].permissions.can_view
+   [].project_id
+   [].tenant_id
+## albums list dan  ->  200
+   [].created_at
+   [].created_by
+   [].id
+   [].name
+   [].permissions.can_view
+   [].project_id
+   [].tenant_id
+## album create  ->  201
+   created_at
+   created_by
+   id
+   name
+   project_id
+   tenant_id
+## album create dan (403)  ->  403
+   check.object
+   check.relation
+   error
+## album get  ->  200
+   created_at
+   created_by
+   id
+   name
+   permissions.can_change_visibility
+   permissions.can_create_photo
+   permissions.can_delete
+   permissions.can_edit
+   permissions.can_manage
+   permissions.can_share
+   permissions.can_view
+   project_id
+   tenant_id
+## album rename  ->  200
+   created_at
+   created_by
+   id
+   name
+   project_id
+   tenant_id
+## album visibility  ->  200
+   created_at
+   created_by
+   id
+   is_private
+   name
+   project_id
+   tenant_id
+## album share candidates  ->  200
+   [].affiliation
+   [].company.id
+   [].company.name
+   [].email
+   [].name
+   [].role
+   [].user_id
+## album share dan  ->  201
+   id
+   relation
+   subject
+   user_id
+## album grants  ->  200
+   [].id
+   [].name
+   [].relation
+   [].subject
+   [].user_id
+## photo create  ->  201
+   album_id
+   byte_size
+   created_at
+   created_by
+   id
+   mime_type
+   name
+   project_id
+   tenant_id
+## photos list  ->  200
+   [].album_id
+   [].byte_size
+   [].created_at
+   [].created_by
+   [].id
+   [].mime_type
+   [].name
+   [].permissions.can_delete
+   [].permissions.can_edit
+   [].permissions.can_manage
+   [].permissions.can_share
+   [].permissions.can_view
+   [].project_id
+   [].tenant_id
+## photos list dan  ->  200
+   [].album_id
+   [].byte_size
+   [].created_at
+   [].created_by
+   [].id
+   [].mime_type
+   [].name
+   [].permissions.can_view
+   [].project_id
+   [].tenant_id
+## photo get  ->  200
+   album_id
+   byte_size
+   created_at
+   created_by
+   id
+   mime_type
+   name
+   permissions.can_delete
+   permissions.can_edit
+   permissions.can_manage
+   permissions.can_share
+   permissions.can_view
+   project_id
+   tenant_id
+## photo get as eve (404)  ->  404
+   check.object
+   check.relation
+   error
+## photo rename  ->  200
+   album_id
+   byte_size
+   created_at
+   created_by
+   id
+   mime_type
+   name
+   project_id
+   tenant_id
+## photo share candidates  ->  200
+   [].affiliation
+   [].company.id
+   [].company.name
+   [].email
+   [].name
+   [].role
+   [].user_id
+## photo share dan  ->  201
+   id
+   relation
+   subject
+   user_id
+## photo grants  ->  200
+   [].id
+   [].name
+   [].relation
+   [].subject
+   [].user_id
+## photo revoke dan  ->  204
+   (non-JSON body)
+## photo delete  ->  204
+   (non-JSON body)
+## album revoke dan  ->  204
+   (non-JSON body)
+## album delete  ->  204
+   (non-JSON body)

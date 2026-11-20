@@ -1,10 +1,8 @@
 package mapper
 
 import (
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 	"time"
-
-	"github.com/vuhn/fga-demo/api/internal/domain/model"
-	"github.com/vuhn/fga-demo/api/internal/usecase"
 )
 
 type TenantJSON struct {
@@ -18,11 +16,11 @@ type TenantJSON struct {
 	RoleName    string        `json:"role_name,omitempty"`
 }
 
-func TenantView(t model.Tenant) TenantJSON {
+func TenantView(t output.Tenant) TenantJSON {
 	return TenantJSON{ID: t.ID, Slug: t.Slug, Name: t.Name, CreatedAt: t.CreatedAt, Products: ProductsView(t.Products)}
 }
 
-func TenantViews(ts []usecase.TenantView) []TenantJSON {
+func TenantViews(ts []output.TenantView) []TenantJSON {
 	out := make([]TenantJSON, 0, len(ts))
 	for _, t := range ts {
 		v := TenantView(t.Tenant)

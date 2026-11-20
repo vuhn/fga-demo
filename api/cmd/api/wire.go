@@ -74,6 +74,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 	guard := service.NewWriteGuard(authzStore, log)
 	policy := service.NewSharePolicy(authz)
 	objectTenants := service.NewObjectTenantResolver(folders, documents, albums, photos, projects, blueprints)
+	batchInspector := service.NewBatchInspector(authz, objectTenants)
 	myTenants := service.NewMyTenantLister(tenants, members, authz)
 
 	handlers := []httph.RouteRegistrar{
@@ -137,7 +138,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 			service.NewRolePermissionSetter(roles, roleRels, authz, guard),
 			service.NewRoleDeleter(roles, roleRels, authz, guard),
 		),
-		httph.NewInspectorHandler(service.NewInspector(authz, objectTenants)),
+		httph.NewInspectorHandler(service.NewInspector(batchInspector), batchInspector),
 		httph.NewAccessHandler(service.NewAccessReporter(authzStore, members, users, authz, objectTenants)),
 		httph.NewFolderHandler(httph.FolderUsecases{
 			Lister:           service.NewFolderLister(folders, authz),

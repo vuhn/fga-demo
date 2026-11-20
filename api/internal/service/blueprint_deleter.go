@@ -7,28 +7,29 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type blueprintDeleter struct {
 	blueprints gateway.BlueprintGateway
-	authz      usecase.Authorizer
+	authz      helper.Authorizer
 	guard      helper.WriteGuard
 }
 
-func NewBlueprintDeleter(blueprints gateway.BlueprintGateway, authz usecase.Authorizer, guard helper.WriteGuard) usecase.BlueprintDeleter {
+func NewBlueprintDeleter(blueprints gateway.BlueprintGateway, authz helper.Authorizer, guard helper.WriteGuard) usecase.BlueprintDeleter {
 	return &blueprintDeleter{blueprints: blueprints, authz: authz, guard: guard}
 }
 
 // Delete requires can_delete. It removes every tuple on the blueprint, then
 // the row and its grants.
-func (s *blueprintDeleter) Delete(ctx context.Context, actor, tenantID, id string) error {
-	if _, err := loadBlueprint(ctx, s.blueprints, tenantID, id); err != nil {
+func (s *blueprintDeleter) Delete(ctx context.Context, in input.BlueprintDeleter) error {
+	if _, err := loadBlueprint(ctx, s.blueprints, in.TenantID, in.ID); err != nil {
 		return err
 	}
-	if err := s.authz.Require(ctx, actor, "can_delete", model.ObjectTypeBlueprint, id); err != nil {
+	if err := s.authz.Require(ctx, in.Actor, "can_delete", model.ObjectTypeBlueprint, in.ID); err != nil {
 		return err
 	}
-	return s.guard.RevokeObject(ctx, model.ObjectTypeBlueprint, id, func(ctx context.Context) error {
-		return s.blueprints.Delete(ctx, id)
+	return s.guard.RevokeObject(ctx, model.ObjectTypeBlueprint, in.ID, func(ctx context.Context) error {
+		return s.blueprints.Delete(ctx, in.ID)
 	})
 }

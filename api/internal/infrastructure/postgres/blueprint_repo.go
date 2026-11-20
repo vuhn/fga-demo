@@ -38,7 +38,8 @@ func (r *BlueprintRepo) Create(ctx context.Context, b model.Blueprint, v model.B
 }
 
 // CreateImported is Create plus the original file, in one transaction.
-func (r *BlueprintRepo) CreateImported(ctx context.Context, b model.Blueprint, v model.BlueprintVersion, owner model.Grant, o model.BlueprintOriginal) error {
+func (r *BlueprintRepo) CreateImported(ctx context.Context, p model.CreateImportedBlueprintParams) error {
+	b, v, o := p.Blueprint, p.Version, p.Original
 	var name, mime *string
 	var size *int64
 	if b.Source != nil {
@@ -58,7 +59,7 @@ func (r *BlueprintRepo) CreateImported(ctx context.Context, b model.Blueprint, v
 			VALUES ($1, 1, $2, $3, $4, $5, $6)`, b.ID, o.Name, o.MimeType, o.ByteSize, o.SHA256, o.Data); err != nil {
 			return err
 		}
-		return insertGrant(ctx, tx, model.ObjectTypeBlueprint, owner)
+		return insertGrant(ctx, tx, model.ObjectTypeBlueprint, p.Owner)
 	})
 }
 

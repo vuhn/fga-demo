@@ -7,6 +7,7 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type projectMemberRemover struct {
@@ -14,25 +15,25 @@ type projectMemberRemover struct {
 	members   gateway.ProjectMemberGateway
 	relations gateway.ProjectMemberRelationGateway
 	roleRels  gateway.ProjectRoleRelationGateway
-	authz     usecase.Authorizer
+	authz     helper.Authorizer
 	guard     helper.WriteGuard
 }
 
 func NewProjectMemberRemover(projects gateway.ProjectGateway, members gateway.ProjectMemberGateway, relations gateway.ProjectMemberRelationGateway,
-	roleRels gateway.ProjectRoleRelationGateway, authz usecase.Authorizer, guard helper.WriteGuard) usecase.ProjectMemberRemover {
+	roleRels gateway.ProjectRoleRelationGateway, authz helper.Authorizer, guard helper.WriteGuard) usecase.ProjectMemberRemover {
 	return &projectMemberRemover{projects: projects, members: members, relations: relations, roleRels: roleRels, authz: authz, guard: guard}
 }
 
 // Remove drops the person from the project only; their tenant membership and
 // tenant role stay. Tuples go first, then the row; a failed row delete restores them.
-func (s *projectMemberRemover) Remove(ctx context.Context, actor, tenantID, projectID, userID string) error {
-	if _, err := loadProject(ctx, s.projects, tenantID, projectID); err != nil {
+func (s *projectMemberRemover) Remove(ctx context.Context, in input.ProjectMemberRemover) error {
+	if _, err := loadProject(ctx, s.projects, in.TenantID, in.ProjectID); err != nil {
 		return err
 	}
-	if err := requireProjectManager(ctx, s.authz, actor, projectID); err != nil {
+	if err := requireProjectManager(ctx, s.authz, in.Actor, in.ProjectID); err != nil {
 		return err
 	}
-	m, err := s.members.Get(ctx, projectID, userID)
+	m, err := s.members.Get(ctx, in.ProjectID, in.UserID)
 	if err != nil {
 		return err
 	}
@@ -41,7 +42,7 @@ func (s *projectMemberRemover) Remove(ctx context.Context, actor, tenantID, proj
 		return err
 	}
 	return s.guard.Revoke(ctx, deletes, restore, func(ctx context.Context) error {
-		return s.members.Delete(ctx, projectID, userID)
+		return s.members.Delete(ctx, in.ProjectID, in.UserID)
 	})
 }
 
@@ -53,6 +54,6 @@ func projectMemberTuples(relations gateway.ProjectMemberRelationGateway, roleRel
 		a := roleRels.Assignee(m.ProjectRoleID, m.UserID)
 		return append(deletes, a), []model.Tuple{a}, nil
 	}
-	restore, _, err = relations.AssignRole(m.ProjectID, m.UserID, m.Affiliation, m.Role)
+	restore, _, err = relations.AssignRole(model.AssignProjectMemberRoleParams{ProjectID: m.ProjectID, UserID: m.UserID, Affiliation: m.Affiliation, Role: m.Role})
 	return deletes, restore, err
 }

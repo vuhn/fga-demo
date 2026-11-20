@@ -16,6 +16,7 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 // BlueprintUsecases is everything the blueprint handler calls.
@@ -84,8 +85,8 @@ func (h *BlueprintHandler) draft(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	d, err := h.uc.Drafter.Draft(c, actor(c), tenant(c), body.ProjectID, body.Prompt)
-	respond(c, http.StatusOK, mapper.DraftView(d), err)
+	d, err := h.uc.Drafter.Draft(c, input.BlueprintDrafter{Actor: actor(c), TenantID: tenant(c), ProjectID: body.ProjectID, Prompt: body.Prompt})
+	respond(c, http.StatusOK, mapper.DraftView(d.BlueprintDraft), err)
 }
 
 // importTypes maps an upload's extension to its type: browsers send "", octet-stream or odd types for these.
@@ -94,47 +95,47 @@ var importTypes = map[string]string{".dxf": model.DXFMimeType, ".pdf": model.PDF
 
 // readImport reads the multipart "file" of an import (DXF, PDF, PNG or JPG), at most model.MaxImportBytes,
 // and the optional picture scale fields.
-func readImport(c *gin.Context) (model.Upload, model.ConvertOptions, bool) {
-	var opts model.ConvertOptions
+func readImport(c *gin.Context) (input.Upload, input.ConvertOptions, bool) {
+	var opts input.ConvertOptions
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, model.MaxImportBytes+1<<20)
 	fh, err := c.FormFile("file")
 	if err != nil {
 		writeErr(c, model.Invalid("file is required (a DXF, PDF, PNG or JPG, at most 20 MB)"))
-		return model.Upload{}, opts, false
+		return input.Upload{}, opts, false
 	}
 	if fh.Size > model.MaxImportBytes {
 		writeErr(c, model.Invalid("file must be at most 20 MB"))
-		return model.Upload{}, opts, false
+		return input.Upload{}, opts, false
 	}
 	mimeType, ok := importTypes[strings.ToLower(filepath.Ext(fh.Filename))]
 	if !ok {
 		writeErr(c, model.Invalid("file must be a DXF, PDF, PNG, or JPG"))
-		return model.Upload{}, opts, false
+		return input.Upload{}, opts, false
 	}
 	if v := c.PostForm("scale"); v != "" {
 		if opts.Scale, err = strconv.Atoi(v); err != nil {
 			writeErr(c, model.Invalid("scale must be an integer (the N of 1:N)"))
-			return model.Upload{}, opts, false
+			return input.Upload{}, opts, false
 		}
 	}
 	if v := c.PostForm("longest_m"); v != "" {
 		if opts.LongestM, err = strconv.ParseFloat(v, 64); err != nil {
 			writeErr(c, model.Invalid("longest_m must be a number of metres"))
-			return model.Upload{}, opts, false
+			return input.Upload{}, opts, false
 		}
 	}
 	f, err := fh.Open()
 	if err != nil {
 		writeErr(c, err)
-		return model.Upload{}, opts, false
+		return input.Upload{}, opts, false
 	}
 	defer f.Close()
 	data, err := io.ReadAll(io.LimitReader(f, model.MaxImportBytes+1))
 	if err != nil {
 		writeErr(c, err)
-		return model.Upload{}, opts, false
+		return input.Upload{}, opts, false
 	}
-	return model.Upload{Name: filepath.Base(fh.Filename), MimeType: mimeType, Data: data}, opts, true
+	return input.Upload{Name: filepath.Base(fh.Filename), MimeType: mimeType, Data: data}, opts, true
 }
 
 // previewImport reads a DXF (or a PDF/image converted to one) and returns its plans (each with the engine's drawing and checks) for the review
@@ -144,7 +145,7 @@ func (h *BlueprintHandler) previewImport(c *gin.Context) {
 	if !ok {
 		return
 	}
-	res, err := h.uc.ImportPreviewer.Preview(c, actor(c), tenant(c), c.PostForm("project_id"), file, c.PostForm("unit"), opts)
+	res, err := h.uc.ImportPreviewer.Preview(c, input.BlueprintDXFImportPreviewer{Actor: actor(c), TenantID: tenant(c), ProjectID: c.PostForm("project_id"), File: file, Unit: c.PostForm("unit"), Opts: opts})
 	if err != nil {
 		writeErr(c, err)
 		return
@@ -173,9 +174,8 @@ func (h *BlueprintHandler) importDXF(c *gin.Context) {
 		}
 		plan = n
 	}
-	d, err := h.uc.Importer.Import(c, actor(c), tenant(c), usecase.ImportBlueprintInput{
-		ProjectID: c.PostForm("project_id"), Name: c.PostForm("name"), File: file, Unit: c.PostForm("unit"), Convert: opts, PlanIndex: plan})
-	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
+	d, err := h.uc.Importer.Import(c, input.BlueprintImporter{Actor: actor(c), TenantID: tenant(c), ProjectID: c.PostForm("project_id"), Name: c.PostForm("name"), File: file, Unit: c.PostForm("unit"), Convert: opts, PlanIndex: plan})
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d.BlueprintDetail), err)
 }
 
 // source downloads the stored original of the current (or ?version=) version. can_edit only.
@@ -189,7 +189,7 @@ func (h *BlueprintHandler) source(c *gin.Context) {
 		}
 		version = n
 	}
-	o, err := h.uc.OriginalGetter.GetOriginal(c, actor(c), tenant(c), c.Param("id"), version)
+	o, err := h.uc.OriginalGetter.GetOriginal(c, input.BlueprintOriginalGetter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Version: version})
 	if err != nil {
 		writeErr(c, err)
 		return
@@ -212,7 +212,7 @@ func (h *BlueprintHandler) editedSource(c *gin.Context) {
 		}
 		version = n
 	}
-	f, err := h.uc.OriginalExport.Export(c, actor(c), tenant(c), c.Param("id"), version)
+	f, err := h.uc.OriginalExport.Export(c, input.BlueprintOriginalExporter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Version: version})
 	if err != nil {
 		writeErr(c, err)
 		return
@@ -255,8 +255,8 @@ func (h *BlueprintHandler) planEdit(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	d, err := h.uc.PlanEditor.Edit(c, actor(c), tenant(c), c.Param("id"), body.Ops, body.BaseVersion)
-	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
+	d, err := h.uc.PlanEditor.Edit(c, input.BlueprintPlanEditor{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Ops: body.Ops, BaseVersion: body.BaseVersion})
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d.BlueprintDetail), err)
 }
 
 // convert turns a blueprint made from a brief into a DXF plan (a new version, no brief, the drawing as its original).
@@ -267,13 +267,13 @@ func (h *BlueprintHandler) convert(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	d, err := h.uc.PlanConverter.Convert(c, actor(c), tenant(c), c.Param("id"), body.BaseVersion)
-	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
+	d, err := h.uc.PlanConverter.Convert(c, input.BlueprintPlanConverter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), BaseVersion: body.BaseVersion})
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d.BlueprintDetail), err)
 }
 
 func (h *BlueprintHandler) list(c *gin.Context) {
-	bs, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("project_id"))
-	respond(c, http.StatusOK, mapSlice(bs, mapper.VisibleBlueprintView), err)
+	bs, err := h.uc.Lister.List(c, input.BlueprintLister{Actor: actor(c), TenantID: tenant(c), ProjectID: c.Query("project_id")})
+	respond(c, http.StatusOK, mapSlice(bs.Items, mapper.VisibleBlueprintView), err)
 }
 
 func (h *BlueprintHandler) create(c *gin.Context) {
@@ -287,14 +287,14 @@ func (h *BlueprintHandler) create(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	in := usecase.CreateBlueprintInput{ProjectID: body.ProjectID, Name: body.Name, Brief: body.Brief, SourceKind: body.SourceKind, Prompt: body.Prompt}
-	d, err := h.uc.Creator.Create(c, actor(c), tenant(c), in)
-	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
+	in := input.BlueprintCreator{Actor: actor(c), TenantID: tenant(c), ProjectID: body.ProjectID, Name: body.Name, Brief: body.Brief, SourceKind: body.SourceKind, Prompt: body.Prompt}
+	d, err := h.uc.Creator.Create(c, in)
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d.BlueprintDetail), err)
 }
 
 func (h *BlueprintHandler) get(c *gin.Context) {
-	d, err := h.uc.Getter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapper.BlueprintDetailView(d), err)
+	d, err := h.uc.Getter.Get(c, input.BlueprintGetter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapper.BlueprintDetailView(d.BlueprintDetail), err)
 }
 
 func (h *BlueprintHandler) rename(c *gin.Context) {
@@ -302,12 +302,12 @@ func (h *BlueprintHandler) rename(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	b, err := h.uc.Renamer.Rename(c, actor(c), tenant(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, mapper.BlueprintView(b), err)
+	b, err := h.uc.Renamer.Rename(c, input.BlueprintRenamer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Name: body.Name})
+	respond(c, http.StatusOK, mapper.BlueprintView(b.Blueprint), err)
 }
 
 func (h *BlueprintHandler) delete(c *gin.Context) {
-	noContent(c, h.uc.Deleter.Delete(c, actor(c), tenant(c), c.Param("id")))
+	noContent(c, h.uc.Deleter.Delete(c, input.BlueprintDeleter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")}))
 }
 
 func (h *BlueprintHandler) revise(c *gin.Context) {
@@ -318,8 +318,8 @@ func (h *BlueprintHandler) revise(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	d, err := h.uc.Reviser.Revise(c, actor(c), tenant(c), c.Param("id"), body.Message, body.BaseVersion)
-	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
+	d, err := h.uc.Reviser.Revise(c, input.BlueprintReviser{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Message: body.Message, BaseVersion: body.BaseVersion})
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d.BlueprintDetail), err)
 }
 
 // reviseStream is revise answered as Server-Sent Events. The stream opens on
@@ -347,8 +347,7 @@ func (h *BlueprintHandler) reviseStream(c *gin.Context) {
 		fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", event, data)
 		c.Writer.Flush()
 	}
-	d, err := h.uc.ReviseStreamer.ReviseStream(c.Request.Context(), actor(c), tenant(c), c.Param("id"), body.Message, body.BaseVersion,
-		func(p model.BlueprintProgress) { send("progress", p) })
+	d, err := h.uc.ReviseStreamer.ReviseStream(c.Request.Context(), input.BlueprintReviseStreamer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Message: body.Message, BaseVersion: body.BaseVersion}, func(p model.BlueprintProgress) { send("progress", p) })
 	if err != nil {
 		if !started {
 			writeErr(c, err)
@@ -359,7 +358,7 @@ func (h *BlueprintHandler) reviseStream(c *gin.Context) {
 		send("error", eb)
 		return
 	}
-	send("done", mapper.BlueprintDetailView(d))
+	send("done", mapper.BlueprintDetailView(d.BlueprintDetail))
 }
 
 func (h *BlueprintHandler) review(c *gin.Context) {
@@ -369,8 +368,8 @@ func (h *BlueprintHandler) review(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	d, err := h.uc.Reviewer.Review(c, actor(c), tenant(c), c.Param("id"), body.BaseVersion)
-	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
+	d, err := h.uc.Reviewer.Review(c, input.BlueprintReviewer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), BaseVersion: body.BaseVersion})
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d.BlueprintDetail), err)
 }
 
 func (h *BlueprintHandler) updateBrief(c *gin.Context) {
@@ -381,13 +380,13 @@ func (h *BlueprintHandler) updateBrief(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	d, err := h.uc.BriefUpdater.UpdateBrief(c, actor(c), tenant(c), c.Param("id"), body.Brief, body.BaseVersion)
-	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
+	d, err := h.uc.BriefUpdater.UpdateBrief(c, input.BlueprintBriefUpdater{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Brief: body.Brief, BaseVersion: body.BaseVersion})
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d.BlueprintDetail), err)
 }
 
 func (h *BlueprintHandler) listVersions(c *gin.Context) {
-	vs, err := h.uc.VersionLister.ListVersions(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(vs, mapper.BlueprintVersionSummary), err)
+	vs, err := h.uc.VersionLister.ListVersions(c, input.BlueprintVersionLister{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(vs.Items, mapper.BlueprintVersionSummary), err)
 }
 
 func (h *BlueprintHandler) restore(c *gin.Context) {
@@ -402,8 +401,8 @@ func (h *BlueprintHandler) restore(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	d, err := h.uc.Restorer.Restore(c, actor(c), tenant(c), c.Param("id"), version, body.BaseVersion)
-	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d), err)
+	d, err := h.uc.Restorer.Restore(c, input.BlueprintVersionRestorer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Version: version, BaseVersion: body.BaseVersion})
+	respond(c, http.StatusCreated, mapper.BlueprintDetailView(d.BlueprintDetail), err)
 }
 
 func (h *BlueprintHandler) drawing(c *gin.Context) {
@@ -417,7 +416,7 @@ func (h *BlueprintHandler) drawing(c *gin.Context) {
 		version = n
 	}
 	format := c.DefaultQuery("format", model.DrawingSVG)
-	d, err := h.uc.Renderer.Render(c, actor(c), tenant(c), c.Param("id"), format, version)
+	d, err := h.uc.Renderer.Render(c, input.BlueprintDrawingRenderer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Format: format, Version: version})
 	if err != nil {
 		writeErr(c, err)
 		return
@@ -430,13 +429,13 @@ func (h *BlueprintHandler) drawing(c *gin.Context) {
 }
 
 func (h *BlueprintHandler) listGrants(c *gin.Context) {
-	gs, err := h.uc.GrantLister.ListGrants(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(gs, mapper.GrantView), err)
+	gs, err := h.uc.GrantLister.ListGrants(c, input.BlueprintGrantLister{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(gs.Items, mapper.GrantView), err)
 }
 
 func (h *BlueprintHandler) listShareCandidates(c *gin.Context) {
-	ms, err := h.uc.CandidateLister.ListShareCandidates(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
+	ms, err := h.uc.CandidateLister.ListShareCandidates(c, input.BlueprintShareCandidateLister{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(ms.Items, mapper.MemberView), err)
 }
 
 func (h *BlueprintHandler) share(c *gin.Context) {
@@ -444,8 +443,8 @@ func (h *BlueprintHandler) share(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.Input())
-	respond(c, http.StatusCreated, mapper.GrantView(g), err)
+	g, err := h.uc.Sharer.Share(c, input.BlueprintSharer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Relation: body.Relation, Subject: body.Subject, UserID: body.UserID})
+	respond(c, http.StatusCreated, mapper.GrantView(g.Grant), err)
 }
 
 func (h *BlueprintHandler) revoke(c *gin.Context) {
@@ -453,5 +452,5 @@ func (h *BlueprintHandler) revoke(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.Input()))
+	noContent(c, h.uc.ShareRevoker.Revoke(c, input.BlueprintShareRevoker{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Relation: body.Relation, Subject: body.Subject, UserID: body.UserID}))
 }

@@ -48,6 +48,7 @@ check:
 	$(MAKE) proto
 	cd api && go vet ./... && go vet -tags=integration ./... && go test ./...
 	bash scripts/test-architecture-python.sh
+	bash scripts/test-architecture-go.sh
 	bash scripts/test-git-guard.sh
 	bash scripts/check-architecture.sh
 	bash scripts/test-check-migrations.sh

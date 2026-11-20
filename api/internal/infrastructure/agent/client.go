@@ -61,23 +61,23 @@ func (c *Client) BriefFromText(ctx context.Context, prompt string) (model.Bluepr
 	return model.BlueprintDraft{Brief: raw(r.BriefJson), Notes: r.Notes}, nil
 }
 
-func (c *Client) Revise(ctx context.Context, brief, previous []byte, message string, history []string) (model.BlueprintOutcome, error) {
-	return c.ReviseStream(ctx, brief, previous, message, history, nil)
+func (c *Client) Revise(ctx context.Context, p model.ReviseBlueprintParams) (model.BlueprintOutcome, error) {
+	return c.ReviseStream(ctx, p, nil)
 }
 
-func (c *Client) ReviseStream(ctx context.Context, brief, previous []byte, message string, history []string, onProgress func(model.BlueprintProgress)) (model.BlueprintOutcome, error) {
+func (c *Client) ReviseStream(ctx context.Context, p model.ReviseBlueprintParams, onProgress func(model.BlueprintProgress)) (model.BlueprintOutcome, error) {
 	return run(ctx, onProgress, func(ctx context.Context, tr *metadata.MD) (stream, error) {
-		return c.rpc.Revise(ctx, &agentv1.ReviseRequest{BriefJson: brief, PreviousModelJson: previous, Message: message, History: history}, grpc.Trailer(tr))
+		return c.rpc.Revise(ctx, &agentv1.ReviseRequest{BriefJson: p.Brief, PreviousModelJson: p.Previous, Message: p.Message, History: p.History}, grpc.Trailer(tr))
 	})
 }
 
-func (c *Client) RevisePlan(ctx context.Context, plan []byte, message string, history []string) (model.BlueprintOutcome, error) {
-	return c.RevisePlanStream(ctx, plan, message, history, nil)
+func (c *Client) RevisePlan(ctx context.Context, p model.RevisePlanParams) (model.BlueprintOutcome, error) {
+	return c.RevisePlanStream(ctx, p, nil)
 }
 
-func (c *Client) RevisePlanStream(ctx context.Context, plan []byte, message string, history []string, onProgress func(model.BlueprintProgress)) (model.BlueprintOutcome, error) {
+func (c *Client) RevisePlanStream(ctx context.Context, p model.RevisePlanParams, onProgress func(model.BlueprintProgress)) (model.BlueprintOutcome, error) {
 	return run(ctx, onProgress, func(ctx context.Context, tr *metadata.MD) (stream, error) {
-		return c.rpc.RevisePlan(ctx, &agentv1.RevisePlanRequest{ModelJson: plan, Message: message, History: history}, grpc.Trailer(tr))
+		return c.rpc.RevisePlan(ctx, &agentv1.RevisePlanRequest{ModelJson: p.Plan, Message: p.Message, History: p.History}, grpc.Trailer(tr))
 	})
 }
 

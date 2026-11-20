@@ -6,7 +6,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
-	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
 
 // loadAlbum returns the album when it exists in the header tenant.
@@ -50,7 +50,7 @@ func checkAlbumDepth(ctx context.Context, albums gateway.AlbumGateway, tenantID,
 }
 
 // requireAlbumShare loads the album in the tenant and requires can_share.
-func requireAlbumShare(ctx context.Context, albums gateway.AlbumGateway, authz usecase.Authorizer, actor, tenantID, id string) error {
+func requireAlbumShare(ctx context.Context, albums gateway.AlbumGateway, authz helper.Authorizer, actor, tenantID, id string) error {
 	if _, err := loadAlbum(ctx, albums, tenantID, id); err != nil {
 		return err
 	}

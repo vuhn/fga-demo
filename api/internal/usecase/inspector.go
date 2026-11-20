@@ -3,31 +3,22 @@ package usecase
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
-// Inspector evaluates Checks about any user after authorizing each one.
+// Inspector evaluates one Check about any user after authorizing it.
 type Inspector interface {
-	Inspect(ctx context.Context, actor string, c model.CheckRequest) (bool, error)
-	BatchInspect(ctx context.Context, actor string, checks []model.CheckRequest) ([]bool, error)
+	Inspect(ctx context.Context, in input.Inspector) (output.Inspector, error)
 }
 
-type MemberAccess struct {
-	UserID    string
-	Name      string
-	CanView   bool
-	CanEdit   bool
-	CanDelete bool
-}
-
-type AccessReport struct {
-	Object       string
-	DirectTuples []model.Tuple
-	Members      []MemberAccess
+// BatchInspector evaluates up to 50 Checks after authorizing each one.
+type BatchInspector interface {
+	BatchInspect(ctx context.Context, in input.BatchInspector) (output.BatchInspector, error)
 }
 
 // AccessReporter lists the direct tuples on a content object and what every
 // tenant member and platform admin may do with it.
 type AccessReporter interface {
-	Report(ctx context.Context, actor, objectType, objectID string) (AccessReport, error)
+	Report(ctx context.Context, in input.AccessReporter) (output.AccessReporter, error)
 }

@@ -66,9 +66,9 @@ func (r *ProjectMemberRepo) Insert(ctx context.Context, m model.ProjectMember) e
 	return mapErr(err)
 }
 
-func (r *ProjectMemberRepo) UpdateRole(ctx context.Context, projectID, userID, role, projectRoleID string) error {
+func (r *ProjectMemberRepo) UpdateRole(ctx context.Context, p model.UpdateProjectMemberRoleParams) error {
 	tag, err := r.pool.Exec(ctx, `UPDATE project_members SET role = $3, project_role_id = NULLIF($4, '')::uuid
-		WHERE project_id = $1 AND user_id = $2`, projectID, userID, role, projectRoleID)
+		WHERE project_id = $1 AND user_id = $2`, p.ProjectID, p.UserID, p.Role, p.ProjectRoleID)
 	if err != nil {
 		return mapErr(err)
 	}

@@ -7,15 +7,18 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type blueprintReviewer struct {
 	blueprints gateway.BlueprintGateway
 	agent      gateway.BlueprintAgent
-	authz      usecase.Authorizer
+	authz      helper.Authorizer
 }
 
-func NewBlueprintReviewer(blueprints gateway.BlueprintGateway, agent gateway.BlueprintAgent, authz usecase.Authorizer) usecase.BlueprintReviewer {
+func NewBlueprintReviewer(blueprints gateway.BlueprintGateway, agent gateway.BlueprintAgent, authz helper.Authorizer) usecase.BlueprintReviewer {
 	return &blueprintReviewer{blueprints: blueprints, agent: agent, authz: authz}
 }
 
@@ -24,31 +27,32 @@ func NewBlueprintReviewer(blueprints gateway.BlueprintGateway, agent gateway.Blu
 // rounds that lower the issue score; its round notes become the new
 // version's notes. A review that changes nothing is a 400 carrying those
 // notes, and nothing is stored.
-func (s *blueprintReviewer) Review(ctx context.Context, actor, tenantID, id string, baseVersion int) (usecase.BlueprintDetail, error) {
-	b, cur, err := loadBlueprintForEdit(ctx, s.blueprints, s.authz, actor, tenantID, id, baseVersion)
+func (s *blueprintReviewer) Review(ctx context.Context, in input.BlueprintReviewer) (output.BlueprintReviewer, error) {
+	b, cur, err := loadBlueprintForEdit(ctx, s.blueprints, s.authz, in.Actor, in.TenantID, in.ID, in.BaseVersion)
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintReviewer{}, err
 	}
 	if err := requireBrief(cur); err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintReviewer{}, err
 	}
-	history, err := chatHistory(ctx, s.blueprints, id)
+	history, err := chatHistory(ctx, s.blueprints, in.ID)
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintReviewer{}, err
 	}
 	out, err := s.agent.Review(ctx, cur.Brief, cur.Model, history)
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintReviewer{}, err
 	}
 	if err := requireBuilt(out); err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintReviewer{}, err
 	}
 	if sameJSON(out.Brief, cur.Brief) {
 		msg := "nothing to fix"
 		if len(out.Notes) > 0 {
 			msg = "no fix found: " + strings.Join(out.Notes, "; ")
 		}
-		return usecase.BlueprintDetail{}, model.Invalid("%s", msg)
+		return output.BlueprintReviewer{}, model.Invalid("%s", msg)
 	}
-	return appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(id, model.BlueprintVersionReview, "", actor, out), baseVersion)
+	got, err := appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(in.ID, model.BlueprintVersionReview, "", in.Actor, out), in.BaseVersion)
+	return output.BlueprintReviewer{BlueprintDetail: blueprintDetailOutput(got)}, err
 }

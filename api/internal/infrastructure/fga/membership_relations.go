@@ -15,15 +15,15 @@ func roleTuple(tenantID, userID, role string) model.Tuple {
 
 // AssignRole writes the new role relation and deletes the other three, so a
 // person holds exactly one direct role on the tenant.
-func (MembershipRelations) AssignRole(tenantID, userID, affiliation, role string) (writes, deletes []model.Tuple, err error) {
-	if err := model.CheckAffiliationRole(affiliation, role); err != nil {
+func (MembershipRelations) AssignRole(p model.AssignMemberRoleParams) (writes, deletes []model.Tuple, err error) {
+	if err := model.CheckAffiliationRole(p.Affiliation, p.Role); err != nil {
 		return nil, nil, err
 	}
 	for _, r := range model.AllRoles {
-		if r == role {
-			writes = append(writes, roleTuple(tenantID, userID, r))
+		if r == p.Role {
+			writes = append(writes, roleTuple(p.TenantID, p.UserID, r))
 		} else {
-			deletes = append(deletes, roleTuple(tenantID, userID, r))
+			deletes = append(deletes, roleTuple(p.TenantID, p.UserID, r))
 		}
 	}
 	return writes, deletes, nil

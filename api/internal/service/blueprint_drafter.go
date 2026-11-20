@@ -7,27 +7,31 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type blueprintDrafter struct {
 	projects gateway.ProjectGateway
 	agent    gateway.BlueprintAgent
-	authz    usecase.Authorizer
+	authz    helper.Authorizer
 }
 
-func NewBlueprintDrafter(projects gateway.ProjectGateway, agent gateway.BlueprintAgent, authz usecase.Authorizer) usecase.BlueprintDrafter {
+func NewBlueprintDrafter(projects gateway.ProjectGateway, agent gateway.BlueprintAgent, authz helper.Authorizer) usecase.BlueprintDrafter {
 	return &blueprintDrafter{projects: projects, agent: agent, authz: authz}
 }
 
 // Draft requires can_create_blueprint on the project, then asks the engine
 // for a brief. Nothing is stored.
-func (s *blueprintDrafter) Draft(ctx context.Context, actor, tenantID, projectID, prompt string) (model.BlueprintDraft, error) {
-	prompt = strings.TrimSpace(prompt)
-	if n := len([]rune(prompt)); n < 1 || n > 4000 {
-		return model.BlueprintDraft{}, model.Invalid("prompt length must be 1 to 4000")
+func (s *blueprintDrafter) Draft(ctx context.Context, in input.BlueprintDrafter) (output.BlueprintDrafter, error) {
+	in.Prompt = strings.TrimSpace(in.Prompt)
+	if n := len([]rune(in.Prompt)); n < 1 || n > 4000 {
+		return output.BlueprintDrafter{}, model.Invalid("prompt length must be 1 to 4000")
 	}
-	if err := requireBlueprintCreate(ctx, s.projects, s.authz, actor, tenantID, projectID); err != nil {
-		return model.BlueprintDraft{}, err
+	if err := requireBlueprintCreate(ctx, s.projects, s.authz, in.Actor, in.TenantID, in.ProjectID); err != nil {
+		return output.BlueprintDrafter{}, err
 	}
-	return s.agent.BriefFromText(ctx, prompt)
+	got, err := s.agent.BriefFromText(ctx, in.Prompt)
+	return output.BlueprintDrafter{BlueprintDraft: blueprintDraftOutput(got)}, err
 }

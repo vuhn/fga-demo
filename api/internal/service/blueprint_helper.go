@@ -9,7 +9,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
-	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
 
 // loadBlueprint returns the blueprint when it exists in the header tenant.
@@ -28,7 +28,7 @@ func loadBlueprint(ctx context.Context, blueprints gateway.BlueprintGateway, ten
 }
 
 // requireBlueprintShare loads the blueprint in the tenant and requires can_share.
-func requireBlueprintShare(ctx context.Context, blueprints gateway.BlueprintGateway, authz usecase.Authorizer, actor, tenantID, id string) error {
+func requireBlueprintShare(ctx context.Context, blueprints gateway.BlueprintGateway, authz helper.Authorizer, actor, tenantID, id string) error {
 	if _, err := loadBlueprint(ctx, blueprints, tenantID, id); err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func requireBlueprintShare(ctx context.Context, blueprints gateway.BlueprintGate
 
 // requireBlueprintCreate loads the project in the tenant and requires
 // can_create_blueprint on it.
-func requireBlueprintCreate(ctx context.Context, projects gateway.ProjectGateway, authz usecase.Authorizer, actor, tenantID, projectID string) error {
+func requireBlueprintCreate(ctx context.Context, projects gateway.ProjectGateway, authz helper.Authorizer, actor, tenantID, projectID string) error {
 	if _, err := loadProject(ctx, projects, tenantID, projectID); err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func requireBlueprintCreate(ctx context.Context, projects gateway.ProjectGateway
 // its current version when that is still baseVersion (409 otherwise). The
 // engine is called only after this, so a denied or stale request never
 // reaches the LLM.
-func loadBlueprintForEdit(ctx context.Context, blueprints gateway.BlueprintGateway, authz usecase.Authorizer, actor, tenantID, id string, baseVersion int) (model.Blueprint, model.BlueprintVersion, error) {
+func loadBlueprintForEdit(ctx context.Context, blueprints gateway.BlueprintGateway, authz helper.Authorizer, actor, tenantID, id string, baseVersion int) (model.Blueprint, model.BlueprintVersion, error) {
 	b, err := loadBlueprint(ctx, blueprints, tenantID, id)
 	if err != nil {
 		return model.Blueprint{}, model.BlueprintVersion{}, err
@@ -92,7 +92,7 @@ func staleVersion(b model.Blueprint) error {
 // trimmed message, the blueprint, its current version, and the chat history.
 // It does the can_edit Check and the base_version test, so a refused request
 // never reaches the LLM.
-func prepareRevision(ctx context.Context, blueprints gateway.BlueprintGateway, authz usecase.Authorizer, actor, tenantID, id, message string, baseVersion int) (string, model.Blueprint, model.BlueprintVersion, []string, error) {
+func prepareRevision(ctx context.Context, blueprints gateway.BlueprintGateway, authz helper.Authorizer, actor, tenantID, id, message string, baseVersion int) (string, model.Blueprint, model.BlueprintVersion, []string, error) {
 	message = strings.TrimSpace(message)
 	if n := len([]rune(message)); n < 1 || n > 2000 {
 		return "", model.Blueprint{}, model.BlueprintVersion{}, nil, model.Invalid("message length must be 1 to 2000")
@@ -124,16 +124,16 @@ func outcomeVersion(blueprintID, kind, message, actor string, o model.BlueprintO
 }
 
 // appendBlueprintVersion stores v on top of base and returns the new detail.
-func appendBlueprintVersion(ctx context.Context, blueprints gateway.BlueprintGateway, b model.Blueprint, v model.BlueprintVersion, base int) (usecase.BlueprintDetail, error) {
+func appendBlueprintVersion(ctx context.Context, blueprints gateway.BlueprintGateway, b model.Blueprint, v model.BlueprintVersion, base int) (blueprintDetail, error) {
 	if err := blueprints.AppendVersion(ctx, v, base); err != nil {
-		return usecase.BlueprintDetail{}, err
+		return blueprintDetail{}, err
 	}
 	b, err := blueprints.Get(ctx, b.ID)
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return blueprintDetail{}, err
 	}
 	v, err = blueprints.GetVersion(ctx, b.ID, base+1)
-	return usecase.BlueprintDetail{Blueprint: b, Version: v}, err
+	return blueprintDetail{Blueprint: b, Version: v}, err
 }
 
 func blueprintID(b model.Blueprint) string { return b.ID }
@@ -169,4 +169,11 @@ func chatHistory(ctx context.Context, blueprints gateway.BlueprintGateway, id st
 	}
 	slices.Reverse(out)
 	return out, nil
+}
+
+// blueprintDetail is a blueprint with one of its versions. Perms is set only by the getter.
+type blueprintDetail struct {
+	Blueprint model.Blueprint
+	Perms     model.Perms
+	Version   model.BlueprintVersion
 }

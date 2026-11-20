@@ -10,6 +10,7 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 // EstimateUsecases is everything the estimate handler calls.
@@ -35,23 +36,23 @@ func (h *EstimateHandler) Register(r Routes) {
 }
 
 func (h *EstimateHandler) startSession(c *gin.Context) {
-	d, err := h.uc.SessionCreator.Create(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusCreated, mapper.EstimateSessionView(d), err)
+	d, err := h.uc.SessionCreator.Create(c, input.EstimateSessionCreator{Actor: actor(c), TenantID: tenant(c), BlueprintID: c.Param("id")})
+	respond(c, http.StatusCreated, mapper.EstimateSessionView(d.EstimateSessionDetail), err)
 }
 
 func (h *EstimateHandler) listEstimates(c *gin.Context) {
-	es, err := h.uc.EstimateLister.List(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(es, mapper.EstimateSummary), err)
+	es, err := h.uc.EstimateLister.List(c, input.EstimateLister{Actor: actor(c), TenantID: tenant(c), BlueprintID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(es.Items, mapper.EstimateSummary), err)
 }
 
 func (h *EstimateHandler) getEstimate(c *gin.Context) {
-	e, err := h.uc.EstimateGetter.Get(c, actor(c), tenant(c), c.Param("id"), c.Param("eid"))
-	respond(c, http.StatusOK, mapper.EstimateView(e), err)
+	e, err := h.uc.EstimateGetter.Get(c, input.EstimateGetter{Actor: actor(c), TenantID: tenant(c), BlueprintID: c.Param("id"), ID: c.Param("eid")})
+	respond(c, http.StatusOK, mapper.EstimateView(e.BlueprintEstimate), err)
 }
 
 func (h *EstimateHandler) getSession(c *gin.Context) {
-	d, err := h.uc.SessionGetter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapper.EstimateSessionView(d), err)
+	d, err := h.uc.SessionGetter.Get(c, input.EstimateSessionGetter{Actor: actor(c), TenantID: tenant(c), BlueprintID: c.Param("id")})
+	respond(c, http.StatusOK, mapper.EstimateSessionView(d.EstimateSessionDetail), err)
 }
 
 // send runs one agent turn as Server-Sent Events: progress, token, fact, question, rate and estimate events as
@@ -82,8 +83,7 @@ func (h *EstimateHandler) send(c *gin.Context) {
 		fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", event, data)
 		c.Writer.Flush()
 	}
-	d, err := h.uc.Messenger.Send(c.Request.Context(), actor(c), tenant(c), c.Param("id"), body.Message, body.Overrides,
-		func(ev model.EstimateEvent) { emit(ev.Name, ev.Data) })
+	d, err := h.uc.Messenger.Send(c.Request.Context(), input.EstimateSessionMessenger{Actor: actor(c), TenantID: tenant(c), BlueprintID: c.Param("id"), Message: body.Message, Overrides: body.Overrides}, func(ev model.EstimateEvent) { emit(ev.Name, ev.Data) })
 	if err != nil {
 		if !started {
 			writeErr(c, err)
@@ -95,6 +95,6 @@ func (h *EstimateHandler) send(c *gin.Context) {
 		emit("error", data)
 		return
 	}
-	data, _ := json.Marshal(mapper.EstimateSessionView(d))
+	data, _ := json.Marshal(mapper.EstimateSessionView(d.EstimateSessionDetail))
 	emit("done", data)
 }

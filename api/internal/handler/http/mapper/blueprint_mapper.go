@@ -1,11 +1,10 @@
 package mapper
 
 import (
-	"github.com/vuhn/fga-demo/api/internal/domain/model"
-	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
-func BlueprintView(b model.Blueprint) map[string]any {
+func BlueprintView(b output.Blueprint) map[string]any {
 	var source any
 	if b.Source != nil {
 		source = map[string]any{"name": b.Source.Name, "mime_type": b.Source.MimeType, "byte_size": b.Source.ByteSize}
@@ -16,26 +15,26 @@ func BlueprintView(b model.Blueprint) map[string]any {
 	}
 }
 
-func VisibleBlueprintView(v model.Visible[model.Blueprint]) map[string]any {
+func VisibleBlueprintView(v output.Visible[output.Blueprint]) map[string]any {
 	m := BlueprintView(v.Value)
 	m["permissions"] = v.Perms
 	return m
 }
 
 // BlueprintVersionSummary is a version without its JSON payloads.
-func BlueprintVersionSummary(v model.BlueprintVersion) map[string]any {
+func BlueprintVersionSummary(v output.BlueprintVersion) map[string]any {
 	return map[string]any{
 		"version": v.Version, "kind": v.Kind, "message": v.Message, "ok": v.OK, "created_by": v.CreatedBy, "created_at": v.CreatedAt,
 	}
 }
 
-func BlueprintVersionView(v model.BlueprintVersion) map[string]any {
+func BlueprintVersionView(v output.BlueprintVersion) map[string]any {
 	m := BlueprintVersionSummary(v)
 	m["brief"], m["model"], m["checks"], m["notes"] = v.Brief, v.Model, v.Checks, v.Notes
 	return m
 }
 
-func BlueprintDetailView(d usecase.BlueprintDetail) map[string]any {
+func BlueprintDetailView(d output.BlueprintDetail) map[string]any {
 	m := BlueprintView(d.Blueprint)
 	if d.Perms != nil {
 		m["permissions"] = d.Perms
@@ -44,7 +43,7 @@ func BlueprintDetailView(d usecase.BlueprintDetail) map[string]any {
 	return m
 }
 
-func DraftView(d model.BlueprintDraft) map[string]any {
+func DraftView(d output.BlueprintDraft) map[string]any {
 	notes := d.Notes
 	if notes == nil {
 		notes = []string{}

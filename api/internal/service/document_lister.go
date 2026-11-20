@@ -6,37 +6,41 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type documentLister struct {
 	documents gateway.DocumentGateway
-	authz     usecase.Authorizer
+	authz     helper.Authorizer
 }
 
-func NewDocumentLister(documents gateway.DocumentGateway, authz usecase.Authorizer) usecase.DocumentLister {
+func NewDocumentLister(documents gateway.DocumentGateway, authz helper.Authorizer) usecase.DocumentLister {
 	return &documentLister{documents: documents, authz: authz}
 }
 
 // List returns every visible document in the tenant, including documents
 // whose folder the actor cannot see ("Shared with me").
-func (s *documentLister) List(ctx context.Context, actor, tenantID, folderID, projectID string) ([]model.Visible[model.Document], error) {
-	if folderID != "" {
-		if err := model.RequireUUID("folder_id", folderID); err != nil {
-			return nil, err
+func (s *documentLister) List(ctx context.Context, in input.DocumentLister) (output.DocumentLister, error) {
+	if in.FolderID != "" {
+		if err := model.RequireUUID("folder_id", in.FolderID); err != nil {
+			return output.DocumentLister{}, err
 		}
 	}
-	if projectID != "" {
-		if err := model.RequireUUID("project_id", projectID); err != nil {
-			return nil, err
+	if in.ProjectID != "" {
+		if err := model.RequireUUID("project_id", in.ProjectID); err != nil {
+			return output.DocumentLister{}, err
 		}
 	}
-	ids, err := s.authz.ListObjectIDs(ctx, actor, "can_view", model.ObjectTypeDocument)
+	ids, err := s.authz.ListObjectIDs(ctx, in.Actor, "can_view", model.ObjectTypeDocument)
 	if err != nil || len(ids) == 0 {
-		return []model.Visible[model.Document]{}, err
+		return output.DocumentLister{}, err
 	}
-	documents, err := s.documents.ListByIDs(ctx, tenantID, ids, folderID, projectID)
+	documents, err := s.documents.ListByIDs(ctx, model.ListDocumentsParams{TenantID: in.TenantID, IDs: ids, FolderID: in.FolderID, ProjectID: in.ProjectID})
 	if err != nil {
-		return nil, err
+		return output.DocumentLister{}, err
 	}
-	return withPerms(ctx, s.authz, actor, model.ObjectTypeDocument, documents, documentID)
+	got, err := withPerms(ctx, s.authz, in.Actor, model.ObjectTypeDocument, documents, documentID)
+	return output.DocumentLister{Items: mapVisibleOutput(got, documentOutput)}, err
 }

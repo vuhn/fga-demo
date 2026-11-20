@@ -8,6 +8,7 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type ProductHandler struct {
@@ -28,8 +29,8 @@ func (h *ProductHandler) list(c *gin.Context) {
 	if !pathUUID(c, "id") {
 		return
 	}
-	ps, err := h.lister.List(c, actor(c), c.Param("id"))
-	respond(c, http.StatusOK, mapper.ProductsView(ps), err)
+	ps, err := h.lister.List(c, input.ProductLister{Actor: actor(c), TenantID: c.Param("id")})
+	respond(c, http.StatusOK, mapper.ProductsView(ps.Items), err)
 }
 
 func (h *ProductHandler) set(c *gin.Context) {
@@ -43,6 +44,6 @@ func (h *ProductHandler) set(c *gin.Context) {
 		writeErr(c, model.Invalid("enabled is required"))
 		return
 	}
-	ps, err := h.setter.Set(c, actor(c), c.Param("id"), c.Param("product"), *body.Enabled)
-	respond(c, http.StatusOK, mapper.ProductsView(ps), err)
+	ps, err := h.setter.Set(c, input.ProductSetter{Actor: actor(c), TenantID: c.Param("id"), Product: c.Param("product"), Enabled: *body.Enabled})
+	respond(c, http.StatusOK, mapper.ProductsView(ps.Items), err)
 }

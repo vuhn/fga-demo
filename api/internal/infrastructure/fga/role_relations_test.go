@@ -40,7 +40,7 @@ func TestRolePermissions(t *testing.T) {
 }
 
 func TestRoleRemoval(t *testing.T) {
-	got, err := RoleRelations{}.Removal(tT, "c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", model.AffiliationExternal, []string{model.PermView}, []string{tU})
+	got, err := RoleRelations{}.Removal(model.RemoveRoleParams{TenantID: tT, RoleID: "c0aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", Affiliation: model.AffiliationExternal, Permissions: []string{model.PermView}, UserIDs: []string{tU}})
 	if err != nil {
 		t.Fatal(err)
 	}

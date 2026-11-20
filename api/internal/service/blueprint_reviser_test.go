@@ -8,7 +8,8 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
-	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 const bpID = "11111111-1111-1111-1111-111111111111"
@@ -56,17 +57,17 @@ type fakeAgent struct {
 func (e *fakeAgent) out() (model.BlueprintOutcome, error) {
 	return model.BlueprintOutcome{Brief: json.RawMessage(`{"must":"be ignored"}`), Model: json.RawMessage(`{"b":2}`), OK: true}, e.err
 }
-func (e *fakeAgent) Revise(context.Context, []byte, []byte, string, []string) (model.BlueprintOutcome, error) {
+func (e *fakeAgent) Revise(context.Context, model.ReviseBlueprintParams) (model.BlueprintOutcome, error) {
 	e.calls = append(e.calls, "Revise")
 	return e.out()
 }
-func (e *fakeAgent) RevisePlan(context.Context, []byte, string, []string) (model.BlueprintOutcome, error) {
+func (e *fakeAgent) RevisePlan(context.Context, model.RevisePlanParams) (model.BlueprintOutcome, error) {
 	e.calls = append(e.calls, "RevisePlan")
 	return e.out()
 }
 
 type fakeAuthz struct {
-	usecase.Authorizer
+	helper.Authorizer
 	deny bool
 }
 
@@ -80,7 +81,7 @@ func (a *fakeAuthz) Require(context.Context, string, string, string, string) err
 func TestReviseOnImportedPlanUsesPlanEditsAndKeepsBriefNull(t *testing.T) {
 	bp, eng := &fakeBlueprints{brief: "null"}, &fakeAgent{}
 	s := NewBlueprintReviser(bp, eng, &fakeAuthz{})
-	if _, err := s.Revise(context.Background(), "u", "t", bpID, "rename it", 1); err != nil && len(bp.appended) == 0 {
+	if _, err := s.Revise(context.Background(), input.BlueprintReviser{Actor: "u", TenantID: "t", ID: bpID, Message: "rename it", BaseVersion: 1}); err != nil && len(bp.appended) == 0 {
 		t.Fatal(err)
 	}
 	if len(eng.calls) != 1 || eng.calls[0] != "RevisePlan" {
@@ -93,7 +94,7 @@ func TestReviseOnImportedPlanUsesPlanEditsAndKeepsBriefNull(t *testing.T) {
 
 func TestReviseOnBriefPlanStillUsesBrief(t *testing.T) {
 	bp, eng := &fakeBlueprints{brief: `{"title":"x"}`}, &fakeAgent{}
-	_, _ = NewBlueprintReviser(bp, eng, &fakeAuthz{}).Revise(context.Background(), "u", "t", bpID, "add a study", 1)
+	_, _ = NewBlueprintReviser(bp, eng, &fakeAuthz{}).Revise(context.Background(), input.BlueprintReviser{Actor: "u", TenantID: "t", ID: bpID, Message: "add a study", BaseVersion: 1})
 	if len(eng.calls) != 1 || eng.calls[0] != "Revise" {
 		t.Fatalf("engine calls %v", eng.calls)
 	}
@@ -101,7 +102,7 @@ func TestReviseOnBriefPlanStillUsesBrief(t *testing.T) {
 
 func TestReviseImportedWritesNothingOnEngineError(t *testing.T) {
 	bp, eng := &fakeBlueprints{brief: "null"}, &fakeAgent{err: model.Invalid("not supported")}
-	if _, err := NewBlueprintReviser(bp, eng, &fakeAuthz{}).Revise(context.Background(), "u", "t", bpID, "move wall", 1); err == nil {
+	if _, err := NewBlueprintReviser(bp, eng, &fakeAuthz{}).Revise(context.Background(), input.BlueprintReviser{Actor: "u", TenantID: "t", ID: bpID, Message: "move wall", BaseVersion: 1}); err == nil {
 		t.Fatal("want error")
 	}
 	if len(bp.appended) != 0 {
@@ -112,10 +113,10 @@ func TestReviseImportedWritesNothingOnEngineError(t *testing.T) {
 func TestReviseDeniedOrStaleNeverReachesTheEngine(t *testing.T) {
 	bp, eng := &fakeBlueprints{brief: "null"}, &fakeAgent{}
 	s := NewBlueprintReviser(bp, eng, &fakeAuthz{deny: true})
-	if _, err := s.Revise(context.Background(), "u", "t", bpID, "x", 1); !errors.Is(err, model.ErrForbidden) {
+	if _, err := s.Revise(context.Background(), input.BlueprintReviser{Actor: "u", TenantID: "t", ID: bpID, Message: "x", BaseVersion: 1}); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("want forbidden, got %v", err)
 	}
-	if _, err := NewBlueprintReviser(bp, eng, &fakeAuthz{}).Revise(context.Background(), "u", "t", bpID, "x", 7); !errors.Is(err, model.ErrConflict) {
+	if _, err := NewBlueprintReviser(bp, eng, &fakeAuthz{}).Revise(context.Background(), input.BlueprintReviser{Actor: "u", TenantID: "t", ID: bpID, Message: "x", BaseVersion: 7}); !errors.Is(err, model.ErrConflict) {
 		t.Fatalf("want conflict, got %v", err)
 	}
 	if len(eng.calls) != 0 {

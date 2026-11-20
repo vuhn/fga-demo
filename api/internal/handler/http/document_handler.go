@@ -8,6 +8,7 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 // DocumentUsecases is everything the document handler calls.
@@ -41,8 +42,8 @@ func (h *DocumentHandler) Register(r Routes) {
 }
 
 func (h *DocumentHandler) list(c *gin.Context) {
-	ds, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("folder_id"), c.Query("project_id"))
-	respond(c, http.StatusOK, mapSlice(ds, mapper.VisibleDocumentView), err)
+	ds, err := h.uc.Lister.List(c, input.DocumentLister{Actor: actor(c), TenantID: tenant(c), FolderID: c.Query("folder_id"), ProjectID: c.Query("project_id")})
+	respond(c, http.StatusOK, mapSlice(ds.Items, mapper.VisibleDocumentView), err)
 }
 
 func (h *DocumentHandler) create(c *gin.Context) {
@@ -50,7 +51,7 @@ func (h *DocumentHandler) create(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	in := usecase.CreateDocumentInput{}
+	in := input.DocumentCreator{Actor: actor(c), TenantID: tenant(c)}
 	in.FolderID, _ = body["folder_id"].(string)
 	in.Name, _ = body["name"].(string)
 	in.MimeType, _ = body["mime_type"].(string)
@@ -60,13 +61,13 @@ func (h *DocumentHandler) create(c *gin.Context) {
 		return
 	}
 	in.ByteSize = int64(size)
-	d, err := h.uc.Creator.Create(c, actor(c), tenant(c), in)
-	respond(c, http.StatusCreated, mapper.DocumentView(d), err)
+	d, err := h.uc.Creator.Create(c, in)
+	respond(c, http.StatusCreated, mapper.DocumentView(d.Document), err)
 }
 
 func (h *DocumentHandler) get(c *gin.Context) {
-	d, err := h.uc.Getter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapper.VisibleDocumentView(d), err)
+	d, err := h.uc.Getter.Get(c, input.DocumentGetter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapper.VisibleDocumentView(d.Visible), err)
 }
 
 func (h *DocumentHandler) rename(c *gin.Context) {
@@ -74,22 +75,22 @@ func (h *DocumentHandler) rename(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	d, err := h.uc.Renamer.Rename(c, actor(c), tenant(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, mapper.DocumentView(d), err)
+	d, err := h.uc.Renamer.Rename(c, input.DocumentRenamer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Name: body.Name})
+	respond(c, http.StatusOK, mapper.DocumentView(d.Document), err)
 }
 
 func (h *DocumentHandler) delete(c *gin.Context) {
-	noContent(c, h.uc.Deleter.Delete(c, actor(c), tenant(c), c.Param("id")))
+	noContent(c, h.uc.Deleter.Delete(c, input.DocumentDeleter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")}))
 }
 
 func (h *DocumentHandler) listGrants(c *gin.Context) {
-	gs, err := h.uc.GrantLister.ListGrants(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(gs, mapper.GrantView), err)
+	gs, err := h.uc.GrantLister.ListGrants(c, input.DocumentGrantLister{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(gs.Items, mapper.GrantView), err)
 }
 
 func (h *DocumentHandler) listShareCandidates(c *gin.Context) {
-	ms, err := h.uc.CandidateLister.ListShareCandidates(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
+	ms, err := h.uc.CandidateLister.ListShareCandidates(c, input.DocumentShareCandidateLister{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(ms.Items, mapper.MemberView), err)
 }
 
 func (h *DocumentHandler) share(c *gin.Context) {
@@ -97,8 +98,8 @@ func (h *DocumentHandler) share(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.Input())
-	respond(c, http.StatusCreated, mapper.GrantView(g), err)
+	g, err := h.uc.Sharer.Share(c, input.DocumentSharer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Relation: body.Relation, Subject: body.Subject, UserID: body.UserID})
+	respond(c, http.StatusCreated, mapper.GrantView(g.Grant), err)
 }
 
 func (h *DocumentHandler) revoke(c *gin.Context) {
@@ -106,5 +107,5 @@ func (h *DocumentHandler) revoke(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.Input()))
+	noContent(c, h.uc.ShareRevoker.Revoke(c, input.DocumentShareRevoker{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Relation: body.Relation, Subject: body.Subject, UserID: body.UserID}))
 }

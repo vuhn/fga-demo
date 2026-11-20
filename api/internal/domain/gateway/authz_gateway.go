@@ -9,7 +9,7 @@ import (
 // AuthzGateway is the OpenFGA store: the only component that answers allow
 // or deny.
 type AuthzGateway interface {
-	Check(ctx context.Context, userID, relation, objectType, objectID string) (bool, error)
+	Check(ctx context.Context, check model.CheckRequest) (bool, error)
 	BatchCheck(ctx context.Context, checks []model.CheckRequest) ([]bool, error)
 	ListObjectIDs(ctx context.Context, userID, relation, objectType string) ([]string, error)
 	ReadTuples(ctx context.Context, objectType, objectID string) ([]model.Tuple, error)

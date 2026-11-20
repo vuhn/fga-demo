@@ -19,11 +19,11 @@ Entry point: `/feature <name or prds/file.md> [--until <stage>]`; the run can st
 
 ## Skill per service
 
-Before editing code in a service, load that service's skill (the Skill tool, or `/<name>`). It holds the layer map, the "touch exactly these" checklist for a new operation, the rules that bite and what "done" means. It does not replace CLAUDE.md; it points at it.
+Before editing code in a service, load that service's skill (the Skill tool, or `/<name>`). All of them apply the common structure in [layer-structure.md](layer-structure.md). It holds the layer map, the "touch exactly these" checklist for a new operation, the rules that bite and what "done" means. It does not replace CLAUDE.md; it points at it.
 
 | You edit | Load | Deterministic check |
 | --- | --- | --- |
-| `api/` (Go: handlers, services, gateways, fga, postgres, wire) | `go-api` | `scripts/check-architecture.sh`, `go vet`, `go test` |
+| `api/` (Go: handlers, services, gateways, fga, postgres, wire) | `go-api` | `scripts/check-architecture.sh` (with `scripts/check-go-shape.go`), `go vet`, `go test` |
 | `agent/` (Python Agent: LLM work, gRPC API) | `python-agent` | `scripts/check-architecture-python.sh`, `scripts/check-python-shape.py`, agent pytest |
 | `blueprint-engine/` (Python Engine: geometry, DXF/IFC, plan ops) | `python-engine` | same Python scripts, engine pytest |
 | `api/migrations/` | `db-design` | `scripts/check-migrations.sh` |
@@ -34,7 +34,7 @@ A change that spans two services (a new Engine operation the Agent calls) loads 
 
 ## Enforcement layers
 - Skills (advisory): `.claude/skills/*`; one per service (see "Skill per service") plus one per SDLC stage.
-- Deterministic: `make check` runs `scripts/check-architecture.sh`, `check-migrations.sh` (breaking-change lint for migrations above baseline 11; opt out per line with `-- force-allow-breaking: <reason>`), `check-specs.sh` (artifact structure). `.claude/settings.json` hooks block edits to committed migrations and lint after migration edits.
+- Deterministic: `make check` runs `scripts/check-architecture.sh` (Go shape rules in `scripts/check-go-shape.go`, planted-violation tests in `scripts/test-architecture-go.sh`), `check-migrations.sh` (breaking-change lint for migrations above baseline 11; opt out per line with `-- force-allow-breaking: <reason>`), `check-specs.sh` (artifact structure). `.claude/settings.json` hooks block edits to committed migrations and lint after migration edits.
 - Review: `design-reviewer` (artifacts), `authz-reviewer` (code). The agent that wrote something does not approve it.
 
 ## Metrics to watch (by hand from git history for now)

@@ -11,6 +11,8 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type blueprintCreator struct {
@@ -18,13 +20,13 @@ type blueprintCreator struct {
 	blueprints gateway.BlueprintGateway
 	relations  gateway.BlueprintRelationGateway
 	engine     gateway.BlueprintEngine
-	authz      usecase.Authorizer
+	authz      helper.Authorizer
 	guard      helper.WriteGuard
 	ids        gateway.IDGenerator
 }
 
 func NewBlueprintCreator(projects gateway.ProjectGateway, blueprints gateway.BlueprintGateway, relations gateway.BlueprintRelationGateway,
-	engine gateway.BlueprintEngine, authz usecase.Authorizer, guard helper.WriteGuard, ids gateway.IDGenerator) usecase.BlueprintCreator {
+	engine gateway.BlueprintEngine, authz helper.Authorizer, guard helper.WriteGuard, ids gateway.IDGenerator) usecase.BlueprintCreator {
 	return &blueprintCreator{projects: projects, blueprints: blueprints, relations: relations, engine: engine, authz: authz, guard: guard, ids: ids}
 }
 
@@ -34,58 +36,58 @@ func NewBlueprintCreator(projects gateway.ProjectGateway, blueprints gateway.Blu
 // brief is only the input: the blueprint is stored like an import (version 1
 // without a brief, the drawn DXF as its original) in one transaction. Then
 // OpenFGA; a failure there deletes the Postgres rows.
-func (s *blueprintCreator) Create(ctx context.Context, actor, tenantID string, in usecase.CreateBlueprintInput) (usecase.BlueprintDetail, error) {
+func (s *blueprintCreator) Create(ctx context.Context, in input.BlueprintCreator) (output.BlueprintCreator, error) {
 	name, err := model.CleanName("name", in.Name)
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintCreator{}, err
 	}
 	if err := validBrief(in.Brief); err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintCreator{}, err
 	}
 	err = checkSourceKind(in.SourceKind)
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintCreator{}, err
 	}
 	prompt := strings.TrimSpace(in.Prompt)
 	if len([]rune(prompt)) > 2000 {
-		return usecase.BlueprintDetail{}, model.Invalid("prompt must be at most 2000 characters")
+		return output.BlueprintCreator{}, model.Invalid("prompt must be at most 2000 characters")
 	}
-	if err := requireBlueprintCreate(ctx, s.projects, s.authz, actor, tenantID, in.ProjectID); err != nil {
-		return usecase.BlueprintDetail{}, err
+	if err := requireBlueprintCreate(ctx, s.projects, s.authz, in.Actor, in.TenantID, in.ProjectID); err != nil {
+		return output.BlueprintCreator{}, err
 	}
 	out, err := s.engine.CreatePlan(ctx, in.Brief)
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintCreator{}, err
 	}
 	if err := requireBuilt(out); err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintCreator{}, err
 	}
 	if len(out.DXF) == 0 {
-		return usecase.BlueprintDetail{}, model.Invalid("the engine returned a plan without its drawing")
+		return output.BlueprintCreator{}, model.Invalid("the engine returned a plan without its drawing")
 	}
 
-	b := model.Blueprint{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: in.ProjectID, Name: name, CurrentVersion: 1,
-		SourceKind: in.SourceKind, CreatedBy: actor}
-	v := planOutcomeVersion(b.ID, model.BlueprintVersionCreate, prompt, actor, out)
+	b := model.Blueprint{ID: s.ids.NewID(), TenantID: in.TenantID, ProjectID: in.ProjectID, Name: name, CurrentVersion: 1,
+		SourceKind: in.SourceKind, CreatedBy: in.Actor}
+	v := planOutcomeVersion(b.ID, model.BlueprintVersionCreate, prompt, in.Actor, out)
 	v.Version = 1
 	sum := sha256.Sum256(out.DXF)
 	orig := model.BlueprintOriginal{BlueprintID: b.ID, Version: 1, Name: drawnFileName(name), MimeType: model.DXFMimeType,
 		ByteSize: int64(len(out.DXF)), SHA256: hex.EncodeToString(sum[:]), Data: out.DXF}
-	owner := model.OwnerGrant(s.ids.NewID(), tenantID, model.ObjectTypeBlueprint, b.ID, actor)
-	if err := s.blueprints.CreateImported(ctx, b, v, owner, orig); err != nil {
-		return usecase.BlueprintDetail{}, err
+	owner := model.OwnerGrant(s.ids.NewID(), in.TenantID, model.ObjectTypeBlueprint, b.ID, in.Actor)
+	if err := s.blueprints.CreateImported(ctx, model.CreateImportedBlueprintParams{Blueprint: b, Version: v, Owner: owner, Original: orig}); err != nil {
+		return output.BlueprintCreator{}, err
 	}
 	err = s.guard.Grant(ctx, s.relations.Created(b), nil, func(ctx context.Context) error {
 		return s.blueprints.Delete(ctx, b.ID)
 	})
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintCreator{}, err
 	}
 	if b, err = s.blueprints.Get(ctx, b.ID); err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintCreator{}, err
 	}
 	v, err = s.blueprints.GetVersion(ctx, b.ID, 1)
-	return usecase.BlueprintDetail{Blueprint: b, Version: v}, err
+	return output.BlueprintCreator{BlueprintDetail: blueprintDetailOutput(blueprintDetail{Blueprint: b, Version: v})}, err
 }
 
 // drawnFileName is the name of the DXF the engine drew for a created plan: the blueprint's name, kept short.

@@ -8,7 +8,8 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
-	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 const projID = "11111111-1111-4111-8111-111111111111"
@@ -67,14 +68,15 @@ func (c *creatingBlueprints) Create(context.Context, model.Blueprint, model.Blue
 	c.plain++
 	return nil
 }
-func (c *creatingBlueprints) CreateImported(_ context.Context, b model.Blueprint, v model.BlueprintVersion, _ model.Grant, o model.BlueprintOriginal) error {
+func (c *creatingBlueprints) CreateImported(_ context.Context, p model.CreateImportedBlueprintParams) error {
+	b, v, o := p.Blueprint, p.Version, p.Original
 	c.created, c.versions, c.originals = append(c.created, b), append(c.versions, v), append(c.originals, o)
 	return nil
 }
 
-func create(bp *creatingBlueprints, eng *fakeEngine, authz *fakeAuthz, kind string) (usecase.BlueprintDetail, error) {
-	return NewBlueprintCreator(fakeProjects{}, bp, fakeRelations{}, eng, authz, fakeGuard{}, fakeIDs{}).Create(context.Background(), "u", "t",
-		usecase.CreateBlueprintInput{ProjectID: projID, Name: "House", Brief: json.RawMessage(`{"title":"x"}`), SourceKind: kind, Prompt: "a house"})
+func create(bp *creatingBlueprints, eng *fakeEngine, authz *fakeAuthz, kind string) (output.BlueprintCreator, error) {
+	return NewBlueprintCreator(fakeProjects{}, bp, fakeRelations{}, eng, authz, fakeGuard{}, fakeIDs{}).Create(context.Background(),
+		input.BlueprintCreator{Actor: "u", TenantID: "t", ProjectID: projID, Name: "House", Brief: json.RawMessage(`{"title":"x"}`), SourceKind: kind, Prompt: "a house"})
 }
 
 func TestCreateStoresAPlanLikeAnImport(t *testing.T) {
@@ -151,7 +153,7 @@ func (c *convertingBlueprints) AppendVersion(context.Context, model.BlueprintVer
 
 func TestConvertStoresANewVersionWithoutABriefAndTheDrawingAsItsOriginal(t *testing.T) {
 	bp, eng := &convertingBlueprints{fakeBlueprints: &fakeBlueprints{brief: `{"title":"x"}`}}, &fakeEngine{}
-	if _, err := NewBlueprintPlanConverter(bp, eng, &fakeAuthz{}).Convert(context.Background(), "u", "t", bpID, 1); err != nil {
+	if _, err := NewBlueprintPlanConverter(bp, eng, &fakeAuthz{}).Convert(context.Background(), input.BlueprintPlanConverter{Actor: "u", TenantID: "t", ID: bpID, BaseVersion: 1}); err != nil {
 		t.Fatal(err)
 	}
 	// the engine gets the stored model and the blueprint name, no ids and no brief
@@ -176,7 +178,7 @@ func TestConvertRefusals(t *testing.T) {
 	}
 	eng := &fakeEngine{}
 	call := func(bp *convertingBlueprints, e *fakeEngine, a *fakeAuthz, base int, tenant string) error {
-		_, err := NewBlueprintPlanConverter(bp, e, a).Convert(context.Background(), "u", tenant, bpID, base)
+		_, err := NewBlueprintPlanConverter(bp, e, a).Convert(context.Background(), input.BlueprintPlanConverter{Actor: "u", TenantID: tenant, ID: bpID, BaseVersion: base})
 		return err
 	}
 	// denied, stale and another tenant's blueprint never reach the engine

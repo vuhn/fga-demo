@@ -7,60 +7,62 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type photoSharer struct {
 	photos    gateway.PhotoGateway
 	grants    gateway.PhotoGrantGateway
 	relations gateway.PhotoRelationGateway
-	authz     usecase.Authorizer
+	authz     helper.Authorizer
 	policy    helper.SharePolicy
 	guard     helper.WriteGuard
 	ids       gateway.IDGenerator
 }
 
 func NewPhotoSharer(photos gateway.PhotoGateway, grants gateway.PhotoGrantGateway, relations gateway.PhotoRelationGateway,
-	authz usecase.Authorizer, policy helper.SharePolicy, guard helper.WriteGuard, ids gateway.IDGenerator) usecase.PhotoSharer {
+	authz helper.Authorizer, policy helper.SharePolicy, guard helper.WriteGuard, ids gateway.IDGenerator) usecase.PhotoSharer {
 	return &photoSharer{photos: photos, grants: grants, relations: relations, authz: authz, policy: policy, guard: guard, ids: ids}
 }
 
 // Share grants viewer or editor to an external member or group. A grant to
 // a subject that already holds the other relation replaces it.
-func (s *photoSharer) Share(ctx context.Context, actor, tenantID, id string, in model.ShareInput) (model.Grant, error) {
-	g, err := s.policy.NewGrant(tenantID, model.ObjectTypePhoto, id, in)
+func (s *photoSharer) Share(ctx context.Context, in input.PhotoSharer) (output.PhotoSharer, error) {
+	g, err := s.policy.NewGrant(in.TenantID, model.ObjectTypePhoto, in.ID, model.ShareInput{Relation: in.Relation, Subject: in.Subject, UserID: in.UserID})
 	if err != nil {
-		return model.Grant{}, err
+		return output.PhotoSharer{}, err
 	}
 	tuple, err := s.relations.Grant(g) // rejects editor + external_users
 	if err != nil {
-		return model.Grant{}, err
+		return output.PhotoSharer{}, err
 	}
-	if err := requirePhotoShare(ctx, s.photos, s.authz, actor, tenantID, id); err != nil {
-		return model.Grant{}, err
+	if err := requirePhotoShare(ctx, s.photos, s.authz, in.Actor, in.TenantID, in.ID); err != nil {
+		return output.PhotoSharer{}, err
 	}
-	if err := s.policy.CheckGrantee(ctx, tenantID, g); err != nil {
-		return model.Grant{}, err
+	if err := s.policy.CheckGrantee(ctx, in.TenantID, g); err != nil {
+		return output.PhotoSharer{}, err
 	}
-	existing, err := s.grants.List(ctx, id)
+	existing, err := s.grants.List(ctx, in.ID)
 	if err != nil {
-		return model.Grant{}, err
+		return output.PhotoSharer{}, err
 	}
 	for _, e := range existing {
 		if !e.SameSubject(g) {
 			continue
 		}
 		if e.Relation == model.RelOwner {
-			return model.Grant{}, model.Invalid("the owner grant cannot be changed")
+			return output.PhotoSharer{}, model.Invalid("the owner grant cannot be changed")
 		}
 		if e.Relation == g.Relation {
-			return e, nil
+			return output.PhotoSharer{Grant: grantOutput(e)}, nil
 		}
 	}
 
 	g.ID = s.ids.NewID()
 	prev, err := s.grants.Upsert(ctx, g)
 	if err != nil {
-		return model.Grant{}, err
+		return output.PhotoSharer{}, err
 	}
 	var replaced []model.Tuple
 	if prev != nil {
@@ -68,7 +70,7 @@ func (s *photoSharer) Share(ctx context.Context, actor, tenantID, id string, in 
 		old.Relation = prev.Relation
 		t, err := s.relations.Grant(old)
 		if err != nil {
-			return model.Grant{}, err
+			return output.PhotoSharer{}, err
 		}
 		replaced = append(replaced, t)
 		g.ID = prev.ID
@@ -79,5 +81,5 @@ func (s *photoSharer) Share(ctx context.Context, actor, tenantID, id string, in 
 		}
 		return s.grants.Restore(ctx, *prev)
 	})
-	return g, err
+	return output.PhotoSharer{Grant: grantOutput(g)}, err
 }

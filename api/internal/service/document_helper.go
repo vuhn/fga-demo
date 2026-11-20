@@ -5,7 +5,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
-	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
 
 // loadDocument returns the document when it exists in the header tenant.
@@ -24,7 +24,7 @@ func loadDocument(ctx context.Context, documents gateway.DocumentGateway, tenant
 }
 
 // requireDocumentShare loads the document in the tenant and requires can_share.
-func requireDocumentShare(ctx context.Context, documents gateway.DocumentGateway, authz usecase.Authorizer, actor, tenantID, id string) error {
+func requireDocumentShare(ctx context.Context, documents gateway.DocumentGateway, authz helper.Authorizer, actor, tenantID, id string) error {
 	if _, err := loadDocument(ctx, documents, tenantID, id); err != nil {
 		return err
 	}

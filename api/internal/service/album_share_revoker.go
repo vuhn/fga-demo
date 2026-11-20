@@ -7,32 +7,33 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type albumShareRevoker struct {
 	albums    gateway.AlbumGateway
 	grants    gateway.AlbumGrantGateway
 	relations gateway.AlbumRelationGateway
-	authz     usecase.Authorizer
+	authz     helper.Authorizer
 	policy    helper.SharePolicy
 	guard     helper.WriteGuard
 }
 
 func NewAlbumShareRevoker(albums gateway.AlbumGateway, grants gateway.AlbumGrantGateway, relations gateway.AlbumRelationGateway,
-	authz usecase.Authorizer, policy helper.SharePolicy, guard helper.WriteGuard) usecase.AlbumShareRevoker {
+	authz helper.Authorizer, policy helper.SharePolicy, guard helper.WriteGuard) usecase.AlbumShareRevoker {
 	return &albumShareRevoker{albums: albums, grants: grants, relations: relations, authz: authz, policy: policy, guard: guard}
 }
 
 // Revoke deletes the matching grant's tuple, then its row.
-func (s *albumShareRevoker) Revoke(ctx context.Context, actor, tenantID, id string, in model.ShareInput) error {
-	g, err := s.policy.NewGrant(tenantID, model.ObjectTypeAlbum, id, in)
+func (s *albumShareRevoker) Revoke(ctx context.Context, in input.AlbumShareRevoker) error {
+	g, err := s.policy.NewGrant(in.TenantID, model.ObjectTypeAlbum, in.ID, model.ShareInput{Relation: in.Relation, Subject: in.Subject, UserID: in.UserID})
 	if err != nil {
 		return err
 	}
-	if err := requireAlbumShare(ctx, s.albums, s.authz, actor, tenantID, id); err != nil {
+	if err := requireAlbumShare(ctx, s.albums, s.authz, in.Actor, in.TenantID, in.ID); err != nil {
 		return err
 	}
-	existing, err := s.grants.List(ctx, id)
+	existing, err := s.grants.List(ctx, in.ID)
 	if err != nil {
 		return err
 	}

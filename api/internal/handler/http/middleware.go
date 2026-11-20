@@ -13,6 +13,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 const (
@@ -51,13 +52,13 @@ func authenticate(v usecase.TokenVerifier) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		sub, err := v.Verify(c, raw)
+		sub, err := v.Verify(c, input.TokenVerifier{Token: raw})
 		if err != nil {
 			writeErr(c, model.ErrUnauthenticated)
 			c.Abort()
 			return
 		}
-		c.Set(ctxActor, sub)
+		c.Set(ctxActor, sub.Actor)
 		c.Next()
 	}
 }

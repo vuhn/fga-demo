@@ -6,29 +6,33 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type folderRenamer struct {
 	folders gateway.FolderGateway
-	authz   usecase.Authorizer
+	authz   helper.Authorizer
 }
 
-func NewFolderRenamer(folders gateway.FolderGateway, authz usecase.Authorizer) usecase.FolderRenamer {
+func NewFolderRenamer(folders gateway.FolderGateway, authz helper.Authorizer) usecase.FolderRenamer {
 	return &folderRenamer{folders: folders, authz: authz}
 }
 
 // Rename requires can_manage: a userset editor can fill a folder but cannot
 // rename it.
-func (s *folderRenamer) Rename(ctx context.Context, actor, tenantID, id, name string) (model.Folder, error) {
-	if _, err := loadFolder(ctx, s.folders, tenantID, id); err != nil {
-		return model.Folder{}, err
+func (s *folderRenamer) Rename(ctx context.Context, in input.FolderRenamer) (output.FolderRenamer, error) {
+	if _, err := loadFolder(ctx, s.folders, in.TenantID, in.ID); err != nil {
+		return output.FolderRenamer{}, err
 	}
-	name, err := model.CleanName("name", name)
+	name, err := model.CleanName("name", in.Name)
 	if err != nil {
-		return model.Folder{}, err
+		return output.FolderRenamer{}, err
 	}
-	if err := s.authz.Require(ctx, actor, "can_manage", model.ObjectTypeFolder, id); err != nil {
-		return model.Folder{}, err
+	if err := s.authz.Require(ctx, in.Actor, "can_manage", model.ObjectTypeFolder, in.ID); err != nil {
+		return output.FolderRenamer{}, err
 	}
-	return s.folders.Rename(ctx, id, name)
+	got, err := s.folders.Rename(ctx, in.ID, name)
+	return output.FolderRenamer{Folder: folderOutput(got)}, err
 }

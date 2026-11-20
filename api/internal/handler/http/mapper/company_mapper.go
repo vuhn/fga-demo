@@ -1,9 +1,8 @@
 package mapper
 
 import (
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 	"time"
-
-	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type CompanyJSON struct {
@@ -18,6 +17,6 @@ type CompanyJSON struct {
 	CreatedAt         time.Time  `json:"created_at"`
 }
 
-func CompanyView(c model.Company) CompanyJSON {
-	return CompanyJSON{c.ID, c.Name, c.TaxID, c.CreatedByTenantID, c.TenantID, c.Claimed(), c.ClaimedAt, c.MemberCount, c.CreatedAt}
+func CompanyView(c output.Company) CompanyJSON {
+	return CompanyJSON{c.ID, c.Name, c.TaxID, c.CreatedByTenantID, c.TenantID, c.Claimed, c.ClaimedAt, c.MemberCount, c.CreatedAt}
 }

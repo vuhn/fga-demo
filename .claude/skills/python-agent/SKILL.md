@@ -5,7 +5,7 @@ description: Implement or change Python code in agent/ (the gRPC Agent: all LLM 
 
 # Implement Agent changes
 
-Source of truth: CLAUDE.md "Architecture rules" (Python services bullet), `agent/README.md` (layers, "Where things go"), `docs/service-contracts.md` (gRPC contracts), `docs/harness/evaluator-rubric.md` (Python layering checklist). This skill is the working checklist; read those when unsure.
+Source of truth: `docs/harness/layer-structure.md` (the common layer structure), CLAUDE.md "Architecture rules" (Python services bullet), `agent/README.md` (layers, "Where things go"), `docs/service-contracts.md` (gRPC contracts), `docs/harness/evaluator-rubric.md` (Python layering checklist). This skill is the working checklist; read those when unsure.
 
 ## The Agent in one paragraph
 Stateless gRPC service (`fga.demo.agent.v1.AgentService`, :8091). It owns every LLM call. It talks to the Engine only as gRPC tools over the generated client (never imports Engine code) and to Ollama through a gateway. The LLM only proposes JSON (brief, ops); the Engine validates, repairs and lays out. It never sees a tenant or user id.

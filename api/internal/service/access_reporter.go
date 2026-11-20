@@ -7,18 +7,20 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type accessReporter struct {
 	authzStore gateway.AuthzGateway
 	members    gateway.MembershipGateway
 	users      gateway.UserGateway
-	authz      usecase.Authorizer
+	authz      helper.Authorizer
 	tenants    helper.ObjectTenantResolver
 }
 
 func NewAccessReporter(authzStore gateway.AuthzGateway, members gateway.MembershipGateway, users gateway.UserGateway,
-	authz usecase.Authorizer, tenants helper.ObjectTenantResolver) usecase.AccessReporter {
+	authz helper.Authorizer, tenants helper.ObjectTenantResolver) usecase.AccessReporter {
 	return &accessReporter{authzStore: authzStore, members: members, users: users, authz: authz, tenants: tenants}
 }
 
@@ -31,25 +33,26 @@ var contentTypes = map[string]bool{
 // Report lists the direct tuples on an object and evaluates every tenant
 // member plus every platform admin with BatchCheck. The platform, a sharer
 // of the object, or the tenant's member manager may ask.
-func (s *accessReporter) Report(ctx context.Context, actor, objectType, objectID string) (usecase.AccessReport, error) {
+func (s *accessReporter) Report(ctx context.Context, in input.AccessReporter) (output.AccessReporter, error) {
+	objectType, objectID := in.ObjectType, in.ObjectID
 	if !contentTypes[objectType] {
-		return usecase.AccessReport{}, model.Invalid("object_type must be folder, document, album, photo, or blueprint")
+		return output.AccessReporter{}, model.Invalid("object_type must be folder, document, album, photo, or blueprint")
 	}
 	tenantID, err := s.tenants.TenantOf(ctx, objectType, objectID)
 	if err != nil {
-		return usecase.AccessReport{}, err
+		return output.AccessReporter{}, err
 	}
-	if err := s.requireReader(ctx, actor, objectType, objectID, tenantID); err != nil {
-		return usecase.AccessReport{}, err
+	if err := s.requireReader(ctx, in.Actor, objectType, objectID, tenantID); err != nil {
+		return output.AccessReporter{}, err
 	}
 
 	direct, err := s.authzStore.ReadTuples(ctx, objectType, objectID)
 	if err != nil {
-		return usecase.AccessReport{}, err
+		return output.AccessReporter{}, err
 	}
 	people, err := s.people(ctx, tenantID)
 	if err != nil {
-		return usecase.AccessReport{}, err
+		return output.AccessReporter{}, err
 	}
 	rels := []string{"can_view", "can_edit", "can_delete"}
 	var checks []model.CheckRequest
@@ -60,7 +63,7 @@ func (s *accessReporter) Report(ctx context.Context, actor, objectType, objectID
 	}
 	res, err := s.authz.BatchCheck(ctx, checks)
 	if err != nil {
-		return usecase.AccessReport{}, err
+		return output.AccessReporter{}, err
 	}
 	for i := range people {
 		people[i].CanView, people[i].CanEdit, people[i].CanDelete = res[3*i], res[3*i+1], res[3*i+2]
@@ -68,7 +71,7 @@ func (s *accessReporter) Report(ctx context.Context, actor, objectType, objectID
 	if direct == nil {
 		direct = []model.Tuple{}
 	}
-	return usecase.AccessReport{Object: objectType + ":" + objectID, DirectTuples: direct, Members: people}, nil
+	return output.AccessReporter{Object: objectType + ":" + objectID, DirectTuples: mapOutput(direct, tupleOutput), Members: people}, nil
 }
 
 func (s *accessReporter) requireReader(ctx context.Context, actor, objectType, objectID, tenantID string) error {
@@ -89,7 +92,7 @@ func (s *accessReporter) requireReader(ctx context.Context, actor, objectType, o
 }
 
 // people is every tenant member, then every platform admin not already listed.
-func (s *accessReporter) people(ctx context.Context, tenantID string) ([]usecase.MemberAccess, error) {
+func (s *accessReporter) people(ctx context.Context, tenantID string) ([]output.MemberAccess, error) {
 	members, err := s.members.List(ctx, tenantID, "")
 	if err != nil {
 		return nil, err
@@ -98,15 +101,15 @@ func (s *accessReporter) people(ctx context.Context, tenantID string) ([]usecase
 	if err != nil {
 		return nil, err
 	}
-	people := []usecase.MemberAccess{}
+	people := []output.MemberAccess{}
 	seen := map[string]bool{}
 	for _, m := range members {
-		people = append(people, usecase.MemberAccess{UserID: m.UserID, Name: m.Name})
+		people = append(people, output.MemberAccess{UserID: m.UserID, Name: m.Name})
 		seen[m.UserID] = true
 	}
 	for _, u := range admins {
 		if !seen[u.ID] {
-			people = append(people, usecase.MemberAccess{UserID: u.ID, Name: u.Name})
+			people = append(people, output.MemberAccess{UserID: u.ID, Name: u.Name})
 		}
 	}
 	return people, nil

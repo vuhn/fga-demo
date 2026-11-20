@@ -7,32 +7,36 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type estimateSessionCreator struct {
 	blueprints gateway.BlueprintGateway
 	sessions   gateway.EstimateSessionGateway
-	authz      usecase.Authorizer
+	authz      helper.Authorizer
 }
 
-func NewEstimateSessionCreator(blueprints gateway.BlueprintGateway, sessions gateway.EstimateSessionGateway, authz usecase.Authorizer) usecase.EstimateSessionCreator {
+func NewEstimateSessionCreator(blueprints gateway.BlueprintGateway, sessions gateway.EstimateSessionGateway, authz helper.Authorizer) usecase.EstimateSessionCreator {
 	return &estimateSessionCreator{blueprints: blueprints, sessions: sessions, authz: authz}
 }
 
 // Create requires can_edit on the blueprint (a session spends LLM and search calls). A blueprint has one
 // session: starting one resets the old (its chat and answers), while finished estimates stay. The session is
 // pinned to the blueprint's current version; a later plan edit leaves it stale rather than changing its numbers.
-func (s *estimateSessionCreator) Create(ctx context.Context, actor, tenantID, blueprintID string) (usecase.EstimateSessionDetail, error) {
-	b, err := loadBlueprint(ctx, s.blueprints, tenantID, blueprintID)
+func (s *estimateSessionCreator) Create(ctx context.Context, in input.EstimateSessionCreator) (output.EstimateSessionCreator, error) {
+	b, err := loadBlueprint(ctx, s.blueprints, in.TenantID, in.BlueprintID)
 	if err != nil {
-		return usecase.EstimateSessionDetail{}, err
+		return output.EstimateSessionCreator{}, err
 	}
-	if err := s.authz.Require(ctx, actor, "can_edit", model.ObjectTypeBlueprint, blueprintID); err != nil {
-		return usecase.EstimateSessionDetail{}, err
+	if err := s.authz.Require(ctx, in.Actor, "can_edit", model.ObjectTypeBlueprint, in.BlueprintID); err != nil {
+		return output.EstimateSessionCreator{}, err
 	}
-	sess := model.EstimateSession{BlueprintID: b.ID, BlueprintVersion: b.CurrentVersion, State: json.RawMessage(`{}`), CreatedBy: actor}
+	sess := model.EstimateSession{BlueprintID: b.ID, BlueprintVersion: b.CurrentVersion, State: json.RawMessage(`{}`), CreatedBy: in.Actor}
 	if err := s.sessions.Replace(ctx, sess); err != nil {
-		return usecase.EstimateSessionDetail{}, err
+		return output.EstimateSessionCreator{}, err
 	}
-	return readEstimateSession(ctx, s.sessions, b.ID)
+	got, err := readEstimateSession(ctx, s.sessions, b.ID)
+	return output.EstimateSessionCreator{EstimateSessionDetail: estimateSessionDetailOutput(got)}, err
 }

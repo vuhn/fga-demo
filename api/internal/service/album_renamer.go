@@ -6,29 +6,33 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type albumRenamer struct {
 	albums gateway.AlbumGateway
-	authz  usecase.Authorizer
+	authz  helper.Authorizer
 }
 
-func NewAlbumRenamer(albums gateway.AlbumGateway, authz usecase.Authorizer) usecase.AlbumRenamer {
+func NewAlbumRenamer(albums gateway.AlbumGateway, authz helper.Authorizer) usecase.AlbumRenamer {
 	return &albumRenamer{albums: albums, authz: authz}
 }
 
 // Rename requires can_manage: a userset editor can fill an album but cannot
 // rename it.
-func (s *albumRenamer) Rename(ctx context.Context, actor, tenantID, id, name string) (model.Album, error) {
-	if _, err := loadAlbum(ctx, s.albums, tenantID, id); err != nil {
-		return model.Album{}, err
+func (s *albumRenamer) Rename(ctx context.Context, in input.AlbumRenamer) (output.AlbumRenamer, error) {
+	if _, err := loadAlbum(ctx, s.albums, in.TenantID, in.ID); err != nil {
+		return output.AlbumRenamer{}, err
 	}
-	name, err := model.CleanName("name", name)
+	name, err := model.CleanName("name", in.Name)
 	if err != nil {
-		return model.Album{}, err
+		return output.AlbumRenamer{}, err
 	}
-	if err := s.authz.Require(ctx, actor, "can_manage", model.ObjectTypeAlbum, id); err != nil {
-		return model.Album{}, err
+	if err := s.authz.Require(ctx, in.Actor, "can_manage", model.ObjectTypeAlbum, in.ID); err != nil {
+		return output.AlbumRenamer{}, err
 	}
-	return s.albums.Rename(ctx, id, name)
+	got, err := s.albums.Rename(ctx, in.ID, name)
+	return output.AlbumRenamer{Album: albumOutput(got)}, err
 }

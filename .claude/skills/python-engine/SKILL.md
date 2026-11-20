@@ -5,12 +5,12 @@ description: Implement or change Python code in blueprint-engine/ (the determini
 
 # Implement Engine changes
 
-Source of truth: CLAUDE.md "Architecture rules" (Python services bullet), `blueprint-engine/README.md`, `docs/service-contracts.md`, `docs/harness/evaluator-rubric.md` (Python layering checklist), and `specs/re-architecture-system/plan.md` for what is being moved. This skill is the working checklist.
+Source of truth: `docs/harness/layer-structure.md` (the common layer structure), CLAUDE.md "Architecture rules" (Python services bullet), `blueprint-engine/README.md`, `docs/service-contracts.md`, `docs/harness/evaluator-rubric.md` (Python layering checklist), and `specs/re-architecture-system/plan.md` for what is being moved. This skill is the working checklist.
 
 ## The Engine in one paragraph
 Stateless and deterministic: **the LLM only produces or edits the brief; code does every piece of geometry.** No auth, no storage, no tenant or user ids. The Go API and the Agent call it over gRPC (the Agent as tools), and the Agent calls its tools over gRPC (`NormalizeDraft`, `ApplyBriefOps`, `ListTools`, `GetCatalog`, plan ops, checks). New work belongs in the gRPC path; the Engine must not gain LLM or network code (`engine-no-llm`, `engine-no-network` checks).
 
-## State of the refactor (read before choosing where code goes)
+## State of the refactor (read before choosing where code goes; see "Conformance" in `docs/harness/layer-structure.md`)
 The delivery side already follows the target layout: `handler/grpc/<domain>_handler.py` (own `<Domain>Usecases`), `mapper/`, `common/*_helper.py`, one gateway per file in `domain/gateway/`, `usecase/<op>.py` paired with `service/<op>.py`, `wire.py` as the only composition root. Its `domain/` is still flat modules and a few root modules (`pipeline.py`, `estimate.py`, `takeoff.py`, `estimate_models.py`) are legacy adapters; `scripts/python-arch-allow.txt` is empty and stays empty. Rules:
 - New code follows the target layout (CLAUDE.md), never the legacy shape. Do not add a new root module or a new allow-list line.
 - Touching a legacy module for a task: only move what the task needs. A later plan task refactors the rest (`specs/re-architecture-system/plan.md`); do not widen the PR.

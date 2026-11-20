@@ -124,7 +124,7 @@ func TestReviseStreamReportsEachStepThenReturnsTheOutcome(t *testing.T) {
 		return s.Send(result(outcomeMsg))
 	}}
 	var got []model.BlueprintProgress
-	out, err := serve(t, f).ReviseStream(context.Background(), []byte(`{"b":1}`), []byte(`{"m":1}`), "bigger", []string{"earlier"},
+	out, err := serve(t, f).ReviseStream(context.Background(), model.ReviseBlueprintParams{Brief: []byte(`{"b":1}`), Previous: []byte(`{"m":1}`), Message: "bigger", History: []string{"earlier"}},
 		func(p model.BlueprintProgress) { got = append(got, p) })
 	if err != nil {
 		t.Fatal(err)
@@ -160,10 +160,10 @@ func TestTheSyncVariantsCollectTheStream(t *testing.T) {
 		},
 	}
 	c := serve(t, f)
-	if out, err := c.Revise(context.Background(), nil, nil, "x", nil); err != nil || string(out.Model) != `{"m":2}` {
+	if out, err := c.Revise(context.Background(), model.ReviseBlueprintParams{Message: "x"}); err != nil || string(out.Model) != `{"m":2}` {
 		t.Errorf("Revise = %+v, %v", out, err)
 	}
-	if out, err := c.RevisePlan(context.Background(), []byte(`{"p":1}`), "rename", nil); err != nil || string(out.Model) != `{"p":2}` || out.Brief != nil {
+	if out, err := c.RevisePlan(context.Background(), model.RevisePlanParams{Plan: []byte(`{"p":1}`), Message: "rename"}); err != nil || string(out.Model) != `{"p":2}` || out.Brief != nil {
 		t.Errorf("RevisePlan = %+v, %v", out, err)
 	}
 	if out, err := c.Review(context.Background(), []byte(`{"b":1}`), nil, nil); err != nil || string(out.Brief) != `{"b":3}` || out.OK || out.Issues[0] != "left" {
@@ -176,14 +176,14 @@ func TestAStatusBeforeTheStreamOpensIsAPlainError(t *testing.T) {
 		return refuse(s.Context(), commonv1.ErrorCode_ERROR_CODE_EDIT_ERROR, "message is empty", "")
 	}}
 	called := false
-	_, err := serve(t, f).ReviseStream(context.Background(), nil, nil, " ", nil, func(model.BlueprintProgress) { called = true })
+	_, err := serve(t, f).ReviseStream(context.Background(), model.ReviseBlueprintParams{Message: " "}, func(model.BlueprintProgress) { called = true })
 	if !errors.Is(err, model.ErrValidation) || !strings.Contains(err.Error(), "message is empty") || called {
 		t.Errorf("err = %v, progress called = %v", err, called)
 	}
 	down := &fake{revise: func(_ *agentv1.ReviseRequest, s agentv1.AgentService_ReviseServer) error {
 		return refuse(s.Context(), commonv1.ErrorCode_ERROR_CODE_DEPENDENCY_UNAVAILABLE, "ollama down", "llm")
 	}}
-	_, err = serve(t, down).Revise(context.Background(), nil, nil, "x", nil)
+	_, err = serve(t, down).Revise(context.Background(), model.ReviseBlueprintParams{Message: "x"})
 	if !errors.Is(err, model.ErrEngineUnavailable) || !strings.Contains(err.Error(), "ollama down") {
 		t.Errorf("err = %v", err)
 	}
@@ -206,7 +206,7 @@ func TestAnErrorEventAfterTheFirstMessageIsMappedLikeAStatus(t *testing.T) {
 			return s.Send(inBandError(c.status, c.kind, "boom"))
 		}}
 		var steps int
-		_, err := serve(t, f).ReviseStream(context.Background(), nil, nil, "x", nil, func(model.BlueprintProgress) { steps++ })
+		_, err := serve(t, f).ReviseStream(context.Background(), model.ReviseBlueprintParams{Message: "x"}, func(model.BlueprintProgress) { steps++ })
 		if !errors.Is(err, c.want) || !strings.Contains(err.Error(), "boom") || steps != 1 {
 			t.Errorf("%d %s: err = %v, steps = %d", c.status, c.kind, err, steps)
 		}
@@ -240,7 +240,7 @@ func TestAnAgentThatIsDownIsAnOutage(t *testing.T) {
 	if _, err := c.BriefFromText(context.Background(), "x"); !errors.Is(err, model.ErrEngineUnavailable) {
 		t.Errorf("BriefFromText err = %v", err)
 	}
-	if _, err := c.Revise(context.Background(), nil, nil, "x", nil); !errors.Is(err, model.ErrEngineUnavailable) {
+	if _, err := c.Revise(context.Background(), model.ReviseBlueprintParams{Message: "x"}); !errors.Is(err, model.ErrEngineUnavailable) {
 		t.Errorf("Revise err = %v", err)
 	}
 }
@@ -254,7 +254,7 @@ func TestACallerThatLeavesCancelsTheAgentsRun(t *testing.T) {
 		return s.Context().Err()
 	}}
 	ctx, cancel := context.WithCancel(context.Background())
-	_, err := serve(t, f).ReviseStream(ctx, nil, nil, "x", nil, func(model.BlueprintProgress) { cancel() })
+	_, err := serve(t, f).ReviseStream(ctx, model.ReviseBlueprintParams{Message: "x"}, func(model.BlueprintProgress) { cancel() })
 	if !errors.Is(err, model.ErrEngineUnavailable) {
 		t.Errorf("err = %v", err)
 	}

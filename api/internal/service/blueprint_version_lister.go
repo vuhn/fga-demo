@@ -6,24 +6,28 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type blueprintVersionLister struct {
 	blueprints gateway.BlueprintGateway
-	authz      usecase.Authorizer
+	authz      helper.Authorizer
 }
 
-func NewBlueprintVersionLister(blueprints gateway.BlueprintGateway, authz usecase.Authorizer) usecase.BlueprintVersionLister {
+func NewBlueprintVersionLister(blueprints gateway.BlueprintGateway, authz helper.Authorizer) usecase.BlueprintVersionLister {
 	return &blueprintVersionLister{blueprints: blueprints, authz: authz}
 }
 
 // ListVersions requires can_view (404 when denied).
-func (s *blueprintVersionLister) ListVersions(ctx context.Context, actor, tenantID, id string) ([]model.BlueprintVersion, error) {
-	if _, err := loadBlueprint(ctx, s.blueprints, tenantID, id); err != nil {
-		return nil, err
+func (s *blueprintVersionLister) ListVersions(ctx context.Context, in input.BlueprintVersionLister) (output.BlueprintVersionLister, error) {
+	if _, err := loadBlueprint(ctx, s.blueprints, in.TenantID, in.ID); err != nil {
+		return output.BlueprintVersionLister{}, err
 	}
-	if err := s.authz.RequireVisible(ctx, actor, "can_view", model.ObjectTypeBlueprint, id); err != nil {
-		return nil, err
+	if err := s.authz.RequireVisible(ctx, in.Actor, "can_view", model.ObjectTypeBlueprint, in.ID); err != nil {
+		return output.BlueprintVersionLister{}, err
 	}
-	return s.blueprints.ListVersions(ctx, id)
+	got, err := s.blueprints.ListVersions(ctx, in.ID)
+	return output.BlueprintVersionLister{Items: mapOutput(got, blueprintVersionOutput)}, err
 }

@@ -12,6 +12,8 @@ The Engine opens no outgoing connection: no database, no OpenFGA, no LLM, no web
 
 ## Layers
 
+The common structure is [docs/harness/layer-structure.md](../docs/harness/layer-structure.md); this is the Engine's instance, **partly conformant today**: the delivery side (handler, mapper, usecase/service pairs, one gateway per file, `wire.py`) follows it and is checked; `domain/` is still flat modules and `estimate.py`, `estimate_models.py`, `pipeline.py`, `takeoff.py` sit at the package root, and the layout, model, usecase and service checks do not run on them. New code follows the standard (`domain/model/<concept>.py`, no new root module); legacy modules move only when a task needs it. See "Conformance" in the standard.
+
 `domain/` (pure geometry, rules, models: `layout`, `building`, `fixtures`, `checks`, `edits`, `plan_edits`, `schemas`, `estimate*`, `rate_catalog`, `tools`) with `domain/gateway/` (one Protocol per file for DXF read/draw/patch, rendering, conversion) -> `usecase/<op>.py` (Protocol) -> `service/<op>.py` (same file name) -> `infrastructure/` (ezdxf, ifcopenshell, OpenCV, pdfium, rapidocr live only here) -> `handler/grpc/` (`<domain>_handler.py` with its own use cases, `mapper/`, `common/`, `servicer.py`, `server.py`). `wire.py` is the only composition root; `serve.py` the entry point. Inner layers import no SDK. `scripts/check-architecture-python.sh` (with an empty allow-list) and `scripts/check-python-shape.py` enforce this; `.claude/skills/python-engine/SKILL.md` is the checklist.
 
 ## Operations

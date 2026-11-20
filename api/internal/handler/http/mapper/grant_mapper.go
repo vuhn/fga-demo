@@ -2,6 +2,7 @@ package mapper
 
 import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type GrantJSON struct {
@@ -12,7 +13,7 @@ type GrantJSON struct {
 	Name     string  `json:"name,omitempty"`
 }
 
-func GrantView(g model.Grant) GrantJSON {
+func GrantView(g output.Grant) GrantJSON {
 	return GrantJSON{g.ID, g.Relation, g.SubjectType, g.UserID, g.UserName}
 }
 

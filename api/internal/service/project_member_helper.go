@@ -26,7 +26,7 @@ func assignProjectRole(ctx context.Context, roles gateway.ProjectRoleGateway, me
 		return projectRoleAssignment{}, err
 	}
 	if err == nil {
-		writes, deletes, err := memberRels.AssignRole(projectID, userID, affiliation, role)
+		writes, deletes, err := memberRels.AssignRole(model.AssignProjectMemberRoleParams{ProjectID: projectID, UserID: userID, Affiliation: affiliation, Role: role})
 		if err != nil {
 			return projectRoleAssignment{}, err
 		}

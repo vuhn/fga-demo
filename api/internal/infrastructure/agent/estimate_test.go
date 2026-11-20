@@ -45,8 +45,8 @@ func TestEstimateTurnSendsTheRequestAndReturnsTheDoneEvent(t *testing.T) {
 		}
 		return s.Send(doneE(&agentv1.EstimateEvent_Done{StateJson: []byte(`{"s":2}`), Status: "ready", Reply: "done text", EstimateJson: []byte(`{"total":1}`)}))
 	}}
-	turn, err := serve(t, f).EstimateTurn(context.Background(), []byte(`{"plan":1}`), []byte(`{"s":1}`), "hi",
-		[]model.EstimateMessage{{Role: "user", Content: "a"}, {Role: "assistant", Content: "b"}}, map[string]float64{"paint": 9000}, nil)
+	turn, err := serve(t, f).EstimateTurn(context.Background(), model.EstimateTurnParams{Model: []byte(`{"plan":1}`), State: []byte(`{"s":1}`), Message: "hi",
+		Messages: []model.EstimateMessage{{Role: "user", Content: "a"}, {Role: "assistant", Content: "b"}}, Overrides: map[string]float64{"paint": 9000}}, nil)
 	if err != nil || string(turn.State) != `{"s":2}` || turn.Status != "ready" || turn.Reply != "done text" || string(turn.Estimate) != `{"total":1}` {
 		t.Fatalf("turn = %+v, %v", turn, err)
 	}
@@ -72,7 +72,7 @@ func TestEveryLiveEventReachesTheBrowserInTheShapeItAlwaysRead(t *testing.T) {
 		return s.Send(doneE(&agentv1.EstimateEvent_Done{Status: "ready", Reply: "r"}))
 	}}
 	var got []model.EstimateEvent
-	if _, err := serve(t, f).EstimateTurn(context.Background(), nil, nil, "x", nil, nil, func(e model.EstimateEvent) { got = append(got, e) }); err != nil {
+	if _, err := serve(t, f).EstimateTurn(context.Background(), model.EstimateTurnParams{Message: "x"}, func(e model.EstimateEvent) { got = append(got, e) }); err != nil {
 		t.Fatal(err)
 	}
 	names := make([]string, len(got))
@@ -118,14 +118,14 @@ func TestAnEstimateTurnRefusedBeforeTheStreamOpensIsAPlainErrorWithNoEvents(t *t
 		return refuse(s.Context(), commonv1.ErrorCode_ERROR_CODE_EDIT_ERROR, "the session state is not valid JSON", "")
 	}}
 	called := false
-	_, err := serve(t, f).EstimateTurn(context.Background(), nil, []byte("x"), "hi", nil, nil, func(model.EstimateEvent) { called = true })
+	_, err := serve(t, f).EstimateTurn(context.Background(), model.EstimateTurnParams{State: []byte("x"), Message: "hi"}, func(model.EstimateEvent) { called = true })
 	if !errors.Is(err, model.ErrValidation) || !strings.Contains(err.Error(), "not valid JSON") || called {
 		t.Errorf("err = %v, called = %v", err, called)
 	}
 	down := &fake{turn: func(_ *agentv1.EstimateTurnRequest, s agentv1.AgentService_EstimateTurnServer) error {
 		return refuse(s.Context(), commonv1.ErrorCode_ERROR_CODE_DEPENDENCY_UNAVAILABLE, "engine down", "engine")
 	}}
-	if _, err := serve(t, down).EstimateTurn(context.Background(), nil, nil, "hi", nil, nil, nil); !errors.Is(err, model.ErrEngineUnavailable) {
+	if _, err := serve(t, down).EstimateTurn(context.Background(), model.EstimateTurnParams{Message: "hi"}, nil); !errors.Is(err, model.ErrEngineUnavailable) {
 		t.Errorf("err = %v", err)
 	}
 }
@@ -142,7 +142,7 @@ func TestAnErrorEventEndsTheTurnWithTheMatchingError(t *testing.T) {
 			return s.Send(errE(c.status, c.kind, "boom"))
 		}}
 		steps := 0
-		turn, err := serve(t, f).EstimateTurn(context.Background(), nil, nil, "x", nil, nil, func(model.EstimateEvent) { steps++ })
+		turn, err := serve(t, f).EstimateTurn(context.Background(), model.EstimateTurnParams{Message: "x"}, func(model.EstimateEvent) { steps++ })
 		if !errors.Is(err, c.want) || !strings.Contains(err.Error(), "boom") || steps != 1 || turn.Reply != "" {
 			t.Errorf("%d %s: err = %v, steps = %d, turn = %+v", c.status, c.kind, err, steps, turn)
 		}
@@ -153,13 +153,13 @@ func TestAnEstimateStreamThatEndsWithoutDoneIsAnOutage(t *testing.T) {
 	f := &fake{turn: func(_ *agentv1.EstimateTurnRequest, s agentv1.AgentService_EstimateTurnServer) error {
 		return s.Send(progressE())
 	}}
-	if _, err := serve(t, f).EstimateTurn(context.Background(), nil, nil, "x", nil, nil, nil); !errors.Is(err, model.ErrEngineUnavailable) {
+	if _, err := serve(t, f).EstimateTurn(context.Background(), model.EstimateTurnParams{Message: "x"}, nil); !errors.Is(err, model.ErrEngineUnavailable) {
 		t.Errorf("err = %v", err)
 	}
 	broken := &fake{turn: func(_ *agentv1.EstimateTurnRequest, _ agentv1.AgentService_EstimateTurnServer) error {
 		return status.Error(codes.Unavailable, "lost")
 	}}
-	if _, err := serve(t, broken).EstimateTurn(context.Background(), nil, nil, "x", nil, nil, nil); !errors.Is(err, model.ErrEngineUnavailable) {
+	if _, err := serve(t, broken).EstimateTurn(context.Background(), model.EstimateTurnParams{Message: "x"}, nil); !errors.Is(err, model.ErrEngineUnavailable) {
 		t.Errorf("err = %v", err)
 	}
 }
@@ -173,7 +173,7 @@ func TestABrowserThatLeavesCancelsTheAgentsTurnAndTheCallerSeesTheCancel(t *test
 		return s.Context().Err()
 	}}
 	ctx, cancel := context.WithCancel(context.Background())
-	_, err := serve(t, f).EstimateTurn(ctx, nil, nil, "x", nil, nil, func(model.EstimateEvent) { cancel() })
+	_, err := serve(t, f).EstimateTurn(ctx, model.EstimateTurnParams{Message: "x"}, func(model.EstimateEvent) { cancel() })
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("err = %v, want the caller's cancel (the messenger writes nothing)", err)
 	}
@@ -190,7 +190,7 @@ func TestAnEstimateTurnCarriesOnlyTheRequestId(t *testing.T) {
 		id = strings.Join(mdOf(s.Context()), ",")
 		return s.Send(doneE(&agentv1.EstimateEvent_Done{Status: "interviewing", Reply: "r"}))
 	}}
-	if _, err := serve(t, f).EstimateTurn(grpcutil.WithRequestID(context.Background(), "req-9"), nil, nil, "x", nil, nil, nil); err != nil || id != "req-9" {
+	if _, err := serve(t, f).EstimateTurn(grpcutil.WithRequestID(context.Background(), "req-9"), model.EstimateTurnParams{Message: "x"}, nil); err != nil || id != "req-9" {
 		t.Errorf("err = %v, id = %q", err, id)
 	}
 }

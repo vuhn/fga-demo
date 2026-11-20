@@ -6,37 +6,41 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type photoLister struct {
 	photos gateway.PhotoGateway
-	authz  usecase.Authorizer
+	authz  helper.Authorizer
 }
 
-func NewPhotoLister(photos gateway.PhotoGateway, authz usecase.Authorizer) usecase.PhotoLister {
+func NewPhotoLister(photos gateway.PhotoGateway, authz helper.Authorizer) usecase.PhotoLister {
 	return &photoLister{photos: photos, authz: authz}
 }
 
 // List returns every visible photo in the tenant, including photos
 // whose album the actor cannot see ("Shared with me").
-func (s *photoLister) List(ctx context.Context, actor, tenantID, albumID, projectID string) ([]model.Visible[model.Photo], error) {
-	if albumID != "" {
-		if err := model.RequireUUID("album_id", albumID); err != nil {
-			return nil, err
+func (s *photoLister) List(ctx context.Context, in input.PhotoLister) (output.PhotoLister, error) {
+	if in.AlbumID != "" {
+		if err := model.RequireUUID("album_id", in.AlbumID); err != nil {
+			return output.PhotoLister{}, err
 		}
 	}
-	if projectID != "" {
-		if err := model.RequireUUID("project_id", projectID); err != nil {
-			return nil, err
+	if in.ProjectID != "" {
+		if err := model.RequireUUID("project_id", in.ProjectID); err != nil {
+			return output.PhotoLister{}, err
 		}
 	}
-	ids, err := s.authz.ListObjectIDs(ctx, actor, "can_view", model.ObjectTypePhoto)
+	ids, err := s.authz.ListObjectIDs(ctx, in.Actor, "can_view", model.ObjectTypePhoto)
 	if err != nil || len(ids) == 0 {
-		return []model.Visible[model.Photo]{}, err
+		return output.PhotoLister{}, err
 	}
-	photos, err := s.photos.ListByIDs(ctx, tenantID, ids, albumID, projectID)
+	photos, err := s.photos.ListByIDs(ctx, model.ListPhotosParams{TenantID: in.TenantID, IDs: ids, AlbumID: in.AlbumID, ProjectID: in.ProjectID})
 	if err != nil {
-		return nil, err
+		return output.PhotoLister{}, err
 	}
-	return withPerms(ctx, s.authz, actor, model.ObjectTypePhoto, photos, photoID)
+	got, err := withPerms(ctx, s.authz, in.Actor, model.ObjectTypePhoto, photos, photoID)
+	return output.PhotoLister{Items: mapVisibleOutput(got, photoOutput)}, err
 }

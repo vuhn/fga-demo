@@ -13,7 +13,7 @@ type PhotoGateway interface {
 	Get(ctx context.Context, id string) (model.Photo, error)
 	// ListByIDs loads the given ids, restricted to the tenant and, when
 	// albumID is not empty, to that album.
-	ListByIDs(ctx context.Context, tenantID string, ids []string, albumID, projectID string) ([]model.Photo, error)
+	ListByIDs(ctx context.Context, p model.ListPhotosParams) ([]model.Photo, error)
 	Rename(ctx context.Context, id, name string) (model.Photo, error)
 	// Delete removes the photo and its grants in one transaction.
 	Delete(ctx context.Context, id string) error

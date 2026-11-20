@@ -7,32 +7,33 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type folderShareRevoker struct {
 	folders   gateway.FolderGateway
 	grants    gateway.FolderGrantGateway
 	relations gateway.FolderRelationGateway
-	authz     usecase.Authorizer
+	authz     helper.Authorizer
 	policy    helper.SharePolicy
 	guard     helper.WriteGuard
 }
 
 func NewFolderShareRevoker(folders gateway.FolderGateway, grants gateway.FolderGrantGateway, relations gateway.FolderRelationGateway,
-	authz usecase.Authorizer, policy helper.SharePolicy, guard helper.WriteGuard) usecase.FolderShareRevoker {
+	authz helper.Authorizer, policy helper.SharePolicy, guard helper.WriteGuard) usecase.FolderShareRevoker {
 	return &folderShareRevoker{folders: folders, grants: grants, relations: relations, authz: authz, policy: policy, guard: guard}
 }
 
 // Revoke deletes the matching grant's tuple, then its row.
-func (s *folderShareRevoker) Revoke(ctx context.Context, actor, tenantID, id string, in model.ShareInput) error {
-	g, err := s.policy.NewGrant(tenantID, model.ObjectTypeFolder, id, in)
+func (s *folderShareRevoker) Revoke(ctx context.Context, in input.FolderShareRevoker) error {
+	g, err := s.policy.NewGrant(in.TenantID, model.ObjectTypeFolder, in.ID, model.ShareInput{Relation: in.Relation, Subject: in.Subject, UserID: in.UserID})
 	if err != nil {
 		return err
 	}
-	if err := requireFolderShare(ctx, s.folders, s.authz, actor, tenantID, id); err != nil {
+	if err := requireFolderShare(ctx, s.folders, s.authz, in.Actor, in.TenantID, in.ID); err != nil {
 		return err
 	}
-	existing, err := s.grants.List(ctx, id)
+	existing, err := s.grants.List(ctx, in.ID)
 	if err != nil {
 		return err
 	}

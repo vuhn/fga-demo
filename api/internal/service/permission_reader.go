@@ -5,36 +5,39 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type permissionReader struct {
-	authz usecase.Authorizer
+	authz helper.Authorizer
 }
 
-func NewPermissionReader(authz usecase.Authorizer) usecase.PermissionReader {
+func NewPermissionReader(authz helper.Authorizer) usecase.PermissionReader {
 	return &permissionReader{authz: authz}
 }
 
 // Mine answers "what may I do here" in one BatchCheck per object. It only
 // ever evaluates the actor, so it needs no authorization of its own.
-func (s *permissionReader) Mine(ctx context.Context, actor, tenantID string) (usecase.MyPermissions, error) {
-	out := usecase.MyPermissions{TenantID: tenantID}
-	if tenantID != "" {
-		if err := model.RequireUUID("tenant_id", tenantID); err != nil {
+func (s *permissionReader) Mine(ctx context.Context, in input.PermissionReader) (output.PermissionReader, error) {
+	out := output.PermissionReader{TenantID: in.TenantID}
+	if in.TenantID != "" {
+		if err := model.RequireUUID("tenant_id", in.TenantID); err != nil {
 			return out, err
 		}
 	}
-	perms, err := s.authz.Permissions(ctx, actor, model.ObjectTypePlatform, []string{model.PlatformID})
+	perms, err := s.authz.Permissions(ctx, in.Actor, model.ObjectTypePlatform, []string{model.PlatformID})
 	if err != nil {
 		return out, err
 	}
 	out.Platform = perms[model.PlatformID]
-	if tenantID != "" {
-		perms, err := s.authz.Permissions(ctx, actor, model.ObjectTypeTenant, []string{tenantID})
+	if in.TenantID != "" {
+		perms, err := s.authz.Permissions(ctx, in.Actor, model.ObjectTypeTenant, []string{in.TenantID})
 		if err != nil {
 			return out, err
 		}
-		out.Tenant = perms[tenantID]
+		out.Tenant = perms[in.TenantID]
 	}
 	return out, nil
 }

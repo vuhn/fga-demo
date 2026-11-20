@@ -33,16 +33,16 @@ const EstimateCeiling = 31 * time.Minute
 // refusal before the first message is a plain error and onEvent is never called; an Error event after it is
 // mapped the same way (4xx -> ErrValidation, else ErrEngineUnavailable). Leaving ctx cancels the stream, which
 // stops the Agent's turn.
-func (c *Client) EstimateTurn(ctx context.Context, plan, state []byte, message string, messages []model.EstimateMessage, overrides map[string]float64, onEvent func(model.EstimateEvent)) (model.EstimateTurn, error) {
+func (c *Client) EstimateTurn(ctx context.Context, p model.EstimateTurnParams, onEvent func(model.EstimateEvent)) (model.EstimateTurn, error) {
 	ctx, cancel := context.WithTimeout(ctx, EstimateCeiling)
 	defer cancel()
-	chat := make([]*agentv1.ChatMessage, 0, len(messages))
-	for _, m := range messages {
+	chat := make([]*agentv1.ChatMessage, 0, len(p.Messages))
+	for _, m := range p.Messages {
 		chat = append(chat, &agentv1.ChatMessage{Role: m.Role, Content: m.Content})
 	}
 	var tr metadata.MD
-	s, err := c.rpc.EstimateTurn(ctx, &agentv1.EstimateTurnRequest{ModelJson: plan, StateJson: state, Message: message,
-		Messages: chat, RateOverrides: overrides}, grpcTrailer(&tr))
+	s, err := c.rpc.EstimateTurn(ctx, &agentv1.EstimateTurnRequest{ModelJson: p.Model, StateJson: p.State, Message: p.Message,
+		Messages: chat, RateOverrides: p.Overrides}, grpcTrailer(&tr))
 	if err != nil {
 		return model.EstimateTurn{}, grpcutil.FromStatus(service, err, grpcutil.Trailer(tr))
 	}

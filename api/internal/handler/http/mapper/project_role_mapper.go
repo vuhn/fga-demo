@@ -1,9 +1,8 @@
 package mapper
 
 import (
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 	"time"
-
-	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type ProjectRoleJSON struct {
@@ -17,7 +16,7 @@ type ProjectRoleJSON struct {
 	CreatedAt   time.Time      `json:"created_at"`
 }
 
-func ProjectRoleView(role model.ProjectRole) ProjectRoleJSON {
+func ProjectRoleView(role output.ProjectRole) ProjectRoleJSON {
 	perms := role.Permissions
 	if perms == nil {
 		perms = []string{}

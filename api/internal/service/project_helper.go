@@ -5,7 +5,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
-	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
 
 // loadProject returns the project when it exists in the header tenant.
@@ -27,7 +27,7 @@ func loadProject(ctx context.Context, projects gateway.ProjectGateway, tenantID,
 // Checks composed here, never a model relation that makes platform admins
 // project members. can_manage_members on the project already includes the
 // tenant's member managers.
-func requireProjectManager(ctx context.Context, authz usecase.Authorizer, actor, projectID string) error {
+func requireProjectManager(ctx context.Context, authz helper.Authorizer, actor, projectID string) error {
 	ok, err := authz.IsPlatformAdmin(ctx, actor)
 	if err != nil {
 		return err

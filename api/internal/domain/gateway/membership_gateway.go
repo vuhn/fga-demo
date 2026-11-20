@@ -13,7 +13,7 @@ type MembershipGateway interface {
 	ListForUser(ctx context.Context, userID string) ([]model.Membership, error)
 	Insert(ctx context.Context, m model.Membership) error
 	// UpdateRole sets the built-in role, or a custom role id with customRoleID set.
-	UpdateRole(ctx context.Context, tenantID, userID, role, customRoleID string) error
+	UpdateRole(ctx context.Context, p model.UpdateMemberRoleParams) error
 	CountInternalAdmins(ctx context.Context, tenantID string) (int, error)
 	// ListUserGrants returns the user's direct grants on any content in the tenant.
 	ListUserGrants(ctx context.Context, tenantID, userID string) ([]model.Grant, error)
@@ -26,7 +26,7 @@ type MembershipGateway interface {
 type MembershipRelationGateway interface {
 	// AssignRole validates the pair and returns the tuple for the role plus
 	// deletes for the other three, so a person holds exactly one direct role.
-	AssignRole(tenantID, userID, affiliation, role string) (writes, deletes []model.Tuple, err error)
+	AssignRole(p model.AssignMemberRoleParams) (writes, deletes []model.Tuple, err error)
 	// Removal deletes every role relation and the user's direct grants.
 	// Userset grants are never named.
 	Removal(tenantID, userID string, grants []model.Grant) []model.Tuple

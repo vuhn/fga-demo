@@ -26,5 +26,5 @@ type RoleRelationGateway interface {
 	Permissions(tenantID, roleID string, permissions []string) ([]model.Tuple, error)
 	Assignee(roleID, userID string) model.Tuple
 	// Removal is every tuple the role owns: anchors, grants, and assignees.
-	Removal(tenantID, roleID, affiliation string, permissions, userIDs []string) ([]model.Tuple, error)
+	Removal(p model.RemoveRoleParams) ([]model.Tuple, error)
 }

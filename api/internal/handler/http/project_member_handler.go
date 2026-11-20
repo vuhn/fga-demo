@@ -7,6 +7,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type ProjectMemberHandler struct {
@@ -34,16 +35,16 @@ func (h *ProjectMemberHandler) list(c *gin.Context) {
 	if !pathUUID(c, "id") {
 		return
 	}
-	ms, err := h.lister.List(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, mapper.ProjectMemberView), err)
+	ms, err := h.lister.List(c, input.ProjectMemberLister{Actor: actor(c), TenantID: tenant(c), ProjectID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(ms.Items, mapper.ProjectMemberView), err)
 }
 
 func (h *ProjectMemberHandler) listCandidates(c *gin.Context) {
 	if !pathUUID(c, "id") {
 		return
 	}
-	ms, err := h.candidates.ListCandidates(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
+	ms, err := h.candidates.ListCandidates(c, input.ProjectMemberCandidateLister{Actor: actor(c), TenantID: tenant(c), ProjectID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(ms.Items, mapper.MemberView), err)
 }
 
 func (h *ProjectMemberHandler) add(c *gin.Context) {
@@ -54,8 +55,8 @@ func (h *ProjectMemberHandler) add(c *gin.Context) {
 	if !pathUUID(c, "id") || !bind(c, &body) {
 		return
 	}
-	m, err := h.adder.Add(c, actor(c), tenant(c), c.Param("id"), usecase.AddProjectMemberInput{UserID: body.UserID, Role: body.Role})
-	respond(c, http.StatusCreated, mapper.ProjectMemberView(m), err)
+	m, err := h.adder.Add(c, input.ProjectMemberAdder{Actor: actor(c), TenantID: tenant(c), ProjectID: c.Param("id"), UserID: body.UserID, Role: body.Role})
+	respond(c, http.StatusCreated, mapper.ProjectMemberView(m.ProjectMember), err)
 }
 
 func (h *ProjectMemberHandler) changeRole(c *gin.Context) {
@@ -65,13 +66,13 @@ func (h *ProjectMemberHandler) changeRole(c *gin.Context) {
 	if !pathUUID(c, "id") || !pathUUID(c, "userId") || !bind(c, &body) {
 		return
 	}
-	m, err := h.roleChanger.ChangeRole(c, actor(c), tenant(c), c.Param("id"), c.Param("userId"), body.Role)
-	respond(c, http.StatusOK, mapper.ProjectMemberView(m), err)
+	m, err := h.roleChanger.ChangeRole(c, input.ProjectMemberRoleChanger{Actor: actor(c), TenantID: tenant(c), ProjectID: c.Param("id"), UserID: c.Param("userId"), Role: body.Role})
+	respond(c, http.StatusOK, mapper.ProjectMemberView(m.ProjectMember), err)
 }
 
 func (h *ProjectMemberHandler) remove(c *gin.Context) {
 	if !pathUUID(c, "id") || !pathUUID(c, "userId") {
 		return
 	}
-	noContent(c, h.remover.Remove(c, actor(c), tenant(c), c.Param("id"), c.Param("userId")))
+	noContent(c, h.remover.Remove(c, input.ProjectMemberRemover{Actor: actor(c), TenantID: tenant(c), ProjectID: c.Param("id"), UserID: c.Param("userId")}))
 }

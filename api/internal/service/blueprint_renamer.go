@@ -6,28 +6,32 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type blueprintRenamer struct {
 	blueprints gateway.BlueprintGateway
-	authz      usecase.Authorizer
+	authz      helper.Authorizer
 }
 
-func NewBlueprintRenamer(blueprints gateway.BlueprintGateway, authz usecase.Authorizer) usecase.BlueprintRenamer {
+func NewBlueprintRenamer(blueprints gateway.BlueprintGateway, authz helper.Authorizer) usecase.BlueprintRenamer {
 	return &blueprintRenamer{blueprints: blueprints, authz: authz}
 }
 
 // Rename requires can_edit.
-func (s *blueprintRenamer) Rename(ctx context.Context, actor, tenantID, id, name string) (model.Blueprint, error) {
-	if _, err := loadBlueprint(ctx, s.blueprints, tenantID, id); err != nil {
-		return model.Blueprint{}, err
+func (s *blueprintRenamer) Rename(ctx context.Context, in input.BlueprintRenamer) (output.BlueprintRenamer, error) {
+	if _, err := loadBlueprint(ctx, s.blueprints, in.TenantID, in.ID); err != nil {
+		return output.BlueprintRenamer{}, err
 	}
-	name, err := model.CleanName("name", name)
+	name, err := model.CleanName("name", in.Name)
 	if err != nil {
-		return model.Blueprint{}, err
+		return output.BlueprintRenamer{}, err
 	}
-	if err := s.authz.Require(ctx, actor, "can_edit", model.ObjectTypeBlueprint, id); err != nil {
-		return model.Blueprint{}, err
+	if err := s.authz.Require(ctx, in.Actor, "can_edit", model.ObjectTypeBlueprint, in.ID); err != nil {
+		return output.BlueprintRenamer{}, err
 	}
-	return s.blueprints.Rename(ctx, id, name)
+	got, err := s.blueprints.Rename(ctx, in.ID, name)
+	return output.BlueprintRenamer{Blueprint: blueprintOutput(got)}, err
 }
