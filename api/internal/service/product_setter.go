@@ -7,45 +7,48 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type productSetter struct {
 	tenants   gateway.TenantGateway
 	products  gateway.ProductGateway
 	relations gateway.ProductRelationGateway
-	authz     usecase.Authorizer
+	authz     helper.Authorizer
 	guard     helper.WriteGuard
 }
 
 func NewProductSetter(tenants gateway.TenantGateway, products gateway.ProductGateway, relations gateway.ProductRelationGateway,
-	authz usecase.Authorizer, guard helper.WriteGuard) usecase.ProductSetter {
+	authz helper.Authorizer, guard helper.WriteGuard) usecase.ProductSetter {
 	return &productSetter{tenants: tenants, products: products, relations: relations, authz: authz, guard: guard}
 }
 
 // Set writes or deletes the single wildcard tuple. Content tuples are never
 // touched. Products are an entitlement the platform grants: only a system
 // admin may toggle them; tenant admins can only view them.
-func (s *productSetter) Set(ctx context.Context, actor, tenantID, product string, enabled bool) ([]model.Product, error) {
-	if !model.ValidProduct(product) {
-		return nil, model.Invalid("product must be documents or photos")
+func (s *productSetter) Set(ctx context.Context, in input.ProductSetter) (output.ProductSetter, error) {
+	if !model.ValidProduct(in.Product) {
+		return output.ProductSetter{}, model.Invalid("product must be documents or photos")
 	}
-	if err := s.authz.RequirePlatform(ctx, actor); err != nil {
-		return nil, err
+	if err := s.authz.RequirePlatform(ctx, in.Actor); err != nil {
+		return output.ProductSetter{}, err
 	}
-	if _, err := s.tenants.Get(ctx, tenantID); err != nil {
-		return nil, err
+	if _, err := s.tenants.Get(ctx, in.TenantID); err != nil {
+		return output.ProductSetter{}, err
 	}
-	wildcard := []model.Tuple{s.relations.Enabled(tenantID, product)}
+	wildcard := []model.Tuple{s.relations.Enabled(in.TenantID, in.Product)}
 	var err error
-	if enabled {
-		err = s.enable(ctx, tenantID, product, wildcard)
+	if in.Enabled {
+		err = s.enable(ctx, in.TenantID, in.Product, wildcard)
 	} else {
-		err = s.disable(ctx, tenantID, product, wildcard)
+		err = s.disable(ctx, in.TenantID, in.Product, wildcard)
 	}
 	if err != nil {
-		return nil, err
+		return output.ProductSetter{}, err
 	}
-	return s.products.List(ctx, tenantID)
+	got, err := s.products.List(ctx, in.TenantID)
+	return output.ProductSetter{Items: mapOutput(got, productOutput)}, err
 }
 
 func (s *productSetter) enable(ctx context.Context, tenantID, product string, wildcard []model.Tuple) error {

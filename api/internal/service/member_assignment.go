@@ -24,7 +24,7 @@ func assignMemberRole(ctx context.Context, roles gateway.RoleGateway, memberRels
 		return roleAssignment{}, err
 	}
 	if err == nil {
-		writes, deletes, err := memberRels.AssignRole(tenantID, userID, affiliation, role)
+		writes, deletes, err := memberRels.AssignRole(model.AssignMemberRoleParams{TenantID: tenantID, UserID: userID, Affiliation: affiliation, Role: role})
 		if err != nil {
 			return roleAssignment{}, err
 		}

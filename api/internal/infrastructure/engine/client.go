@@ -14,9 +14,9 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/infrastructure/grpcutil"
 	commonv1 "github.com/vuhn/fga-demo/proto/go/fga/demo/common/v1"
 	enginev1 "github.com/vuhn/fga-demo/proto/go/fga/demo/engine/v1"
-	"github.com/vuhn/fga-demo/api/internal/infrastructure/grpcutil"
 )
 
 // DefaultTimeout bounds a call that carries no deadline of its own. Conversion of a scan runs OCR, so it is

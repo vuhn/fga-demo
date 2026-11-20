@@ -6,7 +6,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
-	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
 
 // loadFolder returns the folder when it exists in the header tenant.
@@ -50,7 +50,7 @@ func checkFolderDepth(ctx context.Context, folders gateway.FolderGateway, tenant
 }
 
 // requireFolderShare loads the folder in the tenant and requires can_share.
-func requireFolderShare(ctx context.Context, folders gateway.FolderGateway, authz usecase.Authorizer, actor, tenantID, id string) error {
+func requireFolderShare(ctx context.Context, folders gateway.FolderGateway, authz helper.Authorizer, actor, tenantID, id string) error {
 	if _, err := loadFolder(ctx, folders, tenantID, id); err != nil {
 		return err
 	}

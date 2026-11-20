@@ -9,6 +9,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type fakeSessions struct {
@@ -43,7 +44,8 @@ func (f *fakeSessions) Get(context.Context, string) (model.EstimateSession, erro
 func (f *fakeSessions) Messages(context.Context, string) ([]model.EstimateMessage, error) {
 	return append(f.msgs, f.appended...), nil
 }
-func (f *fakeSessions) AppendTurn(_ context.Context, s model.EstimateSession, state []byte, u, a model.EstimateMessage, e *model.BlueprintEstimate) error {
+func (f *fakeSessions) AppendTurn(_ context.Context, p model.AppendEstimateTurnParams) error {
+	s, state, u, a, e := p.Session, p.State, p.User, p.Assistant, p.Estimate
 	if f.conflict || s.Seq != f.sess.Seq || s.Epoch != f.sess.Epoch {
 		return model.Conflict("another turn finished first")
 	}
@@ -65,7 +67,8 @@ type fakeEstimateAgent struct {
 	}
 }
 
-func (e *fakeEstimateAgent) EstimateTurn(_ context.Context, _, _ []byte, message string, msgs []model.EstimateMessage, o map[string]float64, on func(model.EstimateEvent)) (model.EstimateTurn, error) {
+func (e *fakeEstimateAgent) EstimateTurn(_ context.Context, p model.EstimateTurnParams, on func(model.EstimateEvent)) (model.EstimateTurn, error) {
+	message, msgs, o := p.Message, p.Messages, p.Overrides
 	e.calls++
 	if e.during != nil {
 		e.during()
@@ -86,7 +89,7 @@ func messenger(sess *fakeSessions, eng *fakeEstimateAgent, deny bool) (func(msg 
 	events := []string{}
 	m := NewEstimateSessionMessenger(&fakeBlueprints{brief: "null"}, sess, eng, &fakeAuthz{deny: deny}, &seqIDs{})
 	return func(msg string, o map[string]float64) (string, error) {
-		_, err := m.Send(context.Background(), "u", "t", bpID, msg, o, func(ev model.EstimateEvent) { events = append(events, ev.Name) })
+		_, err := m.Send(context.Background(), input.EstimateSessionMessenger{Actor: "u", TenantID: "t", BlueprintID: bpID, Message: msg, Overrides: o}, func(ev model.EstimateEvent) { events = append(events, ev.Name) })
 		return strings.Join(events, ","), err
 	}, &events
 }
@@ -148,7 +151,7 @@ func TestEstimateTurnDeniedOrInvalidNeverReachesTheEngine(t *testing.T) {
 func TestEstimateTurnInAnotherTenantIsNotFound(t *testing.T) {
 	sess, eng := newSess(), &fakeEstimateAgent{turn: okTurn()}
 	m := NewEstimateSessionMessenger(&fakeBlueprints{brief: "null"}, sess, eng, &fakeAuthz{}, &seqIDs{})
-	if _, err := m.Send(context.Background(), "u", "other", bpID, "hi", nil, func(model.EstimateEvent) {}); !errors.Is(err, model.ErrNotFound) || eng.calls != 0 {
+	if _, err := m.Send(context.Background(), input.EstimateSessionMessenger{Actor: "u", TenantID: "other", BlueprintID: bpID, Message: "hi", Overrides: nil}, func(model.EstimateEvent) {}); !errors.Is(err, model.ErrNotFound) || eng.calls != 0 {
 		t.Fatalf("err %v calls %d", err, eng.calls)
 	}
 }
@@ -173,7 +176,7 @@ func TestEstimateTurnEngineErrorOrAbortWritesNothing(t *testing.T) {
 	eng2 := &fakeEstimateAgent{turn: okTurn()}
 	m := NewEstimateSessionMessenger(&fakeBlueprints{brief: "null"}, sess, eng2, &fakeAuthz{}, &seqIDs{})
 	cancel()
-	if _, err := m.Send(ctx, "u", "t", bpID, "hi", nil, func(model.EstimateEvent) {}); !errors.Is(err, context.Canceled) || sess.writes != 0 {
+	if _, err := m.Send(ctx, input.EstimateSessionMessenger{Actor: "u", TenantID: "t", BlueprintID: bpID, Message: "hi"}, func(model.EstimateEvent) {}); !errors.Is(err, context.Canceled) || sess.writes != 0 {
 		t.Fatalf("err %v writes %d", err, sess.writes)
 	}
 }
@@ -228,8 +231,8 @@ func TestEstimateTurnUnknownEngineStatusWritesNothing(t *testing.T) {
 func TestStartingAnEstimateReplacesTheSessionOnce(t *testing.T) {
 	sess := newSess()
 	c := NewEstimateSessionCreator(&fakeBlueprints{brief: "null"}, sess, &fakeAuthz{})
-	d, err := c.Create(context.Background(), "u", "t", bpID)
-	if err != nil || len(sess.replaced) != 1 || d.Session.BlueprintID != bpID || d.Session.Status() != model.EstimateInterviewing {
+	d, err := c.Create(context.Background(), input.EstimateSessionCreator{Actor: "u", TenantID: "t", BlueprintID: bpID})
+	if err != nil || len(sess.replaced) != 1 || d.Session.BlueprintID != bpID || d.Session.Status != model.EstimateInterviewing {
 		t.Fatalf("err %v replaced %+v detail %+v", err, sess.replaced, d.Session)
 	}
 	if len(d.Messages) != 0 {
@@ -240,7 +243,7 @@ func TestStartingAnEstimateReplacesTheSessionOnce(t *testing.T) {
 func TestStartingAnEstimateNeedsEditAndTouchesNothingOtherwise(t *testing.T) {
 	sess := newSess()
 	c := NewEstimateSessionCreator(&fakeBlueprints{brief: "null"}, sess, &fakeAuthz{deny: true})
-	if _, err := c.Create(context.Background(), "u", "t", bpID); !errors.Is(err, model.ErrForbidden) || len(sess.replaced) != 0 {
+	if _, err := c.Create(context.Background(), input.EstimateSessionCreator{Actor: "u", TenantID: "t", BlueprintID: bpID}); !errors.Is(err, model.ErrForbidden) || len(sess.replaced) != 0 {
 		t.Fatalf("err %v replaced %d", err, len(sess.replaced))
 	}
 }
@@ -250,7 +253,7 @@ func TestAFailedReplaceReturnsTheErrorAndKeepsTheOldSession(t *testing.T) {
 	sess.replaceErr = errors.New("db down")
 	before := sess.sess
 	c := NewEstimateSessionCreator(&fakeBlueprints{brief: "null"}, sess, &fakeAuthz{})
-	if _, err := c.Create(context.Background(), "u", "t", bpID); err == nil || sess.sess.Epoch != before.Epoch {
+	if _, err := c.Create(context.Background(), input.EstimateSessionCreator{Actor: "u", TenantID: "t", BlueprintID: bpID}); err == nil || sess.sess.Epoch != before.Epoch {
 		t.Fatalf("err %v session %+v", err, sess.sess)
 	}
 }
@@ -260,7 +263,7 @@ func TestRestartingWhileATurnRunsMakesThatTurn409AndKeepsTheNewSession(t *testin
 	eng := &fakeEstimateAgent{turn: okTurn()}
 	c := NewEstimateSessionCreator(&fakeBlueprints{brief: "null"}, sess, &fakeAuthz{})
 	eng.during = func() { // the person starts over in another tab
-		if _, err := c.Create(context.Background(), "u", "t", bpID); err != nil {
+		if _, err := c.Create(context.Background(), input.EstimateSessionCreator{Actor: "u", TenantID: "t", BlueprintID: bpID}); err != nil {
 			t.Error(err)
 		}
 	}

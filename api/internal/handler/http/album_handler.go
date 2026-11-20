@@ -8,6 +8,7 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 // AlbumUsecases is everything the album handler calls.
@@ -43,8 +44,8 @@ func (h *AlbumHandler) Register(r Routes) {
 }
 
 func (h *AlbumHandler) list(c *gin.Context) {
-	as, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("project_id"))
-	respond(c, http.StatusOK, mapSlice(as, mapper.VisibleAlbumView), err)
+	as, err := h.uc.Lister.List(c, input.AlbumLister{Actor: actor(c), TenantID: tenant(c), ProjectID: c.Query("project_id")})
+	respond(c, http.StatusOK, mapSlice(as.Items, mapper.VisibleAlbumView), err)
 }
 
 func (h *AlbumHandler) create(c *gin.Context) {
@@ -61,13 +62,13 @@ func (h *AlbumHandler) create(c *gin.Context) {
 		writeErr(c, model.Invalid("is_private is required"))
 		return
 	}
-	a, err := h.uc.Creator.Create(c, actor(c), tenant(c), usecase.CreateAlbumInput{ProjectID: body.ProjectID, Name: body.Name, ParentID: body.ParentID, IsPrivate: *body.IsPrivate})
-	respond(c, http.StatusCreated, mapper.AlbumView(a), err)
+	a, err := h.uc.Creator.Create(c, input.AlbumCreator{Actor: actor(c), TenantID: tenant(c), ProjectID: body.ProjectID, Name: body.Name, ParentID: body.ParentID, IsPrivate: *body.IsPrivate})
+	respond(c, http.StatusCreated, mapper.AlbumView(a.Album), err)
 }
 
 func (h *AlbumHandler) get(c *gin.Context) {
-	a, err := h.uc.Getter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapper.VisibleAlbumView(a), err)
+	a, err := h.uc.Getter.Get(c, input.AlbumGetter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapper.VisibleAlbumView(a.Visible), err)
 }
 
 func (h *AlbumHandler) rename(c *gin.Context) {
@@ -75,8 +76,8 @@ func (h *AlbumHandler) rename(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	a, err := h.uc.Renamer.Rename(c, actor(c), tenant(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, mapper.AlbumView(a), err)
+	a, err := h.uc.Renamer.Rename(c, input.AlbumRenamer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Name: body.Name})
+	respond(c, http.StatusOK, mapper.AlbumView(a.Album), err)
 }
 
 func (h *AlbumHandler) setVisibility(c *gin.Context) {
@@ -88,22 +89,22 @@ func (h *AlbumHandler) setVisibility(c *gin.Context) {
 		writeErr(c, model.Invalid("is_private is required"))
 		return
 	}
-	a, err := h.uc.VisibilitySetter.SetVisibility(c, actor(c), tenant(c), c.Param("id"), *body.IsPrivate)
-	respond(c, http.StatusOK, mapper.AlbumView(a), err)
+	a, err := h.uc.VisibilitySetter.SetVisibility(c, input.AlbumVisibilitySetter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), IsPrivate: *body.IsPrivate})
+	respond(c, http.StatusOK, mapper.AlbumView(a.Album), err)
 }
 
 func (h *AlbumHandler) delete(c *gin.Context) {
-	noContent(c, h.uc.Deleter.Delete(c, actor(c), tenant(c), c.Param("id")))
+	noContent(c, h.uc.Deleter.Delete(c, input.AlbumDeleter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")}))
 }
 
 func (h *AlbumHandler) listGrants(c *gin.Context) {
-	gs, err := h.uc.GrantLister.ListGrants(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(gs, mapper.GrantView), err)
+	gs, err := h.uc.GrantLister.ListGrants(c, input.AlbumGrantLister{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(gs.Items, mapper.GrantView), err)
 }
 
 func (h *AlbumHandler) listShareCandidates(c *gin.Context) {
-	ms, err := h.uc.CandidateLister.ListShareCandidates(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
+	ms, err := h.uc.CandidateLister.ListShareCandidates(c, input.AlbumShareCandidateLister{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(ms.Items, mapper.MemberView), err)
 }
 
 func (h *AlbumHandler) share(c *gin.Context) {
@@ -111,8 +112,8 @@ func (h *AlbumHandler) share(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.Input())
-	respond(c, http.StatusCreated, mapper.GrantView(g), err)
+	g, err := h.uc.Sharer.Share(c, input.AlbumSharer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Relation: body.Relation, Subject: body.Subject, UserID: body.UserID})
+	respond(c, http.StatusCreated, mapper.GrantView(g.Grant), err)
 }
 
 func (h *AlbumHandler) revoke(c *gin.Context) {
@@ -120,5 +121,5 @@ func (h *AlbumHandler) revoke(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.Input()))
+	noContent(c, h.uc.ShareRevoker.Revoke(c, input.AlbumShareRevoker{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Relation: body.Relation, Subject: body.Subject, UserID: body.UserID}))
 }

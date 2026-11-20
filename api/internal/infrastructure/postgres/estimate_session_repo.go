@@ -67,17 +67,18 @@ func (r *EstimateSessionRepo) Messages(ctx context.Context, blueprintID string) 
 
 // AppendTurn: the UPDATE only matches while epoch and seq are unchanged, so a concurrent turn that finished
 // first, or a restart since this turn began, makes this one a 409 with nothing written.
-func (r *EstimateSessionRepo) AppendTurn(ctx context.Context, s model.EstimateSession, state []byte, user, assistant model.EstimateMessage, est *model.BlueprintEstimate) error {
+func (r *EstimateSessionRepo) AppendTurn(ctx context.Context, p model.AppendEstimateTurnParams) error {
+	s, est := p.Session, p.Estimate
 	return inTx(ctx, r.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `UPDATE estimate_sessions SET state = $1, seq = seq + 1, updated_at = now() WHERE blueprint_id = $2 AND epoch = $3 AND seq = $4`,
-			string(jsonOr(state, "{}")), s.BlueprintID, s.Epoch, s.Seq)
+			string(jsonOr(p.State, "{}")), s.BlueprintID, s.Epoch, s.Seq)
 		if err != nil {
 			return err
 		}
 		if tag.RowsAffected() == 0 {
 			return model.Conflict("another turn finished first or the estimate was restarted; reload the session")
 		}
-		for i, m := range []model.EstimateMessage{user, assistant} {
+		for i, m := range []model.EstimateMessage{p.User, p.Assistant} {
 			if _, err := tx.Exec(ctx, `INSERT INTO estimate_messages (blueprint_id, seq, role, content) VALUES ($1, $2, $3, $4)`,
 				s.BlueprintID, s.Seq*2+i+1, m.Role, m.Content); err != nil {
 				return err

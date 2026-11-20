@@ -61,3 +61,17 @@ Why the repo is shaped this way. One entry per decision; add new ones at the top
 - **No price database yet.** Unit rates are researched on the web per estimate through a `PriceSource` interface (a database can replace it) and stored with source, quote and date inside the estimate; a price without a quote that is on the page is rejected, and a code with no price is shown as unpriced, never as zero.
 - **Engine stays stateless.** The API stores the agent's state as opaque JSON and sends it each turn; sessions are guarded by a turn counter like blueprint versions by `base_version`. A turn is saved only if it completes.
 - **Authorization reuses the model.** Sessions are `can_edit` (they spend LLM and search calls; a viewer gets 403 and cannot read the chat), finished estimates are `can_view`. No `model.fga` change.
+
+## 2026-11: One layer structure for all services (docs/harness/layer-structure.md)
+
+- **The "Layers" section of `api/ARCHITECTURE.md` became the common standard.** `docs/harness/layer-structure.md` holds the dependency direction, the layer table with its Go and Python paths, the rules and the enforcement map; each service's `ARCHITECTURE.md` keeps only its own instance. Rejected: a copy of the rules per service (they drift, as the Python and Go wording did before).
+- **Input and output structs stay a Go rule** until the Python services adopt them by a separate decision.
+
+## 2026-11: Usecase input/output structs and gateway params (specs/usecase-io-structs)
+
+- **A usecase method is `Method(ctx, in input.X) (output.X, error)`.** `ctx` is the only param outside the struct (actor and tenant id move in); inputs live in `usecase/input/<domain>.go`, outputs in `usecase/output/<domain>.go` (one file per domain, like `usecase/<domain>.go`; a struct is named after its interface). Rejected: one file per usecase (about 240 files). Rejected: keeping `actor, tenantID` as loose params (the PRD example), which still leaves long positional lists.
+- **Outputs are their own structs with copied fields, never `domain/model`.** A usecase no longer hands a model to the handler; a shape shared by several usecases sits in the same domain file and the usecase output embeds it. Rejected: a struct wrapping the model (callers would still reach the model).
+- **Gateway methods with more than 3 params after `ctx` take `model.<Action><Model>Params`.** Applies to every gateway, including Authz, Agent and Engine; an existing fitting struct (`model.CheckRequest`) is reused.
+- **`Authorizer` lives in `usecase/helper`.** It is a shared decision port, not an operation, so the usecase rule has no exceptions.
+- **Business layer independence is a check, not a habit.** `domain`, `usecase` and `service` import only the standard library and each other.
+- **One PR.** The refactor is one mechanical change, so it lands atomically (no ratchet allow-list); the cost is review size, handled with ordered commits.

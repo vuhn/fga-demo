@@ -54,8 +54,8 @@ func (r *PhotoRepo) Get(ctx context.Context, id string) (model.Photo, error) {
 	return ps[0], nil
 }
 
-func (r *PhotoRepo) ListByIDs(ctx context.Context, tenantID string, ids []string, albumID, projectID string) ([]model.Photo, error) {
-	return r.query(ctx, `tenant_id = $1 AND id = ANY($2::uuid[]) AND ($3 = '' OR album_id::text = $3) AND ($4 = '' OR project_id::text = $4)`, tenantID, ids, albumID, projectID)
+func (r *PhotoRepo) ListByIDs(ctx context.Context, p model.ListPhotosParams) ([]model.Photo, error) {
+	return r.query(ctx, `tenant_id = $1 AND id = ANY($2::uuid[]) AND ($3 = '' OR album_id::text = $3) AND ($4 = '' OR project_id::text = $4)`, p.TenantID, p.IDs, p.AlbumID, p.ProjectID)
 }
 
 func (r *PhotoRepo) Rename(ctx context.Context, id, name string) (model.Photo, error) {

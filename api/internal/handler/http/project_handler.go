@@ -7,6 +7,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type ProjectHandler struct {
@@ -29,8 +30,8 @@ func (h *ProjectHandler) Register(r Routes) {
 }
 
 func (h *ProjectHandler) list(c *gin.Context) {
-	ps, err := h.lister.List(c, actor(c), tenant(c))
-	respond(c, http.StatusOK, mapSlice(ps, mapper.VisibleProjectView), err)
+	ps, err := h.lister.List(c, input.ProjectLister{Actor: actor(c), TenantID: tenant(c)})
+	respond(c, http.StatusOK, mapSlice(ps.Items, mapper.VisibleProjectView), err)
 }
 
 func (h *ProjectHandler) create(c *gin.Context) {
@@ -40,16 +41,16 @@ func (h *ProjectHandler) create(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	p, err := h.creator.Create(c, actor(c), tenant(c), body.Name)
-	respond(c, http.StatusCreated, mapper.ProjectView(p), err)
+	p, err := h.creator.Create(c, input.ProjectCreator{Actor: actor(c), TenantID: tenant(c), Name: body.Name})
+	respond(c, http.StatusCreated, mapper.ProjectView(p.Project), err)
 }
 
 func (h *ProjectHandler) get(c *gin.Context) {
 	if !pathUUID(c, "id") {
 		return
 	}
-	p, err := h.getter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapper.VisibleProjectView(p), err)
+	p, err := h.getter.Get(c, input.ProjectGetter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapper.VisibleProjectView(p.Visible), err)
 }
 
 func (h *ProjectHandler) rename(c *gin.Context) {
@@ -59,6 +60,6 @@ func (h *ProjectHandler) rename(c *gin.Context) {
 	if !pathUUID(c, "id") || !bind(c, &body) {
 		return
 	}
-	p, err := h.renamer.Rename(c, actor(c), tenant(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, mapper.ProjectView(p), err)
+	p, err := h.renamer.Rename(c, input.ProjectRenamer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Name: body.Name})
+	respond(c, http.StatusOK, mapper.ProjectView(p.Project), err)
 }

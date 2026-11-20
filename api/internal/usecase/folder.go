@@ -3,55 +3,48 @@ package usecase
 import (
 	"context"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type FolderLister interface {
 	// List returns visible folders; projectID narrows to one project when not empty.
-	List(ctx context.Context, actor, tenantID, projectID string) ([]model.Visible[model.Folder], error)
+	List(ctx context.Context, in input.FolderLister) (output.FolderLister, error)
 }
 
 type FolderGetter interface {
-	Get(ctx context.Context, actor, tenantID, id string) (model.Visible[model.Folder], error)
-}
-
-type CreateFolderInput struct {
-	// ProjectID is required for a top-level folder; a subfolder takes its parent's.
-	ProjectID string
-	Name      string
-	ParentID  *string
-	IsPrivate bool
+	Get(ctx context.Context, in input.FolderGetter) (output.FolderGetter, error)
 }
 
 type FolderCreator interface {
-	Create(ctx context.Context, actor, tenantID string, in CreateFolderInput) (model.Folder, error)
+	Create(ctx context.Context, in input.FolderCreator) (output.FolderCreator, error)
 }
 
 type FolderRenamer interface {
-	Rename(ctx context.Context, actor, tenantID, id, name string) (model.Folder, error)
+	Rename(ctx context.Context, in input.FolderRenamer) (output.FolderRenamer, error)
 }
 
 type FolderVisibilitySetter interface {
-	SetVisibility(ctx context.Context, actor, tenantID, id string, isPrivate bool) (model.Folder, error)
+	SetVisibility(ctx context.Context, in input.FolderVisibilitySetter) (output.FolderVisibilitySetter, error)
 }
 
 type FolderDeleter interface {
-	Delete(ctx context.Context, actor, tenantID, id string) error
+	Delete(ctx context.Context, in input.FolderDeleter) error
 }
 
 type FolderGrantLister interface {
-	ListGrants(ctx context.Context, actor, tenantID, id string) ([]model.Grant, error)
+	ListGrants(ctx context.Context, in input.FolderGrantLister) (output.FolderGrantLister, error)
 }
 
 // FolderShareCandidateLister lists the external members a sharer can pick.
 type FolderShareCandidateLister interface {
-	ListShareCandidates(ctx context.Context, actor, tenantID, id string) ([]model.Membership, error)
+	ListShareCandidates(ctx context.Context, in input.FolderShareCandidateLister) (output.FolderShareCandidateLister, error)
 }
 
 type FolderSharer interface {
-	Share(ctx context.Context, actor, tenantID, id string, in model.ShareInput) (model.Grant, error)
+	Share(ctx context.Context, in input.FolderSharer) (output.FolderSharer, error)
 }
 
 type FolderShareRevoker interface {
-	Revoke(ctx context.Context, actor, tenantID, id string, in model.ShareInput) error
+	Revoke(ctx context.Context, in input.FolderShareRevoker) error
 }

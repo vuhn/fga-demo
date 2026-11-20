@@ -8,6 +8,8 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type memberAdder struct {
@@ -19,13 +21,13 @@ type memberAdder struct {
 	relations gateway.MembershipRelationGateway
 	roleRels  gateway.RoleRelationGateway
 	hasher    gateway.PasswordHasher
-	authz     usecase.Authorizer
+	authz     helper.Authorizer
 	guard     helper.WriteGuard
 	ids       gateway.IDGenerator
 }
 
 func NewMemberAdder(tenants gateway.TenantGateway, users gateway.UserGateway, companies gateway.CompanyGateway, members gateway.MembershipGateway, roles gateway.RoleGateway,
-	relations gateway.MembershipRelationGateway, roleRels gateway.RoleRelationGateway, hasher gateway.PasswordHasher, authz usecase.Authorizer, guard helper.WriteGuard, ids gateway.IDGenerator) usecase.MemberAdder {
+	relations gateway.MembershipRelationGateway, roleRels gateway.RoleRelationGateway, hasher gateway.PasswordHasher, authz helper.Authorizer, guard helper.WriteGuard, ids gateway.IDGenerator) usecase.MemberAdder {
 	return &memberAdder{tenants: tenants, users: users, companies: companies, members: members, roles: roles, relations: relations, roleRels: roleRels, hasher: hasher, authz: authz, guard: guard, ids: ids}
 }
 
@@ -33,41 +35,42 @@ func NewMemberAdder(tenants gateway.TenantGateway, users gateway.UserGateway, co
 // email; one email is one account, so a known email reuses the account and an
 // unknown one creates it in a company the tenant manages. Affiliation is not
 // an input: it is internal when the user's company is the tenant's own.
-func (s *memberAdder) Add(ctx context.Context, actor, tenantID string, in usecase.AddMemberInput) (model.Membership, error) {
-	if err := s.authz.PlatformOr(ctx, actor, "can_manage_members", tenantID, model.ErrForbidden); err != nil {
-		return model.Membership{}, err
+func (s *memberAdder) Add(ctx context.Context, in input.MemberAdder) (output.MemberAdder, error) {
+	if err := s.authz.PlatformOr(ctx, in.Actor, "can_manage_members", in.TenantID, model.ErrForbidden); err != nil {
+		return output.MemberAdder{}, err
 	}
-	if _, err := s.tenants.Get(ctx, tenantID); err != nil {
-		return model.Membership{}, err
+	if _, err := s.tenants.Get(ctx, in.TenantID); err != nil {
+		return output.MemberAdder{}, err
 	}
-	user, err := s.resolveUser(ctx, actor, tenantID, in)
+	user, err := s.resolveUser(ctx, in)
 	if err != nil {
-		return model.Membership{}, err
+		return output.MemberAdder{}, err
 	}
 	company, err := s.companies.Get(ctx, user.CompanyID)
 	if err != nil {
-		return model.Membership{}, err
+		return output.MemberAdder{}, err
 	}
-	affiliation := model.DeriveAffiliation(company, tenantID)
-	assigned, err := assignMemberRole(ctx, s.roles, s.relations, s.roleRels, tenantID, user.ID, affiliation, in.Role, "")
+	affiliation := model.DeriveAffiliation(company, in.TenantID)
+	assigned, err := assignMemberRole(ctx, s.roles, s.relations, s.roleRels, in.TenantID, user.ID, affiliation, in.Role, "")
 	if err != nil {
-		return model.Membership{}, err
+		return output.MemberAdder{}, err
 	}
 
-	m := model.Membership{TenantID: tenantID, UserID: user.ID, Role: assigned.StoredRole, CustomRoleID: assigned.CustomRoleID}
+	m := model.Membership{TenantID: in.TenantID, UserID: user.ID, Role: assigned.StoredRole, CustomRoleID: assigned.CustomRoleID}
 	if err := s.members.Insert(ctx, m); err != nil {
-		return model.Membership{}, err
+		return output.MemberAdder{}, err
 	}
 	err = s.guard.Grant(ctx, assigned.Writes, assigned.Deletes, func(ctx context.Context) error {
-		return s.members.Delete(ctx, tenantID, user.ID)
+		return s.members.Delete(ctx, in.TenantID, user.ID)
 	})
 	if err != nil {
-		return model.Membership{}, err
+		return output.MemberAdder{}, err
 	}
-	return s.members.Get(ctx, tenantID, user.ID)
+	got, err := s.members.Get(ctx, in.TenantID, user.ID)
+	return output.MemberAdder{Membership: membershipOutput(got)}, err
 }
 
-func (s *memberAdder) resolveUser(ctx context.Context, actor, tenantID string, in usecase.AddMemberInput) (model.User, error) {
+func (s *memberAdder) resolveUser(ctx context.Context, in input.MemberAdder) (model.User, error) {
 	if in.UserID != "" {
 		if err := model.RequireUUID("user_id", in.UserID); err != nil {
 			return model.User{}, err
@@ -91,7 +94,7 @@ func (s *memberAdder) resolveUser(ctx context.Context, actor, tenantID string, i
 	if err := model.RequireUUID("company_id", in.CompanyID); err != nil {
 		return model.User{}, err
 	}
-	if err := s.requireUsableCompany(ctx, actor, tenantID, in.CompanyID); err != nil {
+	if err := s.requireUsableCompany(ctx, in.Actor, in.TenantID, in.CompanyID); err != nil {
 		return model.User{}, err
 	}
 	hash, err := s.hasher.Hash(in.Password)

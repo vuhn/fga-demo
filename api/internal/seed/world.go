@@ -317,7 +317,7 @@ func Tuples() ([]model.Tuple, error) {
 		}
 	}
 	for _, m := range Members {
-		w, _, err := fga.MembershipRelations{}.AssignRole(m.TenantID, m.UserID, m.Affiliation, m.Role)
+		w, _, err := fga.MembershipRelations{}.AssignRole(model.AssignMemberRoleParams{TenantID: m.TenantID, UserID: m.UserID, Affiliation: m.Affiliation, Role: m.Role})
 		if err != nil {
 			return nil, err
 		}
@@ -327,7 +327,7 @@ func Tuples() ([]model.Tuple, error) {
 		out = append(out, fga.ProjectRelations{}.Created(pr)...)
 	}
 	for _, pm := range ProjectMembers {
-		w, _, err := fga.ProjectMemberRelations{}.AssignRole(pm.ProjectID, pm.UserID, pm.Affiliation, pm.Role)
+		w, _, err := fga.ProjectMemberRelations{}.AssignRole(model.AssignProjectMemberRoleParams{ProjectID: pm.ProjectID, UserID: pm.UserID, Affiliation: pm.Affiliation, Role: pm.Role})
 		if err != nil {
 			return nil, err
 		}

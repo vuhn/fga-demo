@@ -8,6 +8,7 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type RoleHandler struct {
@@ -36,16 +37,16 @@ func (h *RoleHandler) list(c *gin.Context) {
 	if !pathUUID(c, "id") {
 		return
 	}
-	roles, err := h.lister.List(c, actor(c), c.Param("id"))
-	respond(c, http.StatusOK, mapper.RoleViews(roles), err)
+	roles, err := h.lister.List(c, input.RoleLister{Actor: actor(c), TenantID: c.Param("id")})
+	respond(c, http.StatusOK, mapper.RoleViews(roles.Items), err)
 }
 
 func (h *RoleHandler) get(c *gin.Context) {
 	if !pathUUID(c, "id") || !pathUUID(c, "roleId") {
 		return
 	}
-	role, err := h.getter.Get(c, actor(c), c.Param("id"), c.Param("roleId"))
-	respond(c, http.StatusOK, mapper.RoleView(role), err)
+	role, err := h.getter.Get(c, input.RoleGetter{Actor: actor(c), TenantID: c.Param("id"), RoleID: c.Param("roleId")})
+	respond(c, http.StatusOK, mapper.RoleView(role.Role), err)
 }
 
 func (h *RoleHandler) create(c *gin.Context) {
@@ -56,8 +57,8 @@ func (h *RoleHandler) create(c *gin.Context) {
 	if !pathUUID(c, "id") || !bind(c, &body) {
 		return
 	}
-	role, err := h.creator.Create(c, actor(c), c.Param("id"), body.Name, body.Affiliation)
-	respond(c, http.StatusCreated, mapper.RoleView(role), err)
+	role, err := h.creator.Create(c, input.RoleCreator{Actor: actor(c), TenantID: c.Param("id"), Name: body.Name, Affiliation: body.Affiliation})
+	respond(c, http.StatusCreated, mapper.RoleView(role.Role), err)
 }
 
 func (h *RoleHandler) update(c *gin.Context) {
@@ -67,8 +68,8 @@ func (h *RoleHandler) update(c *gin.Context) {
 	if !pathUUID(c, "id") || !pathUUID(c, "roleId") || !bind(c, &body) {
 		return
 	}
-	role, err := h.updater.UpdateName(c, actor(c), c.Param("id"), c.Param("roleId"), body.Name)
-	respond(c, http.StatusOK, mapper.RoleView(role), err)
+	role, err := h.updater.UpdateName(c, input.RoleUpdater{Actor: actor(c), TenantID: c.Param("id"), RoleID: c.Param("roleId"), Name: body.Name})
+	respond(c, http.StatusOK, mapper.RoleView(role.Role), err)
 }
 
 func (h *RoleHandler) setPermissions(c *gin.Context) {
@@ -82,13 +83,13 @@ func (h *RoleHandler) setPermissions(c *gin.Context) {
 		writeErr(c, model.Invalid("permissions is required"))
 		return
 	}
-	role, err := h.permissionSetter.SetPermissions(c, actor(c), c.Param("id"), c.Param("roleId"), body.Permissions)
-	respond(c, http.StatusOK, mapper.RoleView(role), err)
+	role, err := h.permissionSetter.SetPermissions(c, input.RolePermissionSetter{Actor: actor(c), TenantID: c.Param("id"), RoleID: c.Param("roleId"), Permissions: body.Permissions})
+	respond(c, http.StatusOK, mapper.RoleView(role.Role), err)
 }
 
 func (h *RoleHandler) delete(c *gin.Context) {
 	if !pathUUID(c, "id") || !pathUUID(c, "roleId") {
 		return
 	}
-	noContent(c, h.deleter.Delete(c, actor(c), c.Param("id"), c.Param("roleId")))
+	noContent(c, h.deleter.Delete(c, input.RoleDeleter{Actor: actor(c), TenantID: c.Param("id"), RoleID: c.Param("roleId")}))
 }

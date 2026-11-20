@@ -54,8 +54,8 @@ func (r *DocumentRepo) Get(ctx context.Context, id string) (model.Document, erro
 	return ds[0], nil
 }
 
-func (r *DocumentRepo) ListByIDs(ctx context.Context, tenantID string, ids []string, folderID, projectID string) ([]model.Document, error) {
-	return r.query(ctx, `tenant_id = $1 AND id = ANY($2::uuid[]) AND ($3 = '' OR folder_id::text = $3) AND ($4 = '' OR project_id::text = $4)`, tenantID, ids, folderID, projectID)
+func (r *DocumentRepo) ListByIDs(ctx context.Context, p model.ListDocumentsParams) ([]model.Document, error) {
+	return r.query(ctx, `tenant_id = $1 AND id = ANY($2::uuid[]) AND ($3 = '' OR folder_id::text = $3) AND ($4 = '' OR project_id::text = $4)`, p.TenantID, p.IDs, p.FolderID, p.ProjectID)
 }
 
 func (r *DocumentRepo) Rename(ctx context.Context, id, name string) (model.Document, error) {

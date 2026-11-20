@@ -6,34 +6,37 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type blueprintGetter struct {
 	blueprints gateway.BlueprintGateway
-	authz      usecase.Authorizer
+	authz      helper.Authorizer
 }
 
-func NewBlueprintGetter(blueprints gateway.BlueprintGateway, authz usecase.Authorizer) usecase.BlueprintGetter {
+func NewBlueprintGetter(blueprints gateway.BlueprintGateway, authz helper.Authorizer) usecase.BlueprintGetter {
 	return &blueprintGetter{blueprints: blueprints, authz: authz}
 }
 
 // Get returns the blueprint and its current version. It is 404 when the
 // caller cannot view it.
-func (s *blueprintGetter) Get(ctx context.Context, actor, tenantID, id string) (usecase.BlueprintDetail, error) {
-	b, err := loadBlueprint(ctx, s.blueprints, tenantID, id)
+func (s *blueprintGetter) Get(ctx context.Context, in input.BlueprintGetter) (output.BlueprintGetter, error) {
+	b, err := loadBlueprint(ctx, s.blueprints, in.TenantID, in.ID)
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintGetter{}, err
 	}
-	if err := s.authz.RequireVisible(ctx, actor, "can_view", model.ObjectTypeBlueprint, id); err != nil {
-		return usecase.BlueprintDetail{}, err
+	if err := s.authz.RequireVisible(ctx, in.Actor, "can_view", model.ObjectTypeBlueprint, in.ID); err != nil {
+		return output.BlueprintGetter{}, err
 	}
-	vs, err := withPerms(ctx, s.authz, actor, model.ObjectTypeBlueprint, []model.Blueprint{b}, blueprintID)
+	vs, err := withPerms(ctx, s.authz, in.Actor, model.ObjectTypeBlueprint, []model.Blueprint{b}, blueprintID)
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintGetter{}, err
 	}
-	v, err := s.blueprints.GetVersion(ctx, id, b.CurrentVersion)
+	v, err := s.blueprints.GetVersion(ctx, in.ID, b.CurrentVersion)
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintGetter{}, err
 	}
-	return usecase.BlueprintDetail{Blueprint: b, Perms: vs[0].Perms, Version: v}, nil
+	return output.BlueprintGetter{BlueprintDetail: blueprintDetailOutput(blueprintDetail{Blueprint: b, Perms: vs[0].Perms, Version: v})}, nil
 }

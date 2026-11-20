@@ -6,45 +6,61 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 const maxInspectChecks = 50
 
-type inspector struct {
-	authz   usecase.Authorizer
+type batchInspector struct {
+	authz   helper.Authorizer
 	tenants helper.ObjectTenantResolver
 }
 
-func NewInspector(authz usecase.Authorizer, tenants helper.ObjectTenantResolver) usecase.Inspector {
-	return &inspector{authz: authz, tenants: tenants}
-}
-
-func (s *inspector) Inspect(ctx context.Context, actor string, c model.CheckRequest) (bool, error) {
-	res, err := s.BatchInspect(ctx, actor, []model.CheckRequest{c})
-	if err != nil {
-		return false, err
-	}
-	return res[0], nil
+func NewBatchInspector(authz helper.Authorizer, tenants helper.ObjectTenantResolver) usecase.BatchInspector {
+	return &batchInspector{authz: authz, tenants: tenants}
 }
 
 // BatchInspect evaluates up to 50 checks after authorizing each item.
-func (s *inspector) BatchInspect(ctx context.Context, actor string, checks []model.CheckRequest) ([]bool, error) {
+func (s *batchInspector) BatchInspect(ctx context.Context, in input.BatchInspector) (output.BatchInspector, error) {
+	checks := mapOutput(in.Checks, func(c input.Check) model.CheckRequest {
+		return model.CheckRequest{UserID: c.UserID, Relation: c.Relation, ObjectType: c.ObjectType, ObjectID: c.ObjectID}
+	})
 	if len(checks) == 0 {
-		return []bool{}, nil
+		return output.BatchInspector{Allowed: []bool{}}, nil
 	}
 	if len(checks) > maxInspectChecks {
-		return nil, model.Invalid("at most 50 checks")
+		return output.BatchInspector{}, model.Invalid("at most 50 checks")
 	}
-	grant := &inspectGrant{authz: s.authz, tenants: s.tenants, actor: actor, managed: map[string]bool{}}
+	grant := &inspectGrant{authz: s.authz, tenants: s.tenants, actor: in.Actor, managed: map[string]bool{}}
 	for _, c := range checks {
 		if err := validateInspect(c); err != nil {
-			return nil, err
+			return output.BatchInspector{}, err
 		}
 		if err := grant.allowed(ctx, c); err != nil {
-			return nil, err
+			return output.BatchInspector{}, err
 		}
 	}
-	return s.authz.BatchCheck(ctx, checks)
+	res, err := s.authz.BatchCheck(ctx, checks)
+	return output.BatchInspector{Allowed: res}, err
+}
+
+type inspector struct {
+	batch usecase.BatchInspector
+}
+
+func NewInspector(batch usecase.BatchInspector) usecase.Inspector {
+	return &inspector{batch: batch}
+}
+
+func (s *inspector) Inspect(ctx context.Context, in input.Inspector) (output.Inspector, error) {
+	res, err := s.batch.BatchInspect(ctx, input.BatchInspector{Actor: in.Actor, Checks: []input.Check{
+		{UserID: in.UserID, Relation: in.Relation, ObjectType: in.ObjectType, ObjectID: in.ObjectID},
+	}})
+	if err != nil {
+		return output.Inspector{}, err
+	}
+	return output.Inspector{Allowed: res.Allowed[0]}, nil
 }
 
 func validateInspect(c model.CheckRequest) error {
@@ -69,7 +85,7 @@ func validateInspect(c model.CheckRequest) error {
 // inspectGrant decides whether actor may ask about other users on objects.
 // It caches the platform Check and per-tenant can_manage_members.
 type inspectGrant struct {
-	authz    usecase.Authorizer
+	authz    helper.Authorizer
 	tenants  helper.ObjectTenantResolver
 	actor    string
 	platform *bool

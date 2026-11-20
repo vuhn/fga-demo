@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 func (e *fakeEngine) EditPlan(_ context.Context, _, ops []byte) (model.BlueprintOutcome, error) {
@@ -47,7 +48,7 @@ func (w withOriginal) FindOriginal(ctx context.Context, id string) (model.Bluepr
 func TestPlanEditStoresAnEditVersionWithANullBrief(t *testing.T) {
 	bp, eng := &fakeBlueprints{brief: "null"}, &fakeEngine{}
 	ops := json.RawMessage(`{"ops":[{"op":"rename_room","room":"Bath","name":"Den"}]}`)
-	if _, err := NewBlueprintPlanEditor(bp, eng, &fakeAuthz{}).Edit(context.Background(), "u", "t", bpID, ops, 1); err != nil {
+	if _, err := NewBlueprintPlanEditor(bp, eng, &fakeAuthz{}).Edit(context.Background(), input.BlueprintPlanEditor{Actor: "u", TenantID: "t", ID: bpID, Ops: ops, BaseVersion: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if len(eng.calls) != 1 || eng.calls[0] != "EditPlan "+string(ops) {
@@ -63,30 +64,30 @@ func TestPlanEditRefusals(t *testing.T) {
 	ops := json.RawMessage(`{"ops":[]}`)
 	// denied and stale never reach the engine
 	bp, eng := &fakeBlueprints{brief: "null"}, &fakeEngine{}
-	if _, err := NewBlueprintPlanEditor(bp, eng, &fakeAuthz{deny: true}).Edit(context.Background(), "u", "t", bpID, ops, 1); !errors.Is(err, model.ErrForbidden) {
+	if _, err := NewBlueprintPlanEditor(bp, eng, &fakeAuthz{deny: true}).Edit(context.Background(), input.BlueprintPlanEditor{Actor: "u", TenantID: "t", ID: bpID, Ops: ops, BaseVersion: 1}); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("want forbidden, got %v", err)
 	}
-	if _, err := NewBlueprintPlanEditor(bp, eng, &fakeAuthz{}).Edit(context.Background(), "u", "t", bpID, ops, 9); !errors.Is(err, model.ErrConflict) {
+	if _, err := NewBlueprintPlanEditor(bp, eng, &fakeAuthz{}).Edit(context.Background(), input.BlueprintPlanEditor{Actor: "u", TenantID: "t", ID: bpID, Ops: ops, BaseVersion: 9}); !errors.Is(err, model.ErrConflict) {
 		t.Fatalf("want conflict, got %v", err)
 	}
 	// another tenant's blueprint is not found, before any engine call
-	if _, err := NewBlueprintPlanEditor(bp, eng, &fakeAuthz{}).Edit(context.Background(), "u", "other", bpID, ops, 1); !errors.Is(err, model.ErrNotFound) {
+	if _, err := NewBlueprintPlanEditor(bp, eng, &fakeAuthz{}).Edit(context.Background(), input.BlueprintPlanEditor{Actor: "u", TenantID: "other", ID: bpID, Ops: ops, BaseVersion: 1}); !errors.Is(err, model.ErrNotFound) {
 		t.Fatalf("want not found, got %v", err)
 	}
 	// a plan with a brief is edited through the brief
 	gen := &fakeBlueprints{brief: `{"title":"x"}`}
-	if _, err := NewBlueprintPlanEditor(gen, eng, &fakeAuthz{}).Edit(context.Background(), "u", "t", bpID, ops, 1); !errors.Is(err, model.ErrValidation) {
+	if _, err := NewBlueprintPlanEditor(gen, eng, &fakeAuthz{}).Edit(context.Background(), input.BlueprintPlanEditor{Actor: "u", TenantID: "t", ID: bpID, Ops: ops, BaseVersion: 1}); !errors.Is(err, model.ErrValidation) {
 		t.Fatalf("want validation, got %v", err)
 	}
 	// bad bodies are refused before anything else
 	for _, bad := range []json.RawMessage{nil, json.RawMessage(`{`), json.RawMessage(`"x"`), json.RawMessage(`null`), json.RawMessage(make([]byte, maxPlanEditBytes+1))} {
-		if _, err := NewBlueprintPlanEditor(bp, eng, &fakeAuthz{}).Edit(context.Background(), "u", "t", bpID, bad, 1); !errors.Is(err, model.ErrValidation) {
+		if _, err := NewBlueprintPlanEditor(bp, eng, &fakeAuthz{}).Edit(context.Background(), input.BlueprintPlanEditor{Actor: "u", TenantID: "t", ID: bpID, Ops: bad, BaseVersion: 1}); !errors.Is(err, model.ErrValidation) {
 			t.Fatalf("want validation for %q, got %v", bad[:min(len(bad), 5)], err)
 		}
 	}
 	// an engine refusal stores nothing
 	rej := &fakeEngine{err: model.Invalid("cannot move")}
-	if _, err := NewBlueprintPlanEditor(bp, rej, &fakeAuthz{}).Edit(context.Background(), "u", "t", bpID, ops, 1); err == nil {
+	if _, err := NewBlueprintPlanEditor(bp, rej, &fakeAuthz{}).Edit(context.Background(), input.BlueprintPlanEditor{Actor: "u", TenantID: "t", ID: bpID, Ops: ops, BaseVersion: 1}); err == nil {
 		t.Fatal("want error")
 	}
 	if len(eng.calls) != 0 || len(bp.appended) != 0 {
@@ -96,7 +97,7 @@ func TestPlanEditRefusals(t *testing.T) {
 
 func TestExportPatchesTheOriginalWithBaseAndCurrentModels(t *testing.T) {
 	eng := &fakeEngine{}
-	f, err := NewBlueprintOriginalExporter(withOriginal{fakeBlueprints: &fakeBlueprints{brief: "null"}}, eng, &fakeAuthz{}).Export(context.Background(), "u", "t", bpID, 0)
+	f, err := NewBlueprintOriginalExporter(withOriginal{fakeBlueprints: &fakeBlueprints{brief: "null"}}, eng, &fakeAuthz{}).Export(context.Background(), input.BlueprintOriginalExporter{Actor: "u", TenantID: "t", ID: bpID, Version: 0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +113,7 @@ func TestExportPatchesTheOriginalWithBaseAndCurrentModels(t *testing.T) {
 func TestExportRefusesAVersionOlderThanTheFile(t *testing.T) {
 	eng := &fakeEngine{}
 	bp := withOriginal{fakeBlueprints: &fakeBlueprints{brief: "null"}, version: 3}
-	if _, err := NewBlueprintOriginalExporter(bp, eng, &fakeAuthz{}).Export(context.Background(), "u", "t", bpID, 2); !errors.Is(err, model.ErrValidation) {
+	if _, err := NewBlueprintOriginalExporter(bp, eng, &fakeAuthz{}).Export(context.Background(), input.BlueprintOriginalExporter{Actor: "u", TenantID: "t", ID: bpID, Version: 2}); !errors.Is(err, model.ErrValidation) {
 		t.Fatalf("want validation, got %v", err)
 	}
 	if len(eng.calls) != 0 {
@@ -123,13 +124,13 @@ func TestExportRefusesAVersionOlderThanTheFile(t *testing.T) {
 func TestExportRefusals(t *testing.T) {
 	eng := &fakeEngine{}
 	bp := withOriginal{fakeBlueprints: &fakeBlueprints{brief: "null"}}
-	if _, err := NewBlueprintOriginalExporter(bp, eng, &fakeAuthz{deny: true}).Export(context.Background(), "u", "t", bpID, 0); !errors.Is(err, model.ErrForbidden) {
+	if _, err := NewBlueprintOriginalExporter(bp, eng, &fakeAuthz{deny: true}).Export(context.Background(), input.BlueprintOriginalExporter{Actor: "u", TenantID: "t", ID: bpID, Version: 0}); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("want forbidden, got %v", err)
 	}
-	if _, err := NewBlueprintOriginalExporter(withOriginal{fakeBlueprints: bp.fakeBlueprints, none: true}, eng, &fakeAuthz{}).Export(context.Background(), "u", "t", bpID, 0); !errors.Is(err, model.ErrNotFound) {
+	if _, err := NewBlueprintOriginalExporter(withOriginal{fakeBlueprints: bp.fakeBlueprints, none: true}, eng, &fakeAuthz{}).Export(context.Background(), input.BlueprintOriginalExporter{Actor: "u", TenantID: "t", ID: bpID, Version: 0}); !errors.Is(err, model.ErrNotFound) {
 		t.Fatalf("want not found, got %v", err)
 	}
-	if _, err := NewBlueprintOriginalExporter(bp, eng, &fakeAuthz{}).Export(context.Background(), "u", "other", bpID, 0); !errors.Is(err, model.ErrNotFound) {
+	if _, err := NewBlueprintOriginalExporter(bp, eng, &fakeAuthz{}).Export(context.Background(), input.BlueprintOriginalExporter{Actor: "u", TenantID: "other", ID: bpID, Version: 0}); !errors.Is(err, model.ErrNotFound) {
 		t.Fatalf("want not found for another tenant, got %v", err)
 	}
 	if len(eng.calls) != 0 {
@@ -139,11 +140,11 @@ func TestExportRefusals(t *testing.T) {
 
 func TestOriginalDefaultsToTheNewestFileNotTheLatestEdit(t *testing.T) {
 	bp := withOriginal{fakeBlueprints: &fakeBlueprints{brief: "null"}, version: 3}
-	o, err := NewBlueprintOriginalGetter(bp, &fakeAuthz{}).GetOriginal(context.Background(), "u", "t", bpID, 0)
+	o, err := NewBlueprintOriginalGetter(bp, &fakeAuthz{}).GetOriginal(context.Background(), input.BlueprintOriginalGetter{Actor: "u", TenantID: "t", ID: bpID, Version: 0})
 	if err != nil || o.Version != 3 {
 		t.Fatalf("original %+v, err %v", o, err)
 	}
-	if _, err := NewBlueprintOriginalGetter(bp, &fakeAuthz{deny: true}).GetOriginal(context.Background(), "u", "t", bpID, 0); !errors.Is(err, model.ErrForbidden) {
+	if _, err := NewBlueprintOriginalGetter(bp, &fakeAuthz{deny: true}).GetOriginal(context.Background(), input.BlueprintOriginalGetter{Actor: "u", TenantID: "t", ID: bpID, Version: 0}); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("want forbidden, got %v", err)
 	}
 }

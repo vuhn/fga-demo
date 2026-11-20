@@ -5,16 +5,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type InspectorHandler struct {
 	inspector usecase.Inspector
+	batch     usecase.BatchInspector
 }
 
-func NewInspectorHandler(inspector usecase.Inspector) *InspectorHandler {
-	return &InspectorHandler{inspector: inspector}
+func NewInspectorHandler(inspector usecase.Inspector, batch usecase.BatchInspector) *InspectorHandler {
+	return &InspectorHandler{inspector: inspector, batch: batch}
 }
 
 func (h *InspectorHandler) Register(r Routes) {
@@ -29,8 +30,8 @@ type checkBody struct {
 	ObjectID   string `json:"object_id"`
 }
 
-func (b checkBody) req() model.CheckRequest {
-	return model.CheckRequest{UserID: b.UserID, Relation: b.Relation, ObjectType: b.ObjectType, ObjectID: b.ObjectID}
+func (b checkBody) req() input.Check {
+	return input.Check{UserID: b.UserID, Relation: b.Relation, ObjectType: b.ObjectType, ObjectID: b.ObjectID}
 }
 
 func (h *InspectorHandler) check(c *gin.Context) {
@@ -38,8 +39,9 @@ func (h *InspectorHandler) check(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	ok, err := h.inspector.Inspect(c, actor(c), body.req())
-	respond(c, http.StatusOK, gin.H{"allowed": ok}, err)
+	ck := body.req()
+	res, err := h.inspector.Inspect(c, input.Inspector{Actor: actor(c), UserID: ck.UserID, Relation: ck.Relation, ObjectType: ck.ObjectType, ObjectID: ck.ObjectID})
+	respond(c, http.StatusOK, gin.H{"allowed": res.Allowed}, err)
 }
 
 func (h *InspectorHandler) batchCheck(c *gin.Context) {
@@ -49,7 +51,7 @@ func (h *InspectorHandler) batchCheck(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	res, err := h.inspector.BatchInspect(c, actor(c), mapSlice(body.Checks, checkBody.req))
-	results := mapSlice(res, func(b bool) gin.H { return gin.H{"allowed": b} })
+	res, err := h.batch.BatchInspect(c, input.BatchInspector{Actor: actor(c), Checks: mapSlice(body.Checks, checkBody.req)})
+	results := mapSlice(res.Allowed, func(b bool) gin.H { return gin.H{"allowed": b} })
 	respond(c, http.StatusOK, gin.H{"results": results}, err)
 }

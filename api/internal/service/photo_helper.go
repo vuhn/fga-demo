@@ -5,7 +5,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
-	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
 
 // loadPhoto returns the photo when it exists in the header tenant.
@@ -24,7 +24,7 @@ func loadPhoto(ctx context.Context, photos gateway.PhotoGateway, tenantID, id st
 }
 
 // requirePhotoShare loads the photo in the tenant and requires can_share.
-func requirePhotoShare(ctx context.Context, photos gateway.PhotoGateway, authz usecase.Authorizer, actor, tenantID, id string) error {
+func requirePhotoShare(ctx context.Context, photos gateway.PhotoGateway, authz helper.Authorizer, actor, tenantID, id string) error {
 	if _, err := loadPhoto(ctx, photos, tenantID, id); err != nil {
 		return err
 	}

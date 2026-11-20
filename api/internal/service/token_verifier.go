@@ -6,6 +6,8 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type tokenVerifier struct {
@@ -17,10 +19,10 @@ func NewTokenVerifier(tokens gateway.TokenGateway) usecase.TokenVerifier {
 }
 
 // Verify returns the token's subject. Any token problem is unauthenticated.
-func (s *tokenVerifier) Verify(_ context.Context, token string) (string, error) {
-	sub, err := s.tokens.Verify(token)
+func (s *tokenVerifier) Verify(_ context.Context, in input.TokenVerifier) (output.TokenVerifier, error) {
+	sub, err := s.tokens.Verify(in.Token)
 	if err != nil {
-		return "", model.ErrUnauthenticated
+		return output.TokenVerifier{}, model.ErrUnauthenticated
 	}
-	return sub, nil
+	return output.TokenVerifier{Actor: sub}, nil
 }

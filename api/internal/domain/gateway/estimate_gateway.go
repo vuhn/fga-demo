@@ -19,7 +19,7 @@ type EstimateSessionGateway interface {
 	// AppendTurn stores the user message, the assistant message and the new state, and the estimate when there is
 	// one, in one transaction, only while the session's epoch and seq are still those of s read before the turn
 	// (ErrConflict and nothing written otherwise).
-	AppendTurn(ctx context.Context, s model.EstimateSession, state []byte, user, assistant model.EstimateMessage, est *model.BlueprintEstimate) error
+	AppendTurn(ctx context.Context, p model.AppendEstimateTurnParams) error
 }
 
 // BlueprintEstimateGateway reads the finished estimates (they are written by AppendTurn).
@@ -34,5 +34,5 @@ type EstimateAgent interface {
 	// EstimateTurn runs one turn. messages are the recent chat (oldest first), overrides are user-entered unit
 	// rates by rate code. Events are passed to onEvent as they arrive; an error returned before the first
 	// event is the same as any engine refusal (the caller can still answer with a plain status).
-	EstimateTurn(ctx context.Context, model, state []byte, message string, messages []model.EstimateMessage, overrides map[string]float64, onEvent func(model.EstimateEvent)) (model.EstimateTurn, error)
+	EstimateTurn(ctx context.Context, p model.EstimateTurnParams, onEvent func(model.EstimateEvent)) (model.EstimateTurn, error)
 }

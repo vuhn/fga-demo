@@ -8,7 +8,6 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
-	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
 
@@ -70,10 +69,10 @@ func (w *writeGuard) RevokeObject(ctx context.Context, objectType, objectID stri
 // ---- Share rules ----
 
 type sharePolicy struct {
-	authz usecase.Authorizer
+	authz helper.Authorizer
 }
 
-func NewSharePolicy(authz usecase.Authorizer) helper.SharePolicy {
+func NewSharePolicy(authz helper.Authorizer) helper.SharePolicy {
 	return &sharePolicy{authz: authz}
 }
 
@@ -126,7 +125,7 @@ func (p *sharePolicy) CheckGrantee(ctx context.Context, tenantID string, g model
 
 // withPerms pairs each object with the actor's permissions on it, so the UI
 // needs no extra Check round trips.
-func withPerms[T any](ctx context.Context, authz usecase.Authorizer, actor, objectType string, xs []T, id func(T) string) ([]model.Visible[T], error) {
+func withPerms[T any](ctx context.Context, authz helper.Authorizer, actor, objectType string, xs []T, id func(T) string) ([]model.Visible[T], error) {
 	out := make([]model.Visible[T], 0, len(xs))
 	if len(xs) == 0 {
 		return out, nil

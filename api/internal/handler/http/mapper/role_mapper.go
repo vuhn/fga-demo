@@ -1,9 +1,8 @@
 package mapper
 
 import (
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 	"time"
-
-	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type RoleJSON struct {
@@ -22,7 +21,7 @@ type AssigneeJSON struct {
 	Name   string `json:"name"`
 }
 
-func RoleView(role model.Role) RoleJSON {
+func RoleView(role output.Role) RoleJSON {
 	perms := role.Permissions
 	if perms == nil {
 		perms = []string{}
@@ -34,7 +33,7 @@ func RoleView(role model.Role) RoleJSON {
 	return RoleJSON{role.ID, role.TenantID, role.Name, role.Affiliation, perms, assignees, role.CreatedAt}
 }
 
-func RoleViews(roles []model.Role) []RoleJSON {
+func RoleViews(roles []output.Role) []RoleJSON {
 	out := make([]RoleJSON, 0, len(roles))
 	for _, role := range roles {
 		out = append(out, RoleView(role))

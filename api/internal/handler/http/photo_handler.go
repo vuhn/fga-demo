@@ -8,6 +8,7 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 // PhotoUsecases is everything the photo handler calls.
@@ -41,8 +42,8 @@ func (h *PhotoHandler) Register(r Routes) {
 }
 
 func (h *PhotoHandler) list(c *gin.Context) {
-	ps, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("album_id"), c.Query("project_id"))
-	respond(c, http.StatusOK, mapSlice(ps, mapper.VisiblePhotoView), err)
+	ps, err := h.uc.Lister.List(c, input.PhotoLister{Actor: actor(c), TenantID: tenant(c), AlbumID: c.Query("album_id"), ProjectID: c.Query("project_id")})
+	respond(c, http.StatusOK, mapSlice(ps.Items, mapper.VisiblePhotoView), err)
 }
 
 func (h *PhotoHandler) create(c *gin.Context) {
@@ -50,7 +51,7 @@ func (h *PhotoHandler) create(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	in := usecase.CreatePhotoInput{}
+	in := input.PhotoCreator{Actor: actor(c), TenantID: tenant(c)}
 	in.AlbumID, _ = body["album_id"].(string)
 	in.Name, _ = body["name"].(string)
 	in.MimeType, _ = body["mime_type"].(string)
@@ -60,13 +61,13 @@ func (h *PhotoHandler) create(c *gin.Context) {
 		return
 	}
 	in.ByteSize = int64(size)
-	p, err := h.uc.Creator.Create(c, actor(c), tenant(c), in)
-	respond(c, http.StatusCreated, mapper.PhotoView(p), err)
+	p, err := h.uc.Creator.Create(c, in)
+	respond(c, http.StatusCreated, mapper.PhotoView(p.Photo), err)
 }
 
 func (h *PhotoHandler) get(c *gin.Context) {
-	p, err := h.uc.Getter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapper.VisiblePhotoView(p), err)
+	p, err := h.uc.Getter.Get(c, input.PhotoGetter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapper.VisiblePhotoView(p.Visible), err)
 }
 
 func (h *PhotoHandler) rename(c *gin.Context) {
@@ -74,22 +75,22 @@ func (h *PhotoHandler) rename(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	p, err := h.uc.Renamer.Rename(c, actor(c), tenant(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, mapper.PhotoView(p), err)
+	p, err := h.uc.Renamer.Rename(c, input.PhotoRenamer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Name: body.Name})
+	respond(c, http.StatusOK, mapper.PhotoView(p.Photo), err)
 }
 
 func (h *PhotoHandler) delete(c *gin.Context) {
-	noContent(c, h.uc.Deleter.Delete(c, actor(c), tenant(c), c.Param("id")))
+	noContent(c, h.uc.Deleter.Delete(c, input.PhotoDeleter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")}))
 }
 
 func (h *PhotoHandler) listGrants(c *gin.Context) {
-	gs, err := h.uc.GrantLister.ListGrants(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(gs, mapper.GrantView), err)
+	gs, err := h.uc.GrantLister.ListGrants(c, input.PhotoGrantLister{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(gs.Items, mapper.GrantView), err)
 }
 
 func (h *PhotoHandler) listShareCandidates(c *gin.Context) {
-	ms, err := h.uc.CandidateLister.ListShareCandidates(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
+	ms, err := h.uc.CandidateLister.ListShareCandidates(c, input.PhotoShareCandidateLister{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(ms.Items, mapper.MemberView), err)
 }
 
 func (h *PhotoHandler) share(c *gin.Context) {
@@ -97,8 +98,8 @@ func (h *PhotoHandler) share(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.Input())
-	respond(c, http.StatusCreated, mapper.GrantView(g), err)
+	g, err := h.uc.Sharer.Share(c, input.PhotoSharer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Relation: body.Relation, Subject: body.Subject, UserID: body.UserID})
+	respond(c, http.StatusCreated, mapper.GrantView(g.Grant), err)
 }
 
 func (h *PhotoHandler) revoke(c *gin.Context) {
@@ -106,5 +107,5 @@ func (h *PhotoHandler) revoke(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.Input()))
+	noContent(c, h.uc.ShareRevoker.Revoke(c, input.PhotoShareRevoker{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Relation: body.Relation, Subject: body.Subject, UserID: body.UserID}))
 }

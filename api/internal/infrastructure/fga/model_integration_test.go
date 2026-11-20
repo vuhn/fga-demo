@@ -32,7 +32,7 @@ const (
 func assertRows(t *testing.T, ctx context.Context, c *fga.Client, label string, rows []row) {
 	t.Helper()
 	for _, r := range rows {
-		got, err := c.Check(ctx, r.user, r.relation, r.objType, r.objID)
+		got, err := c.Check(ctx, model.CheckRequest{UserID: r.user, Relation: r.relation, ObjectType: r.objType, ObjectID: r.objID})
 		if err != nil {
 			t.Fatalf("%s: check %v: %v", label, r, err)
 		}

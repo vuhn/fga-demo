@@ -7,6 +7,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type CompanyHandler struct {
@@ -28,16 +29,16 @@ func (h *CompanyHandler) Register(r Routes) {
 }
 
 func (h *CompanyHandler) listAll(c *gin.Context) {
-	cs, err := h.allLister.ListAll(c, actor(c))
-	respond(c, http.StatusOK, mapSlice(cs, mapper.CompanyView), err)
+	cs, err := h.allLister.ListAll(c, input.AllCompanyLister{Actor: actor(c)})
+	respond(c, http.StatusOK, mapSlice(cs.Items, mapper.CompanyView), err)
 }
 
 func (h *CompanyHandler) list(c *gin.Context) {
 	if !pathUUID(c, "id") {
 		return
 	}
-	cs, err := h.lister.List(c, actor(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(cs, mapper.CompanyView), err)
+	cs, err := h.lister.List(c, input.CompanyLister{Actor: actor(c), TenantID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(cs.Items, mapper.CompanyView), err)
 }
 
 func (h *CompanyHandler) create(c *gin.Context) {
@@ -48,8 +49,8 @@ func (h *CompanyHandler) create(c *gin.Context) {
 	if !pathUUID(c, "id") || !bind(c, &body) {
 		return
 	}
-	co, err := h.creator.Create(c, actor(c), c.Param("id"), usecase.CreateCompanyInput{Name: body.Name, TaxID: body.TaxID})
-	respond(c, http.StatusCreated, mapper.CompanyView(co), err)
+	co, err := h.creator.Create(c, input.CompanyCreator{Actor: actor(c), TenantID: c.Param("id"), Name: body.Name, TaxID: body.TaxID})
+	respond(c, http.StatusCreated, mapper.CompanyView(co.Company), err)
 }
 
 func (h *CompanyHandler) claim(c *gin.Context) {
@@ -59,6 +60,6 @@ func (h *CompanyHandler) claim(c *gin.Context) {
 	if !pathUUID(c, "id") || !bind(c, &body) {
 		return
 	}
-	co, err := h.claimer.Claim(c, actor(c), c.Param("id"), body.CompanyIDs)
-	respond(c, http.StatusOK, mapper.CompanyView(co), err)
+	co, err := h.claimer.Claim(c, input.CompanyClaimer{Actor: actor(c), TenantID: c.Param("id"), CompanyIDs: body.CompanyIDs})
+	respond(c, http.StatusOK, mapper.CompanyView(co.Company), err)
 }

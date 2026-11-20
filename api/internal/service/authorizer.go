@@ -5,7 +5,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
-	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
 )
 
 // authorizer answers every allow/deny with OpenFGA through the authz gateway.
@@ -13,12 +13,12 @@ type authorizer struct {
 	authz gateway.AuthzGateway
 }
 
-func NewAuthorizer(authz gateway.AuthzGateway) usecase.Authorizer {
+func NewAuthorizer(authz gateway.AuthzGateway) helper.Authorizer {
 	return &authorizer{authz: authz}
 }
 
 func (a *authorizer) Check(ctx context.Context, actor, relation, objectType, objectID string) (bool, error) {
-	return a.authz.Check(ctx, actor, relation, objectType, objectID)
+	return a.authz.Check(ctx, model.CheckRequest{UserID: actor, Relation: relation, ObjectType: objectType, ObjectID: objectID})
 }
 
 func (a *authorizer) Require(ctx context.Context, actor, relation, objectType, objectID string) error {

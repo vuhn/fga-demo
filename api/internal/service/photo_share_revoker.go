@@ -7,32 +7,33 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type photoShareRevoker struct {
 	photos    gateway.PhotoGateway
 	grants    gateway.PhotoGrantGateway
 	relations gateway.PhotoRelationGateway
-	authz     usecase.Authorizer
+	authz     helper.Authorizer
 	policy    helper.SharePolicy
 	guard     helper.WriteGuard
 }
 
 func NewPhotoShareRevoker(photos gateway.PhotoGateway, grants gateway.PhotoGrantGateway, relations gateway.PhotoRelationGateway,
-	authz usecase.Authorizer, policy helper.SharePolicy, guard helper.WriteGuard) usecase.PhotoShareRevoker {
+	authz helper.Authorizer, policy helper.SharePolicy, guard helper.WriteGuard) usecase.PhotoShareRevoker {
 	return &photoShareRevoker{photos: photos, grants: grants, relations: relations, authz: authz, policy: policy, guard: guard}
 }
 
 // Revoke deletes the matching grant's tuple, then its row.
-func (s *photoShareRevoker) Revoke(ctx context.Context, actor, tenantID, id string, in model.ShareInput) error {
-	g, err := s.policy.NewGrant(tenantID, model.ObjectTypePhoto, id, in)
+func (s *photoShareRevoker) Revoke(ctx context.Context, in input.PhotoShareRevoker) error {
+	g, err := s.policy.NewGrant(in.TenantID, model.ObjectTypePhoto, in.ID, model.ShareInput{Relation: in.Relation, Subject: in.Subject, UserID: in.UserID})
 	if err != nil {
 		return err
 	}
-	if err := requirePhotoShare(ctx, s.photos, s.authz, actor, tenantID, id); err != nil {
+	if err := requirePhotoShare(ctx, s.photos, s.authz, in.Actor, in.TenantID, in.ID); err != nil {
 		return err
 	}
-	existing, err := s.grants.List(ctx, id)
+	existing, err := s.grants.List(ctx, in.ID)
 	if err != nil {
 		return err
 	}

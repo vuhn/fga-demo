@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type PermissionHandler struct {
@@ -23,7 +24,7 @@ func (h *PermissionHandler) Register(r Routes) {
 // mine returns the caller's own permissions on the platform and, with
 // ?tenant_id=, on that tenant. The UI maps them to menus and buttons.
 func (h *PermissionHandler) mine(c *gin.Context) {
-	p, err := h.reader.Mine(c, actor(c), c.Query("tenant_id"))
+	p, err := h.reader.Mine(c, input.PermissionReader{Actor: actor(c), TenantID: c.Query("tenant_id")})
 	if err != nil {
 		writeErr(c, err)
 		return

@@ -5,7 +5,7 @@ description: Implement or change Go API code in api/ (Gin, pgx, OpenFGA, goose) 
 
 # Implement Go API changes
 
-Source of truth: `api/ARCHITECTURE.md` (layers, lifecycle, consistency) and CLAUDE.md "Architecture rules" + "Authorization invariants". Read them when unsure; this skill is the working checklist.
+Source of truth: `docs/harness/layer-structure.md` (the common layer structure), `api/ARCHITECTURE.md` (layers, lifecycle, consistency) and CLAUDE.md "Architecture rules" + "Authorization invariants". Read them when unsure; this skill is the working checklist.
 
 ## Layers (dependencies point inward)
 `domain/model` (stdlib only) and `domain/gateway` (interfaces) -> `usecase` (one interface per operation, e.g. `FolderCreator`) + `usecase/helper` -> `service` (one file per operation, `folder_creator.go`) -> `infrastructure/{postgres,fga,engine,agent,grpcutil,auth,idgen,config}` implements gateways -> `handler/http`.
@@ -13,11 +13,11 @@ Source of truth: `api/ARCHITECTURE.md` (layers, lifecycle, consistency) and CLAU
 
 ## Adding an operation: touch exactly these
 1. Spec first: `docs/decision-catalog.md` (the Check), `docs/http-api.md` (route), plus `tuple-catalog`/`authorization-model` if tuples or model change.
-2. `domain/model` types/errors; `domain/gateway` method if new data access.
-3. `usecase/<domain>_<op>.go`: one interface.
-4. `service/<domain>_<op>.go`: validate -> authorize via `usecase.Authorizer` (`Require` 403, `RequireVisible` 404, `PlatformOr`, `Permissions`) -> gateways -> `helper.WriteGuard` for stores. No tuple strings here; pass `model.Tuple`.
+2. `domain/model` types/errors; `domain/gateway` method if new data access (more than 3 params after `ctx` -> one `model.<Action><Model>Params`).
+3. `usecase/<domain>_<op>.go`: one interface whose method is `Op(ctx, in input.X) (output.X, error)` (or only `error`; a streaming callback stays trailing); add the struct to `usecase/input/<domain>.go` (`Actor`, `TenantID`, ids, body fields) and to `usecase/output/<domain>.go` (own copied fields, never a `domain/model` type; a shape shared by several usecases sits in the same domain file and the usecase output embeds it).
+4. `service/<domain>_<op>.go`: validate -> authorize via `helper.Authorizer` (`Require` 403, `RequireVisible` 404, `PlatformOr`, `Permissions`) -> gateways -> `helper.WriteGuard` for stores. No tuple strings here; pass `model.Tuple`.
 5. `infrastructure/postgres/<domain>_repo.go` (literal table names) and `infrastructure/fga/<domain>_relations.go` (pure `*Relations` builders, unit-tested); migration via `db-design` if schema changes.
-6. `handler/http/<domain>_handler.go`: decode, read actor (JWT `sub`) and tenant (`X-Tenant-ID`), call ONE usecase method, map errors with `writeErr`; register in the handler's own `Register(Routes)`.
+6. `handler/http/<domain>_handler.go`: decode, read actor (JWT `sub`) and tenant (`X-Tenant-ID`), build `input.X` through `mapper/<domain>_mapper.go`, call ONE usecase method, map `output.X` to the JSON view in the mapper, map errors with `writeErr`; register in the handler's own `Register(Routes)`.
 7. `cmd/api/wire.go`: the only place that builds the graph; constructors take interfaces.
 8. Tests: service unit tests with fakes, relation builder tests; integration test (`-tags=integration`) when authorization changes. Web: `web/src/permissions.tsx` only if a new action/feature appears.
 

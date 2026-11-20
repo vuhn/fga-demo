@@ -9,37 +9,40 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type blueprintDXFImportPreviewer struct {
 	projects gateway.ProjectGateway
 	engine   gateway.BlueprintEngine
-	authz    usecase.Authorizer
+	authz    helper.Authorizer
 }
 
-func NewBlueprintDXFImportPreviewer(projects gateway.ProjectGateway, engine gateway.BlueprintEngine, authz usecase.Authorizer) usecase.BlueprintDXFImportPreviewer {
+func NewBlueprintDXFImportPreviewer(projects gateway.ProjectGateway, engine gateway.BlueprintEngine, authz helper.Authorizer) usecase.BlueprintDXFImportPreviewer {
 	return &blueprintDXFImportPreviewer{projects: projects, engine: engine, authz: authz}
 }
 
 // Preview requires can_create_blueprint on the project (the same Check as creating), then has the engine read
 // the file: a DXF as drawn, a PDF or image converted to a DXF first. Nothing is stored.
-func (s *blueprintDXFImportPreviewer) Preview(ctx context.Context, actor, tenantID, projectID string, file model.Upload, unit string, opts model.ConvertOptions) (model.BlueprintImport, error) {
-	if err := validImportFile(file, unit, opts); err != nil {
-		return model.BlueprintImport{}, err
+func (s *blueprintDXFImportPreviewer) Preview(ctx context.Context, in input.BlueprintDXFImportPreviewer) (output.BlueprintDXFImportPreviewer, error) {
+	if err := validImportFile(model.Upload(in.File), in.Unit, model.ConvertOptions(in.Opts)); err != nil {
+		return output.BlueprintDXFImportPreviewer{}, err
 	}
-	if err := requireBlueprintCreate(ctx, s.projects, s.authz, actor, tenantID, projectID); err != nil {
-		return model.BlueprintImport{}, err
+	if err := requireBlueprintCreate(ctx, s.projects, s.authz, in.Actor, in.TenantID, in.ProjectID); err != nil {
+		return output.BlueprintDXFImportPreviewer{}, err
 	}
-	dxf, conv, err := importableDXF(ctx, s.engine, file, opts)
+	dxf, conv, err := importableDXF(ctx, s.engine, model.Upload(in.File), model.ConvertOptions(in.Opts))
 	if err != nil {
-		return model.BlueprintImport{}, err
+		return output.BlueprintDXFImportPreviewer{}, err
 	}
 	if conv != nil {
-		unit = "" // the converted DXF is in metres
+		in.Unit = "" // the converted DXF is in metres
 	}
-	res, err := s.engine.ImportDXF(ctx, dxf, unit)
+	res, err := s.engine.ImportDXF(ctx, dxf, in.Unit)
 	res.Conversion = conv
-	return res, err
+	return output.BlueprintDXFImportPreviewer{BlueprintImport: blueprintImportOutput(res)}, err
 }
 
 var importUnits = map[string]bool{"": true, "mm": true, "cm": true, "m": true, "in": true, "ft": true}

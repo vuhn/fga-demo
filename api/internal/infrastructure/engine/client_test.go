@@ -17,9 +17,9 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
+	"github.com/vuhn/fga-demo/api/internal/infrastructure/grpcutil"
 	commonv1 "github.com/vuhn/fga-demo/proto/go/fga/demo/common/v1"
 	enginev1 "github.com/vuhn/fga-demo/proto/go/fga/demo/engine/v1"
-	"github.com/vuhn/fga-demo/api/internal/infrastructure/grpcutil"
 )
 
 // fake is an in-process Engine; each test sets only the handler it needs.

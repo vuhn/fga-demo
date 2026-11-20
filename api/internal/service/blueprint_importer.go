@@ -11,6 +11,8 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type blueprintImporter struct {
@@ -18,40 +20,40 @@ type blueprintImporter struct {
 	blueprints gateway.BlueprintGateway
 	relations  gateway.BlueprintRelationGateway
 	engine     gateway.BlueprintEngine
-	authz      usecase.Authorizer
+	authz      helper.Authorizer
 	guard      helper.WriteGuard
 	ids        gateway.IDGenerator
 }
 
 func NewBlueprintImporter(projects gateway.ProjectGateway, blueprints gateway.BlueprintGateway, relations gateway.BlueprintRelationGateway,
-	engine gateway.BlueprintEngine, authz usecase.Authorizer, guard helper.WriteGuard, ids gateway.IDGenerator) usecase.BlueprintImporter {
+	engine gateway.BlueprintEngine, authz helper.Authorizer, guard helper.WriteGuard, ids gateway.IDGenerator) usecase.BlueprintImporter {
 	return &blueprintImporter{projects: projects, blueprints: blueprints, relations: relations, engine: engine, authz: authz, guard: guard, ids: ids}
 }
 
 // Import requires can_create_blueprint on the project. The engine reads the file (before any write), the chosen
 // plan becomes version 1 (kind import, no brief) and the original is stored with it in the same transaction.
 // Then OpenFGA; a failure there deletes the Postgres rows, like every create.
-func (s *blueprintImporter) Import(ctx context.Context, actor, tenantID string, in usecase.ImportBlueprintInput) (usecase.BlueprintDetail, error) {
+func (s *blueprintImporter) Import(ctx context.Context, in input.BlueprintImporter) (output.BlueprintImporter, error) {
 	name, err := model.CleanName("name", in.Name)
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintImporter{}, err
 	}
-	if err := validImportFile(in.File, in.Unit, in.Convert); err != nil {
-		return usecase.BlueprintDetail{}, err
+	if err := validImportFile(model.Upload(in.File), in.Unit, model.ConvertOptions(in.Convert)); err != nil {
+		return output.BlueprintImporter{}, err
 	}
 	if in.PlanIndex < 1 {
-		return usecase.BlueprintDetail{}, model.Invalid("plan must be 1 or more")
+		return output.BlueprintImporter{}, model.Invalid("plan must be 1 or more")
 	}
-	fileName, err := model.CleanName("file name", in.File.Name)
+	fileName, err := model.CleanName("file name", model.Upload(in.File).Name)
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintImporter{}, err
 	}
-	if err := requireBlueprintCreate(ctx, s.projects, s.authz, actor, tenantID, in.ProjectID); err != nil {
-		return usecase.BlueprintDetail{}, err
+	if err := requireBlueprintCreate(ctx, s.projects, s.authz, in.Actor, in.TenantID, in.ProjectID); err != nil {
+		return output.BlueprintImporter{}, err
 	}
-	dxf, conv, err := importableDXF(ctx, s.engine, in.File, in.Convert)
+	dxf, conv, err := importableDXF(ctx, s.engine, model.Upload(in.File), model.ConvertOptions(in.Convert))
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintImporter{}, err
 	}
 	unit := in.Unit
 	if conv != nil {
@@ -59,7 +61,7 @@ func (s *blueprintImporter) Import(ctx context.Context, actor, tenantID string, 
 	}
 	res, err := s.engine.ImportDXF(ctx, dxf, unit)
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintImporter{}, err
 	}
 	res.Conversion = conv
 	var plan *model.BlueprintImportPlan
@@ -69,34 +71,34 @@ func (s *blueprintImporter) Import(ctx context.Context, actor, tenantID string, 
 		}
 	}
 	if plan == nil {
-		return usecase.BlueprintDetail{}, model.Invalid("the file has %d plan(s); plan %d does not exist", len(res.Plans), in.PlanIndex)
+		return output.BlueprintImporter{}, model.Invalid("the file has %d plan(s); plan %d does not exist", len(res.Plans), in.PlanIndex)
 	}
 
 	// what is kept is the DXF: the upload itself, or the one the engine drew from the PDF/image (the picture is dropped)
 	sum := sha256.Sum256(dxf.Data)
 	size := int64(len(dxf.Data))
-	b := model.Blueprint{ID: s.ids.NewID(), TenantID: tenantID, ProjectID: in.ProjectID, Name: name, CurrentVersion: 1,
-		SourceKind: model.BlueprintSourceImport, CreatedBy: actor,
-		Source: &model.BlueprintSource{Name: fileName, MimeType: in.File.MimeType, ByteSize: int64(len(in.File.Data))}}
+	b := model.Blueprint{ID: s.ids.NewID(), TenantID: in.TenantID, ProjectID: in.ProjectID, Name: name, CurrentVersion: 1,
+		SourceKind: model.BlueprintSourceImport, CreatedBy: in.Actor,
+		Source: &model.BlueprintSource{Name: fileName, MimeType: model.Upload(in.File).MimeType, ByteSize: int64(len(model.Upload(in.File).Data))}}
 	v := model.BlueprintVersion{BlueprintID: b.ID, Version: 1, Kind: model.BlueprintVersionImport, Message: "imported " + fileName,
-		Brief: json.RawMessage("null"), Model: plan.Model, Checks: plan.Checks, Notes: importNotes(res, *plan), OK: plan.OK, CreatedBy: actor}
+		Brief: json.RawMessage("null"), Model: plan.Model, Checks: plan.Checks, Notes: importNotes(res, *plan), OK: plan.OK, CreatedBy: in.Actor}
 	orig := model.BlueprintOriginal{BlueprintID: b.ID, Version: 1, Name: dxf.Name, MimeType: model.DXFMimeType, ByteSize: size,
 		SHA256: hex.EncodeToString(sum[:]), Data: dxf.Data}
-	owner := model.OwnerGrant(s.ids.NewID(), tenantID, model.ObjectTypeBlueprint, b.ID, actor)
-	if err := s.blueprints.CreateImported(ctx, b, v, owner, orig); err != nil {
-		return usecase.BlueprintDetail{}, err
+	owner := model.OwnerGrant(s.ids.NewID(), in.TenantID, model.ObjectTypeBlueprint, b.ID, in.Actor)
+	if err := s.blueprints.CreateImported(ctx, model.CreateImportedBlueprintParams{Blueprint: b, Version: v, Owner: owner, Original: orig}); err != nil {
+		return output.BlueprintImporter{}, err
 	}
 	err = s.guard.Grant(ctx, s.relations.Created(b), nil, func(ctx context.Context) error {
 		return s.blueprints.Delete(ctx, b.ID)
 	})
 	if err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintImporter{}, err
 	}
 	if b, err = s.blueprints.Get(ctx, b.ID); err != nil {
-		return usecase.BlueprintDetail{}, err
+		return output.BlueprintImporter{}, err
 	}
 	v, err = s.blueprints.GetVersion(ctx, b.ID, 1)
-	return usecase.BlueprintDetail{Blueprint: b, Version: v}, err
+	return output.BlueprintImporter{BlueprintDetail: blueprintDetailOutput(blueprintDetail{Blueprint: b, Version: v})}, err
 }
 
 // importNotes are the lines shown under the version: which plan, the unit, and what the engine warned about.

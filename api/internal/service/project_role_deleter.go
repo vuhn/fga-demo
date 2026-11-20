@@ -8,41 +8,42 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
 	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type projectRoleDeleter struct {
 	projects  gateway.ProjectGateway
 	roles     gateway.ProjectRoleGateway
 	relations gateway.ProjectRoleRelationGateway
-	authz     usecase.Authorizer
+	authz     helper.Authorizer
 	guard     helper.WriteGuard
 }
 
-func NewProjectRoleDeleter(projects gateway.ProjectGateway, roles gateway.ProjectRoleGateway, relations gateway.ProjectRoleRelationGateway, authz usecase.Authorizer, guard helper.WriteGuard) usecase.ProjectRoleDeleter {
+func NewProjectRoleDeleter(projects gateway.ProjectGateway, roles gateway.ProjectRoleGateway, relations gateway.ProjectRoleRelationGateway, authz helper.Authorizer, guard helper.WriteGuard) usecase.ProjectRoleDeleter {
 	return &projectRoleDeleter{projects: projects, roles: roles, relations: relations, authz: authz, guard: guard}
 }
 
 // Delete removes the role's tuples first, then the row. A role still held by
 // project members cannot be deleted. Platform only.
-func (s *projectRoleDeleter) Delete(ctx context.Context, actor, tenantID, projectID, roleID string) error {
-	if err := s.authz.RequirePlatform(ctx, actor); err != nil {
+func (s *projectRoleDeleter) Delete(ctx context.Context, in input.ProjectRoleDeleter) error {
+	if err := s.authz.RequirePlatform(ctx, in.Actor); err != nil {
 		return err
 	}
-	if _, err := loadProject(ctx, s.projects, tenantID, projectID); err != nil {
+	if _, err := loadProject(ctx, s.projects, in.TenantID, in.ProjectID); err != nil {
 		return err
 	}
-	role, err := s.roles.Get(ctx, projectID, roleID)
+	role, err := s.roles.Get(ctx, in.ProjectID, in.RoleID)
 	if err != nil {
 		return err
 	}
 	if len(role.Assignees) > 0 {
 		return fmt.Errorf("%w: role is assigned to project members", model.ErrConflict)
 	}
-	tuples, err := s.relations.Removal(projectID, roleID, role.Affiliation, role.Permissions)
+	tuples, err := s.relations.Removal(model.RemoveProjectRoleParams{ProjectID: in.ProjectID, RoleID: in.RoleID, Affiliation: role.Affiliation, Permissions: role.Permissions})
 	if err != nil {
 		return err
 	}
 	return s.guard.Revoke(ctx, tuples, tuples, func(ctx context.Context) error {
-		return s.roles.Delete(ctx, projectID, roleID)
+		return s.roles.Delete(ctx, in.ProjectID, in.RoleID)
 	})
 }

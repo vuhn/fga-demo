@@ -13,7 +13,7 @@ type BlueprintGateway interface {
 	Create(ctx context.Context, b model.Blueprint, v model.BlueprintVersion, owner model.Grant) error
 	// CreateImported is Create plus the original file, in the same transaction. The blueprint's own Source is
 	// what is recorded as the source (the original file for an import, the sketch for a created plan, or none).
-	CreateImported(ctx context.Context, b model.Blueprint, v model.BlueprintVersion, owner model.Grant, original model.BlueprintOriginal) error
+	CreateImported(ctx context.Context, p model.CreateImportedBlueprintParams) error
 	// GetOriginal returns the stored file of a version; ErrNotFound when it has none.
 	GetOriginal(ctx context.Context, id string, version int) (model.BlueprintOriginal, error)
 	// FindOriginal returns the newest stored file of the blueprint (the one its edits are written back into);
@@ -65,15 +65,15 @@ type BlueprintAgent interface {
 	BriefFromText(ctx context.Context, prompt string) (model.BlueprintDraft, error)
 	// Revise turns a chat message into edits on the brief and rebuilds it.
 	// history is the earlier chat messages, oldest first.
-	Revise(ctx context.Context, brief, previous []byte, message string, history []string) (model.BlueprintOutcome, error)
+	Revise(ctx context.Context, p model.ReviseBlueprintParams) (model.BlueprintOutcome, error)
 	// ReviseStream is Revise that reports each step to onProgress while it
 	// works. An error returned before the first callback is the same as
 	// Revise's (the caller can still answer with a plain status).
-	ReviseStream(ctx context.Context, brief, previous []byte, message string, history []string, onProgress func(model.BlueprintProgress)) (model.BlueprintOutcome, error)
+	ReviseStream(ctx context.Context, p model.ReviseBlueprintParams, onProgress func(model.BlueprintProgress)) (model.BlueprintOutcome, error)
 	// RevisePlan and RevisePlanStream are the same for an imported plan, which has no brief: the message
 	// becomes edits on the stored model (rename, fixtures, door and window widths).
-	RevisePlan(ctx context.Context, model []byte, message string, history []string) (model.BlueprintOutcome, error)
-	RevisePlanStream(ctx context.Context, model []byte, message string, history []string, onProgress func(model.BlueprintProgress)) (model.BlueprintOutcome, error)
+	RevisePlan(ctx context.Context, p model.RevisePlanParams) (model.BlueprintOutcome, error)
+	RevisePlanStream(ctx context.Context, p model.RevisePlanParams, onProgress func(model.BlueprintProgress)) (model.BlueprintOutcome, error)
 	// Review lets the reviewer fix the brief's failed checks in up
 	// to three rounds, keeping a round only when the issue score drops.
 	Review(ctx context.Context, brief, previous []byte, history []string) (model.BlueprintOutcome, error)

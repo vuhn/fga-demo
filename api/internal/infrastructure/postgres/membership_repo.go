@@ -69,8 +69,8 @@ func (r *MembershipRepo) Insert(ctx context.Context, m model.Membership) error {
 	return mapErr(err)
 }
 
-func (r *MembershipRepo) UpdateRole(ctx context.Context, tenantID, userID, role, customRoleID string) error {
-	tag, err := r.pool.Exec(ctx, `UPDATE tenant_members SET role = $3, tenant_role_id = NULLIF($4, '')::uuid WHERE tenant_id = $1 AND user_id = $2`, tenantID, userID, role, customRoleID)
+func (r *MembershipRepo) UpdateRole(ctx context.Context, p model.UpdateMemberRoleParams) error {
+	tag, err := r.pool.Exec(ctx, `UPDATE tenant_members SET role = $3, tenant_role_id = NULLIF($4, '')::uuid WHERE tenant_id = $1 AND user_id = $2`, p.TenantID, p.UserID, p.Role, p.CustomRoleID)
 	if err != nil {
 		return mapErr(err)
 	}

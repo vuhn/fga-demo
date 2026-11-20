@@ -8,51 +8,56 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type estimateGetter struct {
 	blueprints gateway.BlueprintGateway
 	estimates  gateway.BlueprintEstimateGateway
-	authz      usecase.Authorizer
+	authz      helper.Authorizer
 }
 
-func NewEstimateGetter(blueprints gateway.BlueprintGateway, estimates gateway.BlueprintEstimateGateway, authz usecase.Authorizer) usecase.EstimateGetter {
+func NewEstimateGetter(blueprints gateway.BlueprintGateway, estimates gateway.BlueprintEstimateGateway, authz helper.Authorizer) usecase.EstimateGetter {
 	return &estimateGetter{blueprints: blueprints, estimates: estimates, authz: authz}
 }
 
 // Get returns a finished estimate. It derives from the plan geometry, which can_view already exposes, so
 // reading needs can_view (404 when the caller cannot see the blueprint).
-func (s *estimateGetter) Get(ctx context.Context, actor, tenantID, blueprintID, id string) (model.BlueprintEstimate, error) {
-	if _, err := loadBlueprint(ctx, s.blueprints, tenantID, blueprintID); err != nil {
-		return model.BlueprintEstimate{}, err
+func (s *estimateGetter) Get(ctx context.Context, in input.EstimateGetter) (output.EstimateGetter, error) {
+	if _, err := loadBlueprint(ctx, s.blueprints, in.TenantID, in.BlueprintID); err != nil {
+		return output.EstimateGetter{}, err
 	}
-	if err := s.authz.RequireVisible(ctx, actor, "can_view", model.ObjectTypeBlueprint, blueprintID); err != nil {
-		return model.BlueprintEstimate{}, err
+	if err := s.authz.RequireVisible(ctx, in.Actor, "can_view", model.ObjectTypeBlueprint, in.BlueprintID); err != nil {
+		return output.EstimateGetter{}, err
 	}
-	if err := model.RequireUUID("id", id); err != nil {
-		return model.BlueprintEstimate{}, err
+	if err := model.RequireUUID("id", in.ID); err != nil {
+		return output.EstimateGetter{}, err
 	}
-	return s.estimates.Get(ctx, blueprintID, id)
+	got, err := s.estimates.Get(ctx, in.BlueprintID, in.ID)
+	return output.EstimateGetter{BlueprintEstimate: blueprintEstimateOutput(got)}, err
 }
 
 type estimateLister struct {
 	blueprints gateway.BlueprintGateway
 	estimates  gateway.BlueprintEstimateGateway
-	authz      usecase.Authorizer
+	authz      helper.Authorizer
 }
 
-func NewEstimateLister(blueprints gateway.BlueprintGateway, estimates gateway.BlueprintEstimateGateway, authz usecase.Authorizer) usecase.EstimateLister {
+func NewEstimateLister(blueprints gateway.BlueprintGateway, estimates gateway.BlueprintEstimateGateway, authz helper.Authorizer) usecase.EstimateLister {
 	return &estimateLister{blueprints: blueprints, estimates: estimates, authz: authz}
 }
 
-func (s *estimateLister) List(ctx context.Context, actor, tenantID, blueprintID string) ([]model.BlueprintEstimate, error) {
-	if _, err := loadBlueprint(ctx, s.blueprints, tenantID, blueprintID); err != nil {
-		return nil, err
+func (s *estimateLister) List(ctx context.Context, in input.EstimateLister) (output.EstimateLister, error) {
+	if _, err := loadBlueprint(ctx, s.blueprints, in.TenantID, in.BlueprintID); err != nil {
+		return output.EstimateLister{}, err
 	}
-	if err := s.authz.RequireVisible(ctx, actor, "can_view", model.ObjectTypeBlueprint, blueprintID); err != nil {
-		return nil, err
+	if err := s.authz.RequireVisible(ctx, in.Actor, "can_view", model.ObjectTypeBlueprint, in.BlueprintID); err != nil {
+		return output.EstimateLister{}, err
 	}
-	return s.estimates.ListByBlueprint(ctx, blueprintID)
+	got, err := s.estimates.ListByBlueprint(ctx, in.BlueprintID)
+	return output.EstimateLister{Items: mapOutput(got, blueprintEstimateOutput)}, err
 }
 
 // estimateTotals reads the three totals (VND, VAT included) out of the engine's estimate JSON.

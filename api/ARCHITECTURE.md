@@ -17,20 +17,13 @@ flowchart LR
 
 ## Layers
 
-Dependencies point inward. Paths are under `internal/`.
-
-```text
-handler/http  ->  usecase (interfaces)  ->  domain/model
-service       ->  usecase, usecase/helper, domain/gateway, domain/model
-infrastructure -> domain/gateway, domain/model
-cmd/api/wire.go builds infrastructure, services, handlers and injects them
-```
+The layer structure, dependency direction and rules are the common standard of every service: [docs/harness/layer-structure.md](../docs/harness/layer-structure.md). This section is the API's instance of it, with the details specific to Go. Paths are under `internal/`; `cmd/api/wire.go` is the composition root.
 
 | Layer | Responsibility |
 | --- | --- |
 | `domain/model` | Business models (entities), value types, sentinel errors. Stdlib only. |
 | `domain/gateway` | Data-access interfaces (Postgres repos, OpenFGA). |
-| `usecase`, `usecase/helper` | One interface per operation (`FolderCreator`), plus shared rule interfaces (`WriteGuard`, `SharePolicy`). |
+| `usecase`, `usecase/input`, `usecase/output`, `usecase/helper` | One interface per operation (`FolderCreator`), each method `Create(ctx, in input.FolderCreator) (output.FolderCreator, error)`; inputs and outputs sit in one file per domain (`usecase/input/folder.go`, `usecase/output/folder.go`), shapes shared by several usecases in the same file: `ctx` is the only param outside the input struct (actor, tenant id and ids live in it) and the output has its own copied fields, never a `domain/model` type. Shared rule interfaces (`Authorizer`, `WriteGuard`, `SharePolicy`) sit in `usecase/helper` and are not operations. A gateway method with more than 3 params after `ctx` takes a `model.<Action><Model>Params` struct. |
 | `service` | Implementations, one file per operation (`folder_creator.go`). Business logic only. |
 | `infrastructure/postgres` | pgx repos: the display record. |
 | `infrastructure/fga` | OpenFGA client, model bootstrap, and pure tuple builders. The only place tuples are formatted. |
@@ -41,17 +34,15 @@ cmd/api/wire.go builds infrastructure, services, handlers and injects them
 | `handler/http/mapper/<domain>_mapper.go` | The domain's JSON DTOs and the conversions model <-> DTO (views out, shared request bodies in). Handlers never hold a `...View` function or a `...JSON` type. |
 | `seed` | The fixed demo world, shared by `cmd/seed` and the integration tests. |
 
-Rules:
+API-specific rules (the general ones are in the standard above):
 
-- `domain`, `usecase`, and `service` never import Gin, pgx, or the OpenFGA SDK.
-- Constructors take interfaces; `cmd/api/wire.go` is the only place that names concrete types. A new operation is a usecase interface, a service file, and wiring.
 - **Each domain is separate in every layer.** Folder, document, album, photo, blueprint (and user, tenant, product, member, role) own their model, gateways, repos, relation builder, usecases, services, handler, and routes. Do not merge them behind a shared abstraction. The only shared code is cross-domain rules in `service/helper.go` and SQL plumbing in `postgres/grant_rows.go`. Member removal also drops that person's custom-role assignee tuples.
 
 ## Request lifecycle
 
 1. Middleware: recovery and logging, CORS, JWT authentication (everything except login and `/healthz`), tenant header parsing. The middleware does not check membership.
 2. The handler reads the actor (JWT `sub`) and tenant (`X-Tenant-ID`), calls one usecase method, and maps errors to HTTP statuses.
-3. The service validates, then authorizes through `usecase.Authorizer` (`Require` 403, `RequireVisible` 404, `PlatformOr`, `Permissions`).
+3. The service validates, then authorizes through `helper.Authorizer` (`Require` 403, `RequireVisible` 404, `PlatformOr`, `Permissions`).
 4. Reads: ListObjects, then `WHERE tenant_id = $1 AND id = ANY($2)`. Never load a whole tenant and filter in Go.
 5. Writes: Postgres rows and OpenFGA tuples, ordered by `WriteGuard`.
 6. Blueprints: the engine (LLM and geometry) is called after the Check and before any write, so a slow or failed LLM call writes nothing. Versions are Postgres rows guarded by `base_version` (409 when stale); they never touch OpenFGA. Estimate sessions follow the same order (Check `can_edit`, engine, then one write guarded by the session's turn counter) and stream the agent's events as SSE; estimates are read with `can_view`. The estimate domain has its own entity, gateways, repos, usecases, services and handler.

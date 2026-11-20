@@ -4,23 +4,26 @@ import (
 	"context"
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
-	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type documentGrantLister struct {
 	documents gateway.DocumentGateway
 	grants    gateway.DocumentGrantGateway
-	authz     usecase.Authorizer
+	authz     helper.Authorizer
 }
 
-func NewDocumentGrantLister(documents gateway.DocumentGateway, grants gateway.DocumentGrantGateway, authz usecase.Authorizer) usecase.DocumentGrantLister {
+func NewDocumentGrantLister(documents gateway.DocumentGateway, grants gateway.DocumentGrantGateway, authz helper.Authorizer) usecase.DocumentGrantLister {
 	return &documentGrantLister{documents: documents, grants: grants, authz: authz}
 }
 
-func (s *documentGrantLister) ListGrants(ctx context.Context, actor, tenantID, id string) ([]model.Grant, error) {
-	if err := requireDocumentShare(ctx, s.documents, s.authz, actor, tenantID, id); err != nil {
-		return nil, err
+func (s *documentGrantLister) ListGrants(ctx context.Context, in input.DocumentGrantLister) (output.DocumentGrantLister, error) {
+	if err := requireDocumentShare(ctx, s.documents, s.authz, in.Actor, in.TenantID, in.ID); err != nil {
+		return output.DocumentGrantLister{}, err
 	}
-	return s.grants.List(ctx, id)
+	got, err := s.grants.List(ctx, in.ID)
+	return output.DocumentGrantLister{Items: mapOutput(got, grantOutput)}, err
 }

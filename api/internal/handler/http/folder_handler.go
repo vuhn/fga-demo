@@ -8,6 +8,7 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 // FolderUsecases is everything the folder handler calls.
@@ -43,8 +44,8 @@ func (h *FolderHandler) Register(r Routes) {
 }
 
 func (h *FolderHandler) list(c *gin.Context) {
-	fs, err := h.uc.Lister.List(c, actor(c), tenant(c), c.Query("project_id"))
-	respond(c, http.StatusOK, mapSlice(fs, mapper.VisibleFolderView), err)
+	fs, err := h.uc.Lister.List(c, input.FolderLister{Actor: actor(c), TenantID: tenant(c), ProjectID: c.Query("project_id")})
+	respond(c, http.StatusOK, mapSlice(fs.Items, mapper.VisibleFolderView), err)
 }
 
 func (h *FolderHandler) create(c *gin.Context) {
@@ -61,13 +62,13 @@ func (h *FolderHandler) create(c *gin.Context) {
 		writeErr(c, model.Invalid("is_private is required"))
 		return
 	}
-	f, err := h.uc.Creator.Create(c, actor(c), tenant(c), usecase.CreateFolderInput{ProjectID: body.ProjectID, Name: body.Name, ParentID: body.ParentID, IsPrivate: *body.IsPrivate})
-	respond(c, http.StatusCreated, mapper.FolderView(f), err)
+	f, err := h.uc.Creator.Create(c, input.FolderCreator{Actor: actor(c), TenantID: tenant(c), ProjectID: body.ProjectID, Name: body.Name, ParentID: body.ParentID, IsPrivate: *body.IsPrivate})
+	respond(c, http.StatusCreated, mapper.FolderView(f.Folder), err)
 }
 
 func (h *FolderHandler) get(c *gin.Context) {
-	f, err := h.uc.Getter.Get(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapper.VisibleFolderView(f), err)
+	f, err := h.uc.Getter.Get(c, input.FolderGetter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapper.VisibleFolderView(f.Visible), err)
 }
 
 func (h *FolderHandler) rename(c *gin.Context) {
@@ -75,8 +76,8 @@ func (h *FolderHandler) rename(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	f, err := h.uc.Renamer.Rename(c, actor(c), tenant(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, mapper.FolderView(f), err)
+	f, err := h.uc.Renamer.Rename(c, input.FolderRenamer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Name: body.Name})
+	respond(c, http.StatusOK, mapper.FolderView(f.Folder), err)
 }
 
 func (h *FolderHandler) setVisibility(c *gin.Context) {
@@ -88,22 +89,22 @@ func (h *FolderHandler) setVisibility(c *gin.Context) {
 		writeErr(c, model.Invalid("is_private is required"))
 		return
 	}
-	f, err := h.uc.VisibilitySetter.SetVisibility(c, actor(c), tenant(c), c.Param("id"), *body.IsPrivate)
-	respond(c, http.StatusOK, mapper.FolderView(f), err)
+	f, err := h.uc.VisibilitySetter.SetVisibility(c, input.FolderVisibilitySetter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), IsPrivate: *body.IsPrivate})
+	respond(c, http.StatusOK, mapper.FolderView(f.Folder), err)
 }
 
 func (h *FolderHandler) delete(c *gin.Context) {
-	noContent(c, h.uc.Deleter.Delete(c, actor(c), tenant(c), c.Param("id")))
+	noContent(c, h.uc.Deleter.Delete(c, input.FolderDeleter{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")}))
 }
 
 func (h *FolderHandler) listGrants(c *gin.Context) {
-	gs, err := h.uc.GrantLister.ListGrants(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(gs, mapper.GrantView), err)
+	gs, err := h.uc.GrantLister.ListGrants(c, input.FolderGrantLister{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(gs.Items, mapper.GrantView), err)
 }
 
 func (h *FolderHandler) listShareCandidates(c *gin.Context) {
-	ms, err := h.uc.CandidateLister.ListShareCandidates(c, actor(c), tenant(c), c.Param("id"))
-	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
+	ms, err := h.uc.CandidateLister.ListShareCandidates(c, input.FolderShareCandidateLister{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id")})
+	respond(c, http.StatusOK, mapSlice(ms.Items, mapper.MemberView), err)
 }
 
 func (h *FolderHandler) share(c *gin.Context) {
@@ -111,8 +112,8 @@ func (h *FolderHandler) share(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	g, err := h.uc.Sharer.Share(c, actor(c), tenant(c), c.Param("id"), body.Input())
-	respond(c, http.StatusCreated, mapper.GrantView(g), err)
+	g, err := h.uc.Sharer.Share(c, input.FolderSharer{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Relation: body.Relation, Subject: body.Subject, UserID: body.UserID})
+	respond(c, http.StatusCreated, mapper.GrantView(g.Grant), err)
 }
 
 func (h *FolderHandler) revoke(c *gin.Context) {
@@ -120,5 +121,5 @@ func (h *FolderHandler) revoke(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	noContent(c, h.uc.ShareRevoker.Revoke(c, actor(c), tenant(c), c.Param("id"), body.Input()))
+	noContent(c, h.uc.ShareRevoker.Revoke(c, input.FolderShareRevoker{Actor: actor(c), TenantID: tenant(c), ID: c.Param("id"), Relation: body.Relation, Subject: body.Subject, UserID: body.UserID}))
 }

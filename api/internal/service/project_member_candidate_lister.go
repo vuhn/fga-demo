@@ -6,45 +6,48 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type projectMemberCandidateLister struct {
 	projects gateway.ProjectGateway
 	tenant   gateway.MembershipGateway
 	members  gateway.ProjectMemberGateway
-	authz    usecase.Authorizer
+	authz    helper.Authorizer
 }
 
-func NewProjectMemberCandidateLister(projects gateway.ProjectGateway, tenant gateway.MembershipGateway, members gateway.ProjectMemberGateway, authz usecase.Authorizer) usecase.ProjectMemberCandidateLister {
+func NewProjectMemberCandidateLister(projects gateway.ProjectGateway, tenant gateway.MembershipGateway, members gateway.ProjectMemberGateway, authz helper.Authorizer) usecase.ProjectMemberCandidateLister {
 	return &projectMemberCandidateLister{projects: projects, tenant: tenant, members: members, authz: authz}
 }
 
 // ListCandidates needs the project member manager check; the filter that drops
 // current project members is display only.
-func (s *projectMemberCandidateLister) ListCandidates(ctx context.Context, actor, tenantID, projectID string) ([]model.Membership, error) {
-	if _, err := loadProject(ctx, s.projects, tenantID, projectID); err != nil {
-		return nil, err
+func (s *projectMemberCandidateLister) ListCandidates(ctx context.Context, in input.ProjectMemberCandidateLister) (output.ProjectMemberCandidateLister, error) {
+	if _, err := loadProject(ctx, s.projects, in.TenantID, in.ProjectID); err != nil {
+		return output.ProjectMemberCandidateLister{}, err
 	}
-	if err := requireProjectManager(ctx, s.authz, actor, projectID); err != nil {
-		return nil, err
+	if err := requireProjectManager(ctx, s.authz, in.Actor, in.ProjectID); err != nil {
+		return output.ProjectMemberCandidateLister{}, err
 	}
-	current, err := s.members.List(ctx, projectID)
+	current, err := s.members.List(ctx, in.ProjectID)
 	if err != nil {
-		return nil, err
+		return output.ProjectMemberCandidateLister{}, err
 	}
-	in := map[string]bool{}
+	members := map[string]bool{}
 	for _, m := range current {
-		in[m.UserID] = true
+		members[m.UserID] = true
 	}
-	all, err := s.tenant.List(ctx, tenantID, "")
+	all, err := s.tenant.List(ctx, in.TenantID, "")
 	if err != nil {
-		return nil, err
+		return output.ProjectMemberCandidateLister{}, err
 	}
 	out := make([]model.Membership, 0, len(all))
 	for _, m := range all {
-		if !in[m.UserID] {
+		if !members[m.UserID] {
 			out = append(out, m)
 		}
 	}
-	return out, nil
+	return output.ProjectMemberCandidateLister{Items: mapOutput(out, membershipOutput)}, nil
 }

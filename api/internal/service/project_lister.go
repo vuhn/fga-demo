@@ -6,26 +6,30 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type projectLister struct {
 	projects gateway.ProjectGateway
-	authz    usecase.Authorizer
+	authz    helper.Authorizer
 }
 
-func NewProjectLister(projects gateway.ProjectGateway, authz usecase.Authorizer) usecase.ProjectLister {
+func NewProjectLister(projects gateway.ProjectGateway, authz helper.Authorizer) usecase.ProjectLister {
 	return &projectLister{projects: projects, authz: authz}
 }
 
 // List is ListObjects can_view, then a Postgres load of those ids in the tenant.
-func (s *projectLister) List(ctx context.Context, actor, tenantID string) ([]model.Visible[model.Project], error) {
-	ids, err := s.authz.ListObjectIDs(ctx, actor, "can_view", model.ObjectTypeProject)
+func (s *projectLister) List(ctx context.Context, in input.ProjectLister) (output.ProjectLister, error) {
+	ids, err := s.authz.ListObjectIDs(ctx, in.Actor, "can_view", model.ObjectTypeProject)
 	if err != nil || len(ids) == 0 {
-		return []model.Visible[model.Project]{}, err
+		return output.ProjectLister{}, err
 	}
-	ps, err := s.projects.ListByIDs(ctx, tenantID, ids)
+	ps, err := s.projects.ListByIDs(ctx, in.TenantID, ids)
 	if err != nil {
-		return nil, err
+		return output.ProjectLister{}, err
 	}
-	return withPerms(ctx, s.authz, actor, model.ObjectTypeProject, ps, projectID)
+	got, err := withPerms(ctx, s.authz, in.Actor, model.ObjectTypeProject, ps, projectID)
+	return output.ProjectLister{Items: mapVisibleOutput(got, projectOutput)}, err
 }

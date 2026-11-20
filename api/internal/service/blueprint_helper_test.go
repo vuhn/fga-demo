@@ -8,7 +8,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
-	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 func TestRequireBriefRefusesImportedPlans(t *testing.T) {
@@ -82,8 +82,8 @@ func TestImportableDXF(t *testing.T) {
 func TestImportDeniedNeverReachesTheEngineOrStorage(t *testing.T) {
 	bp, eng := &creatingBlueprints{fakeBlueprints: &fakeBlueprints{brief: "null"}}, &convertEngine{}
 	imp := NewBlueprintImporter(fakeProjects{}, bp, fakeRelations{}, eng, &fakeAuthz{deny: true}, fakeGuard{}, fakeIDs{})
-	_, err := imp.Import(context.Background(), "u", "t", usecase.ImportBlueprintInput{ProjectID: projID, Name: "House", PlanIndex: 1,
-		File: model.Upload{Name: "p.png", MimeType: model.PNGMimeType, Data: []byte("x")}})
+	_, err := imp.Import(context.Background(), input.BlueprintImporter{Actor: "u", TenantID: "t", ProjectID: projID, Name: "House", PlanIndex: 1,
+		File: input.Upload{Name: "p.png", MimeType: model.PNGMimeType, Data: []byte("x")}})
 	if !errors.Is(err, model.ErrForbidden) || eng.called || len(bp.created) != 0 {
 		t.Fatalf("err %v, engine called %v, stored %d", err, eng.called, len(bp.created))
 	}

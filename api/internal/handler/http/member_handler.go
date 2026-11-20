@@ -7,6 +7,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type MemberHandler struct {
@@ -31,8 +32,8 @@ func (h *MemberHandler) list(c *gin.Context) {
 	if !pathUUID(c, "id") {
 		return
 	}
-	ms, err := h.lister.List(c, actor(c), c.Param("id"), c.Query("affiliation"))
-	respond(c, http.StatusOK, mapSlice(ms, mapper.MemberView), err)
+	ms, err := h.lister.List(c, input.MemberLister{Actor: actor(c), TenantID: c.Param("id"), Affiliation: c.Query("affiliation")})
+	respond(c, http.StatusOK, mapSlice(ms.Items, mapper.MemberView), err)
 }
 
 func (h *MemberHandler) add(c *gin.Context) {
@@ -47,8 +48,8 @@ func (h *MemberHandler) add(c *gin.Context) {
 	if !pathUUID(c, "id") || !bind(c, &body) {
 		return
 	}
-	m, err := h.adder.Add(c, actor(c), c.Param("id"), usecase.AddMemberInput{UserID: body.UserID, Email: body.Email, Name: body.Name, Password: body.Password, CompanyID: body.CompanyID, Role: body.Role})
-	respond(c, http.StatusCreated, mapper.MemberView(m), err)
+	m, err := h.adder.Add(c, input.MemberAdder{Actor: actor(c), TenantID: c.Param("id"), UserID: body.UserID, Email: body.Email, Name: body.Name, Password: body.Password, CompanyID: body.CompanyID, Role: body.Role})
+	respond(c, http.StatusCreated, mapper.MemberView(m.Membership), err)
 }
 
 func (h *MemberHandler) changeRole(c *gin.Context) {
@@ -58,13 +59,13 @@ func (h *MemberHandler) changeRole(c *gin.Context) {
 	if !pathUUID(c, "id") || !pathUUID(c, "userId") || !bind(c, &body) {
 		return
 	}
-	m, err := h.roleChanger.ChangeRole(c, actor(c), c.Param("id"), c.Param("userId"), body.Role)
-	respond(c, http.StatusOK, mapper.MemberView(m), err)
+	m, err := h.roleChanger.ChangeRole(c, input.MemberRoleChanger{Actor: actor(c), TenantID: c.Param("id"), UserID: c.Param("userId"), Role: body.Role})
+	respond(c, http.StatusOK, mapper.MemberView(m.Membership), err)
 }
 
 func (h *MemberHandler) remove(c *gin.Context) {
 	if !pathUUID(c, "id") || !pathUUID(c, "userId") {
 		return
 	}
-	noContent(c, h.remover.Remove(c, actor(c), c.Param("id"), c.Param("userId")))
+	noContent(c, h.remover.Remove(c, input.MemberRemover{Actor: actor(c), TenantID: c.Param("id"), UserID: c.Param("userId")}))
 }

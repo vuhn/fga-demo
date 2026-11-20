@@ -32,14 +32,14 @@ $hits" \
 fi
 
 # 3. Never permit anything by branching on role/affiliation strings.
-allow='member_helper.go|member_role_changer.go|member_assignment.go'
+allow='member_helper.go|member_role_changer.go|member_assignment.go|role_creator.go|project_role_creator.go'
 hits=$(grep -rnE '\.(Role|Affiliation) *(==|!=)|case +model\.(Role|Affiliation)' --include='*.go' api/internal/service api/internal/usecase api/internal/handler \
   | grep -v '_test\.go' | grep -vE "$allow")
 if [ -n "$hits" ]; then
   violation "branching on memberships.role/affiliation:
 $hits" \
   "role and affiliation are display labels; OpenFGA Check is the only allow/deny decision" \
-  "call usecase.Authorizer (Check/PlatformOr) with the decision-catalog relation instead; if this is a stored invariant, add the file to the allowlist in scripts/check-architecture.sh"
+  "call helper.Authorizer (Check/PlatformOr) with the decision-catalog relation instead; if this is a stored invariant, add the file to the allowlist in scripts/check-architecture.sh"
 fi
 
 # 4. Model stays allow-only.
@@ -81,7 +81,10 @@ $hits" \
     "move it to api/internal/handler/http/mapper/<domain>_mapper.go"
 fi
 
-# 8. Layer rules of the Python services (their own script; known violations are ratcheted down).
+# 8. Go shape rules (syntax tree): usecase input/output structs, own-field outputs, gateway params, business-layer imports.
+go run scripts/check-go-shape.go . || fail=1
+
+# 9. Layer rules of the Python services (their own script; known violations are ratcheted down).
 bash scripts/check-architecture-python.sh || fail=1
 
 if [ "$fail" -ne 0 ]; then

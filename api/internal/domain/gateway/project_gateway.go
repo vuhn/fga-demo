@@ -39,7 +39,7 @@ type ProjectRoleRelationGateway interface {
 	Permissions(projectID, roleID string, permissions []string) ([]model.Tuple, error)
 	Assignee(roleID, userID string) model.Tuple
 	// Removal is every tuple the role owns: anchors and grants.
-	Removal(projectID, roleID, affiliation string, permissions []string) ([]model.Tuple, error)
+	Removal(p model.RemoveProjectRoleParams) ([]model.Tuple, error)
 }
 
 // ProjectMemberGateway is the project_members display record. The row
@@ -50,7 +50,7 @@ type ProjectMemberGateway interface {
 	// ListForUser returns the user's memberships in every project of the tenant.
 	ListForUser(ctx context.Context, tenantID, userID string) ([]model.ProjectMember, error)
 	Insert(ctx context.Context, m model.ProjectMember) error
-	UpdateRole(ctx context.Context, projectID, userID, role, projectRoleID string) error
+	UpdateRole(ctx context.Context, p model.UpdateProjectMemberRoleParams) error
 	Delete(ctx context.Context, projectID, userID string) error
 }
 
@@ -58,7 +58,7 @@ type ProjectMemberGateway interface {
 type ProjectMemberRelationGateway interface {
 	// AssignRole validates the pair and returns the tuple for the role plus
 	// deletes for the other three built-in roles.
-	AssignRole(projectID, userID, affiliation, role string) (writes, deletes []model.Tuple, err error)
+	AssignRole(p model.AssignProjectMemberRoleParams) (writes, deletes []model.Tuple, err error)
 	// ClearRoles deletes all four built-in role tuples.
 	ClearRoles(projectID, userID string) []model.Tuple
 }

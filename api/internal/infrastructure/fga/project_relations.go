@@ -60,12 +60,12 @@ func (ProjectRoleRelations) Assignee(roleID, userID string) model.Tuple {
 }
 
 // Removal deletes the anchors and each grant.
-func (r ProjectRoleRelations) Removal(projectID, roleID, affiliation string, permissions []string) ([]model.Tuple, error) {
-	out, err := r.Created(projectID, roleID, affiliation)
+func (r ProjectRoleRelations) Removal(p model.RemoveProjectRoleParams) ([]model.Tuple, error) {
+	out, err := r.Created(p.ProjectID, p.RoleID, p.Affiliation)
 	if err != nil {
 		return nil, err
 	}
-	grants, err := r.Permissions(projectID, roleID, permissions)
+	grants, err := r.Permissions(p.ProjectID, p.RoleID, p.Permissions)
 	if err != nil {
 		return nil, err
 	}
@@ -82,15 +82,15 @@ func projectRoleTuple(projectID, userID, role string) model.Tuple {
 }
 
 // AssignRole writes the new role relation and deletes the other three.
-func (ProjectMemberRelations) AssignRole(projectID, userID, affiliation, role string) (writes, deletes []model.Tuple, err error) {
-	if err := model.CheckAffiliationRole(affiliation, role); err != nil {
+func (ProjectMemberRelations) AssignRole(p model.AssignProjectMemberRoleParams) (writes, deletes []model.Tuple, err error) {
+	if err := model.CheckAffiliationRole(p.Affiliation, p.Role); err != nil {
 		return nil, nil, err
 	}
 	for _, r := range model.AllRoles {
-		if r == role {
-			writes = append(writes, projectRoleTuple(projectID, userID, r))
+		if r == p.Role {
+			writes = append(writes, projectRoleTuple(p.ProjectID, p.UserID, r))
 		} else {
-			deletes = append(deletes, projectRoleTuple(projectID, userID, r))
+			deletes = append(deletes, projectRoleTuple(p.ProjectID, p.UserID, r))
 		}
 	}
 	return writes, deletes, nil

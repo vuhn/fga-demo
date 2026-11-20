@@ -1,9 +1,8 @@
 package mapper
 
 import (
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 	"time"
-
-	"github.com/vuhn/fga-demo/api/internal/domain/model"
 )
 
 type ProjectJSON struct {
@@ -14,11 +13,11 @@ type ProjectJSON struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-func ProjectView(p model.Project) ProjectJSON {
+func ProjectView(p output.Project) ProjectJSON {
 	return ProjectJSON{p.ID, p.TenantID, p.Name, p.CreatedBy, p.CreatedAt}
 }
 
-func VisibleProjectView(v model.Visible[model.Project]) map[string]any {
+func VisibleProjectView(v output.Visible[output.Project]) map[string]any {
 	p := v.Value
 	return map[string]any{
 		"id": p.ID, "tenant_id": p.TenantID, "name": p.Name, "created_by": p.CreatedBy, "created_at": p.CreatedAt,

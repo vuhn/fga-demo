@@ -6,32 +6,36 @@ import (
 	"github.com/vuhn/fga-demo/api/internal/domain/gateway"
 	"github.com/vuhn/fga-demo/api/internal/domain/model"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/helper"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
+	"github.com/vuhn/fga-demo/api/internal/usecase/output"
 )
 
 type folderLister struct {
 	folders gateway.FolderGateway
-	authz   usecase.Authorizer
+	authz   helper.Authorizer
 }
 
-func NewFolderLister(folders gateway.FolderGateway, authz usecase.Authorizer) usecase.FolderLister {
+func NewFolderLister(folders gateway.FolderGateway, authz helper.Authorizer) usecase.FolderLister {
 	return &folderLister{folders: folders, authz: authz}
 }
 
 // List is ListObjects can_view, then a Postgres load of those ids in the
 // tenant, with the caller's permissions on each.
-func (s *folderLister) List(ctx context.Context, actor, tenantID, projectID string) ([]model.Visible[model.Folder], error) {
-	if projectID != "" {
-		if err := model.RequireUUID("project_id", projectID); err != nil {
-			return nil, err
+func (s *folderLister) List(ctx context.Context, in input.FolderLister) (output.FolderLister, error) {
+	if in.ProjectID != "" {
+		if err := model.RequireUUID("project_id", in.ProjectID); err != nil {
+			return output.FolderLister{}, err
 		}
 	}
-	ids, err := s.authz.ListObjectIDs(ctx, actor, "can_view", model.ObjectTypeFolder)
+	ids, err := s.authz.ListObjectIDs(ctx, in.Actor, "can_view", model.ObjectTypeFolder)
 	if err != nil || len(ids) == 0 {
-		return []model.Visible[model.Folder]{}, err
+		return output.FolderLister{}, err
 	}
-	folders, err := s.folders.ListByIDs(ctx, tenantID, ids, projectID)
+	folders, err := s.folders.ListByIDs(ctx, in.TenantID, ids, in.ProjectID)
 	if err != nil {
-		return nil, err
+		return output.FolderLister{}, err
 	}
-	return withPerms(ctx, s.authz, actor, model.ObjectTypeFolder, folders, folderID)
+	got, err := withPerms(ctx, s.authz, in.Actor, model.ObjectTypeFolder, folders, folderID)
+	return output.FolderLister{Items: mapVisibleOutput(got, folderOutput)}, err
 }

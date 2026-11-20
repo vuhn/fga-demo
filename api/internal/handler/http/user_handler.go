@@ -7,6 +7,7 @@ import (
 
 	"github.com/vuhn/fga-demo/api/internal/handler/http/mapper"
 	"github.com/vuhn/fga-demo/api/internal/usecase"
+	"github.com/vuhn/fga-demo/api/internal/usecase/input"
 )
 
 type UserHandler struct {
@@ -26,8 +27,8 @@ func (h *UserHandler) Register(r Routes) {
 }
 
 func (h *UserHandler) list(c *gin.Context) {
-	us, err := h.lister.List(c, actor(c))
-	respond(c, http.StatusOK, mapSlice(us, mapper.UserView), err)
+	us, err := h.lister.List(c, input.UserLister{Actor: actor(c)})
+	respond(c, http.StatusOK, mapSlice(us.Items, mapper.UserView), err)
 }
 
 func (h *UserHandler) create(c *gin.Context) {
@@ -38,8 +39,8 @@ func (h *UserHandler) create(c *gin.Context) {
 	if !bind(c, &body) {
 		return
 	}
-	u, err := h.creator.Create(c, actor(c), usecase.CreateUserInput{Email: body.Email, Name: body.Name, Password: body.Password, CompanyID: body.CompanyID})
-	respond(c, http.StatusCreated, mapper.UserView(u), err)
+	u, err := h.creator.Create(c, input.UserCreator{Actor: actor(c), Email: body.Email, Name: body.Name, Password: body.Password, CompanyID: body.CompanyID})
+	respond(c, http.StatusCreated, mapper.UserView(u.User), err)
 }
 
 func (h *UserHandler) update(c *gin.Context) {
@@ -47,6 +48,6 @@ func (h *UserHandler) update(c *gin.Context) {
 	if !pathUUID(c, "id") || !bind(c, &body) {
 		return
 	}
-	u, err := h.updater.UpdateName(c, actor(c), c.Param("id"), body.Name)
-	respond(c, http.StatusOK, mapper.UserView(u), err)
+	u, err := h.updater.UpdateName(c, input.UserUpdater{Actor: actor(c), ID: c.Param("id"), Name: body.Name})
+	respond(c, http.StatusOK, mapper.UserView(u.User), err)
 }
