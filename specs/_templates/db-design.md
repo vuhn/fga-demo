@@ -25,5 +25,5 @@ Must not break the running system: old code keeps working against the new schema
 - [ ] `docs/database-schema.md`, `docs/seed-data.md` updated
 - [ ] Dry-run in a rolled-back transaction on the live schema
 
-## `breaking-ok` exceptions
-<each `-- breaking-ok: reason` used, and the release order that makes it safe>
+## `force-allow-breaking` exceptions
+<each `-- force-allow-breaking: reason` used, and the release order that makes it safe>
