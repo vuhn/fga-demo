@@ -2,11 +2,12 @@
 
 The Agent (`agent/`, gRPC :8091) owns every LLM call. It is stateless, has no auth and never sees a tenant or user id; only the API calls it, after its OpenFGA Checks. The model only *proposes* (a brief, edit operations, claims read from a message, search queries); the Engine's tools validate, repair and lay out, and code decides the flow. Contracts: `proto/fga/demo/agent/v1/agent.proto`, summary in `docs/service-contracts.md`. Run and env: `README.md`.
 
-```text
-API :8088 --gRPC--> Agent :8091 --gRPC tools--> Engine :8092
-                       |
-                       +--HTTP--> Ollama :11434 (language model)
-                       +--HTTPS-> web search and pages (price research only)
+```mermaid
+flowchart LR
+    api["API :8088"] -->|gRPC| agent["Agent :8091"]
+    agent -->|"gRPC tools"| engine["Engine :8092"]
+    agent -->|HTTP| ollama["Ollama :11434<br/>(language model)"]
+    agent -->|"HTTPS (price research only)"| web["Web search and pages"]
 ```
 
 ## Layers (dependencies point inward)

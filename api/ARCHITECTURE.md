@@ -4,14 +4,15 @@ The Go service (module `github.com/vuhn/fga-demo/api`, Gin, pgx, goose). It is t
 
 ## Network
 
-```text
-web :5173 --HTTP /api (Bearer JWT + X-Tenant-ID)--> API :8088
-API :8088 --pgx-------------> Postgres :5432   (db fgademo: display record)
-API :8088 --HTTP Check/BatchCheck/ListObjects/Write--> OpenFGA :8080
-API :8088 --gRPC (x-request-id)--> Agent :8091  (draft, revise, review, estimate chat)
-API :8088 --gRPC (x-request-id)--> Engine :8092 (layout, plan ops, DXF, render, takeoff)
-Agent :8091 --gRPC tools--> Engine :8092
-OpenFGA :8080 --SQL--> Postgres :5432          (db openfga)
+```mermaid
+flowchart LR
+    web["Web :5173"] -->|"HTTP /api<br/>Bearer JWT + X-Tenant-ID"| api["API :8088"]
+    api -->|"pgx<br/>db fgademo: display record"| pg[("Postgres :5432")]
+    api -->|"HTTP Check / BatchCheck /<br/>ListObjects / Write"| fga["OpenFGA :8080"]
+    api -->|"gRPC, x-request-id<br/>draft, revise, review, estimate chat"| agent["Agent :8091"]
+    api -->|"gRPC, x-request-id<br/>layout, plan ops, DXF, render, takeoff"| engine["Engine :8092"]
+    agent -->|"gRPC tools"| engine
+    fga -->|"SQL · db openfga"| pg
 ```
 
 ## Layers

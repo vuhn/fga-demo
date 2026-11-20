@@ -10,16 +10,16 @@ This file is the system overview. Each part has its own:
 
 ## System context
 
-```text
-browser :5173  (Vite dev server)
-    |  /api proxied
-    v
-Go API :8088
-    |                    \
-    v                     v
-Postgres :5432          OpenFGA :8080  (gRPC :8081, Playground :3000)     Engine :8092 (gRPC, host)
-  db fgademo              store "fga-demo"                                  Agent :8091 (gRPC, host) --> Ollama :11434
-  db openfga  <-----------'  (OpenFGA's own datastore)
+```mermaid
+flowchart LR
+    web["Web :5173<br/>(Vite dev server)"] -->|"HTTP /api (proxied)"| api["Go API :8088"]
+    api -->|"pgx · db fgademo"| pg[("Postgres :5432")]
+    api -->|"HTTP Check / ListObjects / Write<br/>store fga-demo"| fga["OpenFGA :8080<br/>(gRPC :8081, Playground :3000)"]
+    fga -->|"SQL · db openfga"| pg
+    api -->|gRPC| agent["Agent :8091<br/>(host)"]
+    api -->|gRPC| engine["Engine :8092<br/>(host)"]
+    agent -->|"gRPC tools"| engine
+    agent -->|HTTP| ollama["Ollama :11434"]
 ```
 
 | Piece | Role |

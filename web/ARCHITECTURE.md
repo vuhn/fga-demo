@@ -4,11 +4,13 @@ The React admin panel (Vite, React 19, TypeScript, Mantine 9, react-router-dom 6
 
 ## Network
 
-```text
-browser --> Vite dev server :5173 --proxy /api (5 min timeout)--> API :8088
-web calls only the API: JWT + X-Tenant-ID in, JSON / SSE / blobs out.
-It never reaches OpenFGA, Postgres, the Agent or the Engine.
+```mermaid
+flowchart LR
+    browser["Browser"] --> vite["Vite dev server :5173"]
+    vite -->|"proxy /api (5 min timeout)<br/>JWT + X-Tenant-ID in, JSON / SSE / blobs out"| api["API :8088"]
 ```
+
+The panel calls only the API. It never reaches OpenFGA, Postgres, the Agent or the Engine.
 
 ## Structure
 
