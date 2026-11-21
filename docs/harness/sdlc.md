@@ -10,7 +10,7 @@ Principle: the agent drafts and checks; a person approves at each gate. Skills g
 | 2 | System design | `system-design` | `system-design.md` (sequence + data flow) | `design-reviewer` | Approve design |
 | 3 | DB design | `db-design` | `db-design.md` (DDL, ER diagram, indexes, access paths) + migration | `design-reviewer`, `check-migrations.sh`, hook | Approve schema |
 | 4 | Plan | `plan-tasks` | `plan.md` (endpoint-sliced, merge-safe tasks, hours, deps, rollout) | `design-reviewer` | Approve plan |
-| 5 | Build | `build-task` + the service's skill (`go-api`, `python-agent`, `python-engine`) | PR per task, tests | `make check`, `authz-reviewer` | Code review (15-30 min) |
+| 5 | Build | `build-task` + the service's skill (`go-api`, `python-agent`, `python-engine`) | PR per task, tests | `make check`, `task-reviewer`, `authz-reviewer` | Task contract check, code review (15-30 min) |
 | 6 | Test | `test-plan` | test section of `plan.md` | `make verify-live` | Confirm manual results |
 | 7 | Release | `release-docs` | `release.md` | - | A person releases from the doc |
 | 8 | Monitor | `monitor-triage` | new `requirements.md`, `lessons.md` | - | Owner triages |
@@ -35,7 +35,7 @@ A change that spans two services (a new Engine operation the Agent calls) loads 
 ## Enforcement layers
 - Skills (advisory): `.claude/skills/*`; one per service (see "Skill per service") plus one per SDLC stage.
 - Deterministic: `make check` runs `scripts/check-architecture.sh` (Go shape rules in `scripts/check-go-shape.go`, planted-violation tests in `scripts/test-architecture-go.sh`), `check-migrations.sh` (breaking-change lint for migrations above baseline 11; opt out per line with `-- force-allow-breaking: <reason>`), `check-specs.sh` (artifact structure). `.claude/settings.json` hooks block edits to committed migrations and lint after migration edits.
-- Review: `design-reviewer` (artifacts), `authz-reviewer` (code). The agent that wrote something does not approve it.
+- Review: `design-reviewer` (artifacts), `task-reviewer` (a task against its contract, max 2 rounds), `authz-reviewer` (authorization in code). The agent that wrote something does not approve it.
 
 ## Metrics to watch (by hand from git history for now)
 Time from first requirement to approved design; requirements/design edits after planning started (rework); share of tasks passing `make check` on the first pass; PR size and review time; rollbacks; repeat incidents of one class (each gets a lesson and a check).

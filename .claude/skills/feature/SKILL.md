@@ -33,7 +33,7 @@ The user can stop the chain at any stage. Stages, in order: `requirements`, `sys
 1. Create `specs/<name>/` (kebab-case) from `specs/_templates/README.md`. Read `docs/harness/progress.md` first.
 2. Triage: for each stage decide needed or `skipped: <reason>` and tell the user (e.g. only a table -> skip system-design sequence diagram; infra only -> skip db-design). Record in the status table.
 3. Run stages in order, each by its skill, writing the artifact from `specs/_templates/`:
-   `clarify-requirements` -> `system-design` -> `db-design` -> `plan-tasks` -> `build-task` (one task at a time) -> `test-plan` -> `release-docs`.
+   `clarify-requirements` -> `system-design` -> `db-design` -> `plan-tasks` -> `build-task` (one task at a time: contract, human check, implement, review) -> `test-plan` -> `release-docs`.
 4. Gate after every artifact: show a short summary + path, ask for approval (or corrections), set the status to `approved`. Ask questions with AskUserQuestion when something is genuinely the user's call; otherwise pick the sensible default and say so.
 5. For `system-design.md`, `db-design.md`, `plan.md` run the `design-reviewer` subagent before asking for approval and fix what it finds. After build changes in `service/`, `fga/`, `model.fga`, `permissions.tsx` run `authz-reviewer`.
 6. Do not commit or push unless asked. Update `docs/harness/progress.md` at the end of each stage.

@@ -20,4 +20,6 @@ Each feature directory has a `README.md` with this status table (`scripts/check-
 | Test | test section of plan.md | pending / passed |
 | Release | release.md | draft / approved / released |
 
+Each build task also gets a contract, `<feature>/tasks/<ID>-contract.md` (template `_templates/task-contract.md`), written by `build-task` and checked by a person before the code.
+
 `prds/` is gitignored raw input; `specs/` is the committed record. The spec-first rule in CLAUDE.md still applies: when a feature changes behavior, update `docs/` and the architecture files in the same change.
