@@ -1,6 +1,6 @@
 # Source code layer structure
 
-The target structure of every backend service: `api/` (Go), `agent/` and `blueprint-engine/` (Python). See "Conformance" for how far each service is today. Each service's `ARCHITECTURE.md` shows its own layers and links here; its skill (`go-api`, `python-agent`, `python-engine`) is the "touch exactly these" checklist for it. `web/` is a React app with its own `web/ARCHITECTURE.md` and is not covered. When this file and a service document disagree, fix the service document or change this standard first (spec first).
+The target structure of every backend service: `api/` (Go), `agent/` and `blueprint-engine/` (Python). See "Conformance" for how far each service is today. Each service's `ARCHITECTURE.md` shows its own layers and links here; its skill (`go-api`, `python-agent`, `python-engine`) is the "usual steps" checklist for it. `web/` is a React app with its own `web/ARCHITECTURE.md` and is not covered. When this file and a service document disagree, fix the service document or change this standard first (spec first).
 
 ## Conformance (today)
 
@@ -67,6 +67,18 @@ Fixtures and tooling that are not a layer (the Go `seed` package, `cmd/*`) are n
 | A new endpoint or RPC | A method of the domain's handler (decode, one usecase, encode through `mapper/`), plus its route or RPC registration |
 | Converting a DTO | `mapper/<domain>_mapper` in the handler, or in the infrastructure client for a response it reads |
 | A technology's wire shape | `infrastructure/.../entity` (Python) or inside the adapter (Go) |
+
+## When the steps don't fit (edge cases)
+
+A service skill's "usual steps" cover the common new operation. For anything else (changing existing code, a streaming RPC, a helper shared by operations, a gateway that spans domains, a cross-service change) decide in this order, and write the decision in the task contract:
+
+1. Name the business concept first. Which `domain/model` type or `domain/gateway` owns it? If none does, that is the first thing to add.
+2. Pick the layer by responsibility (the "Layers" table), not by the nearest similar file.
+3. Check the dependency direction (rule 1). If the code needs an SDK or another layer's concrete type, add a gateway or helper interface instead.
+4. Keep domains separate (rule 4). Shared logic goes only in `service/helper` or `usecase/helper`, never in a generic service or a shared abstraction.
+5. Still unsure: choose the smaller change, say what you assumed, and ask at the contract gate.
+
+Touching existing code: change only what the task needs; do not move or rename files outside the task's PR.
 
 ## Enforcement
 

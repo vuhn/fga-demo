@@ -19,7 +19,7 @@ Entry point: `/feature <name or prds/file.md> [--until <stage>]`; the run can st
 
 ## Skill per service
 
-Before editing code in a service, load that service's skill (the Skill tool, or `/<name>`). All of them apply the common structure in [layer-structure.md](layer-structure.md). It holds the layer map, the "touch exactly these" checklist for a new operation, the rules that bite and what "done" means. It does not replace CLAUDE.md; it points at it.
+Before editing code in a service, load that service's skill (the Skill tool, or `/<name>`). All of them apply the common structure in [layer-structure.md](layer-structure.md). It holds the layer map, the "usual steps" checklist for a new operation, the rules that bite and what "done" means. It does not replace CLAUDE.md; it points at it.
 
 | You edit | Load | Deterministic check |
 | --- | --- | --- |

@@ -105,7 +105,7 @@ Restart `cmd/api` after every reseed (the store id changes). Seed accounts: ada,
 ## Session protocol
 
 - Clock-in: first `scripts/sync-base.sh [integration-branch]` (fetch and fast-forward the branch the task's PR targets, e.g. `feat/re-architecture` or `main`; on a task branch, rebase or merge the updated base before starting), then read `docs/harness/progress.md`, run `make check`.
-- Before the first edit in a service, load its skill (Skill tool or `/<name>`): `api/` -> `go-api`, `agent/` -> `python-agent`, `blueprint-engine/` -> `python-engine`, `api/migrations/` -> `db-design`. Each skill is that service's layer map, "touch exactly these" checklist and definition of done; a change spanning services loads each one. Map: `docs/harness/sdlc.md` "Skill per service".
+- Before the first edit in a service, load its skill (Skill tool or `/<name>`): `api/` -> `go-api`, `agent/` -> `python-agent`, `blueprint-engine/` -> `python-engine`, `api/migrations/` -> `db-design`. Each skill is that service's layer map, "usual steps" checklist and definition of done; a change spanning services loads each one. Map: `docs/harness/sdlc.md` "Skill per service".
 - One task at a time; call it done only after `make check` (and `make verify-live` for authorization changes) pass.
 - After touching `service/`, `fga/`, or `model.fga`, run the `authz-reviewer` subagent (rubric: `docs/harness/evaluator-rubric.md`).
 - Clock-out: walk `docs/harness/clean-state-checklist.md`, update `progress.md`.

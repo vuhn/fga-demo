@@ -14,7 +14,7 @@ flowchart LR
 
 The common structure is [docs/harness/layer-structure.md](../docs/harness/layer-structure.md); this is the Agent's instance.
 
-`domain/{model,gateway}` + `errors.py` -> `usecase/<op>.py` (+ `usecase/helper/`) -> `service/<op>.py` (+ `service/helper/`, `service/prompts/`) -> `infrastructure/<technology>/` (+ `infrastructure/entity/`) -> `handler/grpc/` (+ `mapper/`, `common/`). `wire.py` is the only composition root and `serve.py` the entry point. Rules and the "touch exactly these" checklist: CLAUDE.md and `.claude/skills/python-agent/SKILL.md`; `scripts/check-architecture-python.sh` and `scripts/check-python-shape.py` enforce what a script can.
+`domain/{model,gateway}` + `errors.py` -> `usecase/<op>.py` (+ `usecase/helper/`) -> `service/<op>.py` (+ `service/helper/`, `service/prompts/`) -> `infrastructure/<technology>/` (+ `infrastructure/entity/`) -> `handler/grpc/` (+ `mapper/`, `common/`). `wire.py` is the only composition root and `serve.py` the entry point. Rules and the "usual steps" checklist: CLAUDE.md and `.claude/skills/python-agent/SKILL.md`; `scripts/check-architecture-python.sh` and `scripts/check-python-shape.py` enforce what a script can.
 
 ## Operations
 
