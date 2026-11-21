@@ -88,4 +88,4 @@ Checklist:
 - [ ] `Truncate`, seed, `docs/database-schema.md`, `docs/seed-data.md` updated
 - [ ] Dry run in a rolled-back transaction; previous build smoke-tested; restore point noted
 
-Run `design-reviewer`, then gate: the user approves. A db-design.md with no DDL, no ER diagram or no index/query mapping is not ready for review.
+Run `db-design-reviewer`, then gate: the user approves. A db-design.md with no DDL, no ER diagram or no index/query mapping is not ready for review.

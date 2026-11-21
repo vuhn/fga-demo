@@ -14,4 +14,4 @@ Input: approved `requirements.md`. Output: `specs/<feature>/system-design.md` fr
 5. API contract: routes, bodies, statuses per `docs/http-api.md` conventions.
 6. List the docs that must change in the same PR set (spec first).
 7. Skip the diagram only when the feature adds no interaction (state why in the status table).
-8. Run `design-reviewer`, then gate: user approves.
+8. Run `system-design-reviewer`, then gate: user approves.

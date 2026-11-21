@@ -75,3 +75,9 @@ Why the repo is shaped this way. One entry per decision; add new ones at the top
 - **`Authorizer` lives in `usecase/helper`.** It is a shared decision port, not an operation, so the usecase rule has no exceptions.
 - **Business layer independence is a check, not a habit.** `domain`, `usecase` and `service` import only the standard library and each other.
 - **One PR.** The refactor is one mechanical change, so it lands atomically (no ratchet allow-list); the cost is review size, handled with ordered commits.
+
+## 2026-11: One reviewer agent per artifact (system-design, db-design, plan)
+
+- **Split `design-reviewer` into `system-design-reviewer` (also `requirements.md` when asked), `db-design-reviewer` and `plan-reviewer`.** The DB and plan checklists are long and specific; one agent loaded all of them for every review, diluted attention and drifted into other artifacts. Each agent now loads only its own checklist and can change with its stage skill.
+- **Shared rules live once in `docs/harness/review-rules.md`** (read-only, evidence, Accept/Revise/Block, stay in your lane) and every reviewer reads it first, so the preamble cannot drift. `task-reviewer` uses it too. `plan-reviewer` reads `db-design.md` for the coverage table.
+- Rejected: keeping one agent with per-artifact checklist files (still one routing description and one prompt to tune). The old name `design-reviewer` is gone; no alias.

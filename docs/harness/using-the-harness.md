@@ -19,9 +19,9 @@ Short answer: **you do not call the stage skills one by one.** Call `/feature` o
 | --- | --- | --- |
 | Triage | Proposes which stages apply or are skipped (table only -> no sequence diagram; infra only -> no DB design) | Confirm or correct |
 | Requirements | Reads code, asks 1-4 batched questions, writes `specs/<feature>/requirements.md` | Answer; check items marked "to confirm with PO"; say "approved" |
-| System design | Components to change, Mermaid sequence + data-flow, authz impact; runs `design-reviewer` | Review the diagram; approve |
-| DB design | Non-breaking migration design (expand/backfill/contract); runs `design-reviewer` | Check the "backward compatible because" column; approve |
-| Plan | Per-service tasks (15-30 min review each), hours, dependencies, release order; runs `design-reviewer` | Check sizes and order; approve |
+| System design | Components to change, Mermaid sequence + data-flow, authz impact; runs `system-design-reviewer` | Review the diagram; approve |
+| DB design | Non-breaking migration design (expand/backfill/contract); runs `db-design-reviewer` | Check the "backward compatible because" column; approve |
+| Plan | Per-service tasks (15-30 min review each), hours, dependencies, release order; runs `plan-reviewer` | Check sizes and order; approve |
 | Build | One task at a time with tests, `make check`, `authz-reviewer` where needed | Review each PR-sized diff; say "next task" |
 | Test | Checklist from acceptance criteria, runs what it can, records real results | Do the manual parts; confirm |
 | Release docs | `release.md`: note, checklist, ordered guideline, rollback, what to watch | Approve; a person releases from it |
@@ -93,7 +93,7 @@ claude:  3 questions (who can export, format, size limit) ...
 you:     answers
 claude:  specs/invoice-export/requirements.md ready (4 acceptance criteria). Approve?
 you:     approved
-claude:  ... system-design.md (+ design-reviewer: Accept). Approve?
+claude:  ... system-design.md (+ system-design-reviewer: Accept). Approve?
 ...
 claude:  plan.md: T1 api (2h), T2 web (1.5h, after T1). Approve?
 you:     approved
