@@ -24,6 +24,17 @@ flowchart TD
   C -- allow --> D[...]
 ```
 
+### TLA+ model
+`n/a: <reason>` for a plain read/CRUD slice. Otherwise `<ID>.tla` + `<ID>.cfg` next to this file; model-checked: yes / no (<why>).
+Variables -> repo: <var = table / tuple / cache>
+Invariants -> tests: <Invariant = test name>
+
+```tla
+---- MODULE T0 ----
+\* abstract actions from the steps above, incl. failure and concurrent actions
+====
+```
+
 ## 3. Impact
 | Endpoint / RPC / page / feature | Table / caller | Change | Must stay the same | Proof |
 | --- | --- | --- | --- | --- |
