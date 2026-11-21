@@ -28,6 +28,8 @@ T3 done (branch `feat/task-management-T3`, uncommitted): `tasks` is a fourth pro
 
 T4 done (branch `feat/task-management-T4`, uncommitted): `POST /api/v1/projects/:id/tasks` and the `task` domain (model, `TaskGateway`, `TaskCreator`, `TaskRepo`, handler, mapper, wiring). Verified: `make check`; unit tests (validation table, Check-before-validation, assignee by `can_access`, other-tenant 404); real-Postgres `TestTaskRepoCreateGet`; HTTP matrix (product off 403; title-only and all fields 201; empty title, weight 0, end before start, unknown status 400; `not_a_member`; Cara and Fay 201; Dan 403; other tenant 404); both smoke-replays show only the added permission keys from T3, no removed or changed lines.
 
+T4 merged (#57). T16 done (branch `feat/task-management-T16`, uncommitted): web foundation. `Product` type and `PRODUCT_META` know `tasks`, the Tenant page skips products it has no card for (the page broke on the `tasks` row T1 added, by code reading; not reproduced in a browser because no browser tool was available), `permissions.tsx` has `nav.tasks`, task and comment actions, `createTask`/`addComment`, `Inspector.tsx` offers `tenant.tasks_enabled`, `api.ts` has the Task types (calls arrive with T17). Verified: `npm run build`, `make check`. NOT done: browser walk (toggle `tasks` for Acme as ada, badge for bob).
+
 Next: T5 (task list) or T6-T9, each needs only T4.
 
 ## Active task (2026-11-20): usecase-io-structs (branch `refactor/usecase-io-structs`, off `main`, uncommitted)

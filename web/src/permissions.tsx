@@ -44,6 +44,8 @@ const FEATURES = {
   "nav.documents": { all: ["tenant:can_read_tenant", "tenant:documents_enabled"] },
   "nav.photos": { all: ["tenant:can_read_tenant", "tenant:photos_enabled"] },
   "nav.blueprints": { all: ["tenant:can_read_tenant", "tenant:blueprints_enabled"] },
+  // The Tasks tab of a project: membership AND the product (the project row still decides each action).
+  "nav.tasks": { all: ["tenant:can_read_tenant", "tenant:tasks_enabled"] },
   // Members is the tenant administration page (products, roster, roles): internal admins only.
   // It is a menu entry for the active tenant; platform admins reach tenants via the directory.
   "nav.members": { all: ["tenant:can_manage_members"] },
@@ -84,7 +86,7 @@ export function allows(set: PermissionSet, feature: Feature): boolean {
 
 // ---- Object actions ----
 
-export type ObjectType = "folder" | "document" | "album" | "photo" | "blueprint";
+export type ObjectType = "folder" | "document" | "album" | "photo" | "blueprint" | "task" | "comment";
 
 /** Which relation on a content object enables each action button. */
 const ACTIONS = {
@@ -98,6 +100,12 @@ const ACTIONS = {
   addItem: { folder: "can_create_document", album: "can_create_photo" },
   /** Create a subfolder/subalbum inside this container. */
   addChild: { folder: "can_edit", album: "can_edit" },
+  /** Edit or delete a task: the task row carries `can_edit_tasks` (the project Check). */
+  editTask: { task: "can_edit_tasks" },
+  deleteTask: { task: "can_edit_tasks" },
+  /** Edit or delete a task comment: the comment row carries the OpenFGA answer (author, or a task manager for delete). */
+  editComment: { comment: "can_edit" },
+  deleteComment: { comment: "can_delete" },
   /** Switch between private and public. */
   visibility: { folder: "can_change_visibility", album: "can_change_visibility" },
 } as const satisfies Record<string, Partial<Record<ObjectType, string>>>;
@@ -122,6 +130,8 @@ const PROJECT_ACTIONS = {
   createPrivateFolder: "can_create_private_folder",
   createPrivateAlbum: "can_create_private_album",
   createBlueprint: "can_create_blueprint",
+  createTask: "can_edit_tasks",
+  addComment: "can_view_tasks",
   manageMembers: "can_manage_members",
 } as const satisfies Record<string, string>;
 

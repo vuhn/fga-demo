@@ -3,7 +3,7 @@
 /** The employer shown next to a person everywhere user info is displayed. */
 export type CompanyRef = { id: string; name: string };
 export type User = { id: string; email: string; name: string; is_system_admin: boolean; company: CompanyRef };
-export type Product = { product: "documents" | "photos" | "blueprints"; enabled: boolean; updated_at: string };
+export type Product = { product: "documents" | "photos" | "blueprints" | "tasks"; enabled: boolean; updated_at: string };
 export type Tenant = {
   id: string;
   slug: string;
@@ -105,6 +105,30 @@ export type Grant = { id: string; relation: string; subject: string; user_id: st
 export type Tuple = { user: string; relation: string; object: string };
 /** The caller's own permission relations on one object, as returned by the API. */
 export type Perms = Record<string, boolean>;
+
+// ---- Tasks (mirrors POST /projects/:id/tasks; optional fields are omitted by the server when empty) ----
+export type TaskStatus = "not_started" | "in_progress" | "completed" | "blocked";
+export type TaskPermissions = { can_edit_tasks: boolean; can_manage_tasks: boolean };
+export type Task = {
+  id: string;
+  project_id: string;
+  title: string;
+  description?: string;
+  assignee_id?: string;
+  assignee_name?: string;
+  /** Calendar dates, YYYY-MM-DD. */
+  planned_start?: string;
+  planned_end?: string;
+  actual_start?: string;
+  actual_end?: string;
+  status: TaskStatus;
+  weight: number;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  comment_count: number;
+  permissions: TaskPermissions;
+};
 
 export class ApiError extends Error {
   constructor(
