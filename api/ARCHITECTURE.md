@@ -36,7 +36,7 @@ The layer structure, dependency direction and rules are the common standard of e
 
 API-specific rules (the general ones are in the standard above):
 
-- **Each domain is separate in every layer.** Folder, document, album, photo, blueprint (and user, tenant, product, member, role) own their model, gateways, repos, relation builder, usecases, services, handler, and routes. Do not merge them behind a shared abstraction. The only shared code is cross-domain rules in `service/helper.go` and SQL plumbing in `postgres/grant_rows.go`. Member removal also drops that person's custom-role assignee tuples.
+- **Each domain is separate in every layer.** Folder, document, album, photo, blueprint, task (and user, tenant, product, member, role) own their model, gateways, repos, relation builder, usecases, services, handler, and routes. Do not merge them behind a shared abstraction. The only shared code is cross-domain rules in `service/helper.go` and SQL plumbing in `postgres/grant_rows.go`. Member removal also drops that person's custom-role assignee tuples.
 
 ## Request lifecycle
 

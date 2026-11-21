@@ -26,7 +26,9 @@ T2 done (branch `feat/task-management-T2`, uncommitted): superset model in `api/
 
 T3 done (branch `feat/task-management-T3`, uncommitted): `tasks` is a fourth product (`model.AllProducts`), `ProductRepo.Set` creates a missing row before locking it, tenant create inserts four rows, `tasks_enabled` and `can_view/edit/manage_tasks` are in `PermissionRelations` (`/me/permissions`, inspector), docs updated; the seed pins Acme's products explicitly so the demo is unchanged until T15a. Verified: `make check`, `make verify-live`, new unit tests, real-Postgres `TestProductRepoSetCreatesMissingRow`, HTTP walk (platform admin toggles `tasks`, tenant admin 403, unknown product 400, a deleted row toggles, new tenant has four rows), both smoke-replays identical to the T0 baselines. Known: the web Tenant page indexes `PRODUCT_META[p.product]` and has no `tasks` entry (T16).
 
-Next: T4 (POST /projects/:id/tasks).
+T4 done (branch `feat/task-management-T4`, uncommitted): `POST /api/v1/projects/:id/tasks` and the `task` domain (model, `TaskGateway`, `TaskCreator`, `TaskRepo`, handler, mapper, wiring). Verified: `make check`; unit tests (validation table, Check-before-validation, assignee by `can_access`, other-tenant 404); real-Postgres `TestTaskRepoCreateGet`; HTTP matrix (product off 403; title-only and all fields 201; empty title, weight 0, end before start, unknown status 400; `not_a_member`; Cara and Fay 201; Dan 403; other tenant 404); both smoke-replays show only the added permission keys from T3, no removed or changed lines.
+
+Next: T5 (task list) or T6-T9, each needs only T4.
 
 ## Active task (2026-11-20): usecase-io-structs (branch `refactor/usecase-io-structs`, off `main`, uncommitted)
 

@@ -44,6 +44,7 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 		photoGrant     = postgres.NewPhotoGrantRepo(pool)
 		blueprints     = postgres.NewBlueprintRepo(pool)
 		bpGrant        = postgres.NewBlueprintGrantRepo(pool)
+		tasks          = postgres.NewTaskRepo(pool)
 		estSessions    = postgres.NewEstimateSessionRepo(pool)
 		estimates      = postgres.NewBlueprintEstimateRepo(pool)
 
@@ -185,6 +186,9 @@ func wire(cfg config.Config, pool *pgxpool.Pool, authzStore gateway.AuthzGateway
 			CandidateLister: service.NewPhotoShareCandidateLister(photos, members, authz),
 			Sharer:          service.NewPhotoSharer(photos, photoGrant, photoRels, authz, policy, guard, ids),
 			ShareRevoker:    service.NewPhotoShareRevoker(photos, photoGrant, photoRels, authz, policy, guard),
+		}),
+		httph.NewTaskHandler(httph.TaskUsecases{
+			Creator: service.NewTaskCreator(projects, tasks, authz, ids),
 		}),
 		httph.NewEstimateHandler(httph.EstimateUsecases{
 			SessionCreator: service.NewEstimateSessionCreator(blueprints, estSessions, authz),
