@@ -33,7 +33,7 @@ erDiagram
     }
     tenant_products {
         uuid tenant_id PK, FK
-        text product PK "documents | photos"
+        text product PK "documents | photos | blueprints | tasks"
         boolean enabled
     }
     tenant_members {
@@ -123,6 +123,28 @@ erDiagram
         text source_kind "prompt | sketch | form | import"
         uuid created_by FK
     }
+    tasks {
+        uuid id PK
+        uuid tenant_id FK
+        uuid project_id FK
+        text title
+        text description
+        uuid assignee_id FK "null"
+        date planned_start "null"
+        date planned_end "null"
+        date actual_start "null"
+        date actual_end "null"
+        text status "not_started | in_progress | completed | blocked"
+        numeric weight
+        uuid created_by FK
+    }
+    task_comments {
+        uuid id PK
+        uuid task_id FK
+        text body
+        uuid author_id FK
+        timestamptz edited_at "null"
+    }
     blueprint_versions {
         uuid blueprint_id PK
         int version PK
@@ -186,6 +208,9 @@ erDiagram
     projects ||--o{ photos : contains
     projects ||--o{ blueprints : contains
     blueprints ||--o{ blueprint_versions : versions
+    projects ||--o{ tasks : contains
+    users |o--o{ tasks : "assignee_id"
+    tasks ||--o{ task_comments : has
     blueprint_versions ||--o{ estimate_sessions : pinned
     estimate_sessions ||--o{ estimate_messages : chat
     blueprint_versions ||--o{ blueprint_estimates : priced
@@ -243,7 +268,7 @@ CREATE INDEX memberships_tenant_affiliation_idx
 
 CREATE TABLE tenant_products (
     tenant_id  uuid NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
-    product    text NOT NULL CHECK (product IN ('documents', 'photos')),
+    product    text NOT NULL CHECK (product IN ('documents', 'photos', 'blueprints', 'tasks')),
     enabled    boolean NOT NULL DEFAULT false,
     updated_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (tenant_id, product)
@@ -389,3 +414,13 @@ There is no foreign key from `resource_grants.object_id` to a single table becau
 - `estimate_sessions(blueprint_id PK, blueprint_version, state jsonb, seq, epoch, created_by, created_at, updated_at)`. **One row per blueprint**: the blueprint id is the key, so there is no surrogate id, no `tenant_id` (the blueprint has it; every service scopes by the blueprint) and no `status` column (the agent's status lives in `state`, which Go reads for the API view). FK `(blueprint_id, blueprint_version) -> blueprint_versions` with cascade, so deleting a blueprint deletes its session. `state` is the agent's own JSON (facts with their source, the condition of each room, researched rates, the latest estimate, `status`); Go treats it as opaque. Starting a new estimate is `INSERT ... ON CONFLICT (blueprint_id) DO UPDATE` (state cleared, `seq = 0`, `epoch + 1`) plus deleting the messages, in one transaction. `seq` counts finished turns and `epoch` the restarts; together they guard concurrent writes: `UPDATE ... WHERE blueprint_id = $1 AND epoch = $2 AND seq = $3`, and zero rows updated is 409 with nothing written, so a turn that was running when the person started over can never land in the new session.
 - `estimate_messages(blueprint_id, seq, role user|assistant, content, created_at)`, PK `(blueprint_id, seq)`, FK `blueprint_id -> estimate_sessions` with cascade. A turn writes two rows (`seq*2+1` and `seq*2+2`) in the same transaction as the state update.
 - `blueprint_estimates(id, blueprint_id, version, total_low, total_base, total_high, result jsonb, created_at)`. Append-only history of the blueprint's priced estimates; it does not point at a session, so restarting the chat never touches it. FK `(blueprint_id, version) -> blueprint_versions`. `result` holds the priced lines, the markup cascade and every rate with its sources. The three totals are copied out of `result` on purpose: lists and the stale marker read them without loading the large jsonb, and viewers (`can_view`) read this table while the session (`can_edit`) stays private.
+
+## Tasks (migration 00012)
+
+`api/migrations/00012_tasks.sql`. Spec: `specs/task-management/db-design.md`. Postgres is the display record; authorization is OpenFGA (`tasks_enabled` per tenant, a `task_comment` object per comment).
+
+- `tasks(id, tenant_id, project_id, title 1..200, description <= 10000 default '', assignee_id null, planned_start/end null, actual_start/end null, status not_started|in_progress|completed|blocked, weight numeric(8,2) > 0 default 1, created_by, created_at, updated_at)`. FK `(project_id, tenant_id) -> projects (id, tenant_id)` with cascade; `assignee_id -> users` SET NULL (the task survives). `planned_end >= planned_start` and `actual_end >= actual_start` (checked only when both dates are set). Index `tasks_tenant_project_idx (tenant_id, project_id, created_at, id)` serves the project list and progress queries.
+- `task_comments(id, task_id, body 1..4000, author_id, created_at, edited_at null)`. FK `task_id -> tasks` with cascade; no `tenant_id` (every path loads the task under `tenant_id` first, as `estimate_messages`). The id equals the OpenFGA `task_comment` object id. Index `task_comments_task_created_idx (task_id, created_at, id)`.
+- Progress, comment counts and assignee names are derived by query, never stored.
+- `tenant_products.product` adds `tasks` (one `false` row per existing tenant). A tenant created by a build older than the task routes has no `tasks` row; a later task treats a missing row as disabled.
+- Down drops both tables and the `tasks` product rows (all tasks and comments are lost) and restores the three-value check.
