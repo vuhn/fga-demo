@@ -23,7 +23,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconFileText, IconPhoto, IconRuler2, IconShield, IconTrash, IconUserPlus, IconUsers } from "@tabler/icons-react";
+import { IconChecklist, IconFileText, IconPhoto, IconRuler2, IconShield, IconTrash, IconUserPlus, IconUsers } from "@tabler/icons-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, memberRoleOptions, type Company, type CustomRole, type Member, type Product, type Tenant } from "../api";
@@ -56,6 +56,7 @@ const PRODUCT_META: Record<string, { label: string; icon: typeof IconFileText }>
   documents: { label: "Documents", icon: IconFileText },
   photos: { label: "Photos", icon: IconPhoto },
   blueprints: { label: "Blueprints", icon: IconRuler2 },
+  tasks: { label: "Tasks", icon: IconChecklist },
 };
 
 function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {
@@ -134,7 +135,8 @@ function TenantPage({ id, perms }: { id: string; perms: PagePerms }) {
         )}
       </Group>
       <SimpleGrid cols={{ base: 1, sm: 2 }} mb="xl">
-        {products.map((p) => {
+        {/* A product this build has no card for (a newer server) is skipped, never a crash. */}
+        {products.filter((p) => PRODUCT_META[p.product]).map((p) => {
           const meta = PRODUCT_META[p.product];
           return (
             <Card key={p.product} withBorder padding="lg">

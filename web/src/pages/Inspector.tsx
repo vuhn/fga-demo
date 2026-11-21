@@ -20,6 +20,7 @@ const RELATIONS: Record<string, string[]> = {
     "documents_enabled",
     "photos_enabled",
     "blueprints_enabled",
+    "tasks_enabled",
   ],
   folder: ["can_view", "can_edit", "can_manage", "can_delete", "can_share", "can_change_visibility", "can_create_document"],
   document: ["can_view", "can_edit", "can_manage", "can_delete", "can_share"],
