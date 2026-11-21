@@ -1,6 +1,6 @@
 # Architecture
 
-A multi-tenant authorization demo. A Go API owns users, tenants, documents, photos, and blueprints; [OpenFGA](https://openfga.dev) makes every allow/deny decision; a React admin panel is the clickable proof. [README.md](README.md) tells the story and the click script.
+A multi-tenant authorization demo. A Go API owns users, tenants, documents, photos, blueprints, and project tasks; [OpenFGA](https://openfga.dev) makes every allow/deny decision; a React admin panel is the clickable proof. [README.md](README.md) tells the story and the click script.
 
 This file is the system overview. Each part has its own:
 
@@ -43,7 +43,7 @@ flowchart LR
 
 ## Authorization at a glance
 
-Three layers of objects: `platform` (system admins), `tenant` (internal/external roles, product entitlements), and content (`folder`/`document`, `album`/`photo`) that inherits through containers, plus `blueprint`, which sits directly in a project with no public flag (externals reach it through a share or a custom-role `grant_*`, never through a public flag).
+Three layers of objects: `platform` (system admins), `tenant` (internal/external roles, product entitlements), and content (`folder`/`document`, `album`/`photo`) that inherits through containers, plus `blueprint`, which sits directly in a project with no public flag (externals reach it through a share or a custom-role `grant_*`, never through a public flag). Tasks (and their comments) are a separate domain authorized on the project (`can_view_tasks`, `can_edit_tasks`, `can_manage_tasks`); only a task comment is an OpenFGA object.
 
 - Internal members see and edit all tenant content. External members see a container only when it and every ancestor are public, plus anything explicitly shared with them.
 - The system admin manages tenants, users, products, and memberships but is not a tenant member and sees no content.

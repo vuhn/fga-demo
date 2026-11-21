@@ -47,8 +47,9 @@ Object ids below are bare. The fga infrastructure formats them.
 | Start an estimate session (the blueprint's only one: replaces it, finished estimates stay), send a message to the cost-estimation agent | actor | `can_edit` | that blueprint (403; the engine call and the web searches happen only after it) |
 | Get the estimate session (the chat) | actor | `can_edit` (404 when denied) | that blueprint |
 | List or get finished estimates | actor | `can_view` (404 when denied) | that blueprint |
-| List or get tasks, task progress, list or add comments (model only until the task endpoints land) | actor | `can_view_tasks` | that project |
-| Create, update, delete a task; list assignee candidates | actor | `can_edit_tasks` | that project |
+| List or get tasks, task progress, list or add comments (routes land in later tasks) | actor | `can_view_tasks` | that project |
+| Create a task (`POST /projects/:id/tasks`), update, delete a task; list assignee candidates | actor | `can_edit_tasks` | that project |
+| Assignee of a new or changed task | the assignee (as user) | `can_access` (else 400 `not_a_member`) | that project |
 | Edit a comment | actor | `can_edit` | that `task_comment` |
 | Delete a comment | actor | `can_delete` (author or `can_manage_tasks`) | that `task_comment` |
 | Delete a blueprint | actor | `can_delete` | that blueprint |

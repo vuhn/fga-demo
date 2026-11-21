@@ -206,6 +206,12 @@ Same routes and checks, with these replacements:
 
 Grant routes: `POST` and `DELETE /api/v1/albums/:id/grants` and `/api/v1/photos/:id/grants`.
 
+#### Tasks
+
+All routes need `X-Tenant-ID`. Dates are `YYYY-MM-DD`; optional fields are omitted when empty.
+
+- `POST /api/v1/projects/:id/tasks` body `{title, description?, assignee_id?, planned_start?, planned_end?, actual_start?, actual_end?, status?, weight?}` -> 201 `Task` `{id, project_id, title, description?, assignee_id?, assignee_name?, planned_start?, planned_end?, actual_start?, actual_end?, status, weight, created_by, created_at, updated_at, comment_count, permissions{can_edit_tasks, can_manage_tasks}}`. Check `can_edit_tasks` on the project (403 with `check`; a project of another tenant is 404). The body is validated in the handler layer first, so a malformed or invalid body is 400 before any Check. 400 `validation`: title empty or over 200 characters, description over 10000, status not one of `not_started|in_progress|completed|blocked` (default `not_started`), weight not above 0, over 999999.99 or with more than 2 decimals (default 1), a date not `YYYY-MM-DD`, an end before its start, `assignee_id` not a UUID. 400 `not_a_member` when the assignee fails `can_access` on the project. The product `tasks` must be on for the tenant, otherwise the Check is false (403).
+
 #### Blueprints
 
 Require `X-Tenant-ID`. Blueprints live directly in a project (no container) and have no public flag: external members reach one only through a share or a custom-role `grant_*`. External admins who are project members may create blueprints (they own those). Every route calls the Go API, which checks, stores, and versions; the API alone calls the stateless Engine (deterministic, `BLUEPRINT_ENGINE_ADDR`) and Agent (every LLM call, `AGENT_ADDR`), both over gRPC. The brief is only the input of a create: the engine draws it into a DXF and the blueprint is stored like an import (no brief, the DXF as its original); the engine does all geometry, and later edits are explicit plan operations.
