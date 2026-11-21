@@ -46,19 +46,29 @@ Naming without a plan row: the ID is a short slug (`<slug>`), the branch is `fea
 
 Write `specs/<feature>/tasks/<ID>-contract.md` from `specs/_templates/task-contract.md`. Independent task: `specs/_adhoc/<yyyymmdd>/<slug>-contract.md` when it touches authorization, a contract (proto/HTTP), data or concurrency (committed with the PR, for the reviewer); otherwise state the contract in chat and put it in the PR body. It is the contract the code is reviewed against. It holds:
 1. **Task**: what and why, deployable, the plan row, definition of done.
-2. **Business logic**, step by step plus a Mermaid diagram (for people): new endpoint or code = the whole flow (validate, Check, read, call, write, errors and their statuses); changed code = what changes (before -> after, steps added or removed), and what must stay identical. Then a **TLA+ model** (for the agent: exact, checkable) when the logic has state or ordering that prose gets wrong; see "TLA+ model" below.
+2. **Business logic**, step by step plus a Mermaid diagram (for people): new endpoint or code = the whole flow (validate, Check, read, call, write, errors and their statuses); changed code = what changes (before -> after, steps added or removed), and what must stay identical. Then a **TLA+ model** (for the agent: exact, checkable) when the logic has state or ordering that prose gets wrong; see "TLA+ model" below. Use stable step IDs (`S1`, `S2`, ...).
 3. **Impact** listed by API endpoint, RPC, page or feature (and table, caller): what changes, what must not change, and how the task's e2e test proves it.
 4. **Risk**: merge safety (from `plan.md`), rollback, authz, data, concurrency, compatibility with old and new builds, out of scope.
 5. Tests: unit, integration, and the e2e through the real entry point.
 
 ### TLA+ model (only where it pays)
 
-Write `specs/<feature>/tasks/<ID>.tla` (+ `<ID>.cfg`) when the task has any of: concurrency or races (two requests on the same key, "exactly one row"), a multi-store write order with compensation (Postgres then OpenFGA, revoke order), a state machine or status transitions, idempotency, caching or retry behavior, a cutover/strangler switch. Otherwise write `TLA+: n/a, <reason>` in the contract (a plain read or CRUD slice does not need one; do not pad).
+A1. **Decide.** Write `specs/<feature>/tasks/<ID>.tla` (+ `<ID>.cfg`) when the task has any of: concurrency or races (two requests on the same key, "exactly one row"), a multi-store write order with compensation (Postgres then OpenFGA, revoke order), a state machine or status transitions, idempotency, caching or retry behavior, a cutover/strangler switch. Otherwise write `TLA+: n/a, <reason>` in the contract (a plain read or CRUD slice does not need one; do not pad); the steps are then the spec.
 
-- Model the logic, not the code: a small abstract spec (a few variables, the actions from the business-logic steps including the failure actions: Agent down, second request, crash between two writes), no HTTP, JSON or SQL details. State what each variable stands for in the repo (table, tuple, cache).
-- Write the **invariants** the task must keep (for example `AtMostOneSummaryRow`, `NoTupleWithoutRow`, `NoWriteBeforeCheck`) and, if it matters, a liveness property. Each invariant maps to a test in the contract's test section (name it); an invariant with no test is a gap.
-- Check it: `scripts/check-tla.sh specs/<feature>/tasks/<ID>.tla` (needs Java and `TLA2TOOLS_JAR`). A counterexample means the business logic is wrong: fix the steps and the model together, then show the user. If TLC cannot run (exit 3), write `model-checked: no (<why>)` in the contract; never claim a model passed that was not run, and it still counts as the written spec for implementation.
-- At implementation the model is the reference for ordering and failure handling: implement the actions as modelled, and the tests cover its invariants. If the code needs a different order, change the model and the contract first.
+A2. **Steps first.** Give the business-logic steps stable IDs (`S1`, `S2`, ...), append-only. The Mermaid diagram is for people: it must agree with the steps, and it is not traced to code.
+
+A3. **Naive model.** Model the logic, not the code: a small abstract spec (a few variables, the actions from the steps including the failure actions: Agent down, second request, crash between two writes), no HTTP, JSON or SQL details. State what each variable stands for in the repo (table, tuple, cache). **Each action is one atomic unit in the code**: if the code reads and then writes with no lock or transaction, that is two actions. Keep the constants small (2 requests, 2 users).
+
+A4. **Run it and keep the counterexample.** `scripts/check-tla.sh specs/<feature>/tasks/<ID>.tla` (needs Java and `TLA2TOOLS_JAR`; check this works before writing the contract). A violation on the naive model proves the model can catch the bug: record the broken invariant and a short trace in the contract. If a task with a real race passes with no violation, the model is too weak: fix it.
+
+A5. **Fixed model.** Add the control that removes the counterexample and name it (unique index, `ON CONFLICT`, `SELECT ... FOR UPDATE`, `WHERE version = base_version`, idempotency key) and where it lives. Run TLC again; it must pass. If TLC cannot run (exit 3), write `model-checked: no (<why>)`; never claim a model passed that was not run, and it still counts as the written spec for implementation.
+
+A6. **Three maps in the contract** (templates in `specs/_templates/task-contract.md`):
+- Atomicity: per action, the code unit that makes it atomic (one SQL statement, one transaction, one FGA call, or "not atomic").
+- Guard: per action, its enabling condition and where it lives (`if` or SQL `WHERE`).
+- Invariant: per invariant, the test that asserts it (named). A race invariant is a real-Postgres concurrency test, not a fake; the naive counterexample becomes a regression test; each failure action has a fault-injection test. An invariant with no test is a gap.
+
+At implementation the model is the reference for ordering and failure handling: implement the actions as modelled, and the tests cover its invariants. If the code needs a different order or atomicity, change the model and the contract first.
 
 Gate: show a short summary and the path, then stop. Trivial tasks (a field, a text, a one-line fix, a skeleton with no behavior) may proceed after stating the contract in a few lines; a TLA+ model, anything touching authorization, a contract (proto/HTTP), data or concurrency always waits for the user's approval. The contract is not edited silently afterwards: a change during implementation is written to it and shown to the user.
 
@@ -73,6 +83,6 @@ Gate: show a short summary and the path, then stop. Trivial tasks (a field, a te
 
 ## 5. Review (cap: 2 rounds)
 
-1. Spawn the `task-reviewer` agent (a separate agent; the one that wrote the code never approves it) with the contract path and the branch/diff. Also spawn `authz-reviewer` when `service/`, `fga/`, `model.fga` or `permissions.tsx` changed.
+1. Spawn the `task-reviewer` agent (a separate agent; the one that wrote the code never approves it) with the contract path and the branch/diff. It checks the code against the contract's steps and, if there is one, its TLA+ model (atomicity, guard and invariant maps), and returns each finding as code deviates, contract defect or can't tell. Also spawn `authz-reviewer` when `service/`, `fga/`, `model.fga` or `permissions.tsx` changed.
 2. Fix the findings that are Block or Revise (and every `authz-reviewer` finding scored below 2); re-run the checks; round 2 only on what changed.
 3. After round 2, stop looping: list what is still open and hand it to the user (do not start a round 3). Report the contract-vs-code result, the commands run, and what was not run.
