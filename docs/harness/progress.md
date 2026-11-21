@@ -9,6 +9,19 @@ Single place for "where are we". Read at session start, update at session end.
 - HTTP smoke (API + engine + qwen3:latest, 2026-11-13): draft 403 for Dan and for Globex (product off); Cara draft 19s, create 201, list, Dan get 404 and list [], SVG/PDF drawing, revise ("add a study") 201 v2 with rooms kept, stale base 409, form edit, restore, versions, viewer share to Dan, editor share 400 `cannot_upload`, Dan revise 403. Sketch draft reaches the engine; 502 because `qwen2.5vl:7b` is not pulled locally.
 - Engine golden eval (qwen3:latest, 2026-11-13, after Text2BIM Phase 1, Enhancer off): extraction 15/15, end-to-end 14/15, avg 28s (was 14/15, 13/15, 37s). With `--enhance`: 13/15, 8/15, 112s. Known failure: narrow lots (10 m wide) need a front-to-back hall layout.
 
+## Active feature (2026-11-21): task-management (`specs/task-management/`)
+
+Project tasks (title, assignee, planned/actual dates, status, weight) with comments, a `tasks_enabled` product, weighted progress and a Tasks tab. Requirements, system design, DB design and plan are approved (stopped after plan, as asked); nothing is built, committed or pushed. Authorization is on the project (`can_view_tasks`, `can_edit_tasks`, `can_manage_tasks`) plus a `task_comment` object for own-comment edit/delete. Plan: 24 tasks on `main`, 88 h, dark until a tenant's `tasks` product is on. T0 done (2026-11-21, untouched `main` at 890e479, branch `feat/task-management-T0`, docs only).
+
+Baselines every later task is compared against:
+- `make check`: green. `make verify-live` (compose up, reseed, fga integration test): green.
+- `cd api && go test ./... -count=1`: all packages ok, 94 `--- PASS` lines under `-v` (top-level tests and subtests).
+- `scripts/smoke-replay.sh` (Engine up, no Ollama): exit 0, 33 steps, no failures; output in `docs/harness/baselines/task-management/smoke-replay.txt`.
+- `scripts/smoke-replay-domains.sh`: exit 0, 119 steps, no failures; output in `docs/harness/baselines/task-management/smoke-replay-domains.txt`.
+- Diff a later run against these (status and JSON shape per step); an API task must leave every existing step identical.
+
+Next: T1 (migration 00012) and T2 (model).
+
 ## Active task (2026-11-20): usecase-io-structs (branch `refactor/usecase-io-structs`, off `main`, uncommitted)
 
 Go API only, one task. Every usecase method is `Method(ctx, in input.X) (output.X, error)` (or only `error`; a streaming callback stays trailing); `usecase/input` and `usecase/output` hold one struct per interface plus shared shapes (`output.<Model>`, `output.Visible[T]`); services map model -> output in `service/<model>_output.go`; handler mappers take output shapes. `Authorizer` moved to `usecase/helper`; `AuthzGateway.Check` takes `model.CheckRequest`; 14 more gateway methods take `model.*Params` (`domain/model/*_params.go`). New checks: `scripts/check-go-shape.go` (called by `check-architecture.sh`) and `scripts/test-architecture-go.sh` (planted violations, wired into `make check`); `role_creator.go` and `project_role_creator.go` joined the role/affiliation allow-list (input validation, now written `in.Affiliation`).
