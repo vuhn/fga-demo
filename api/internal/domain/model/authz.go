@@ -27,9 +27,10 @@ const ObjectTypeProject = "project"
 var PermissionRelations = map[string][]string{
 	ObjectTypePlatform: {"can_manage_platform"},
 	ObjectTypeTenant: sorted("can_manage_members", "can_view_products", "can_contribute", "can_read_tenant",
-		"can_manage_projects", "documents_enabled", "photos_enabled", "blueprints_enabled"),
+		"can_manage_projects", "documents_enabled", "photos_enabled", "blueprints_enabled", "tasks_enabled"),
 	ObjectTypeProject: sorted("can_view", "can_manage_members", "can_contribute",
-		"can_create_folder", "can_create_album", "can_create_private_folder", "can_create_private_album", "can_create_blueprint"),
+		"can_create_folder", "can_create_album", "can_create_private_folder", "can_create_private_album", "can_create_blueprint",
+		"can_view_tasks", "can_edit_tasks", "can_manage_tasks"),
 	ObjectTypeFolder:    sorted("can_view", "can_edit", "can_manage", "can_delete", "can_share", "can_change_visibility", "can_create_document"),
 	ObjectTypeDocument:  sorted("can_view", "can_edit", "can_manage", "can_delete", "can_share"),
 	ObjectTypeAlbum:     sorted("can_view", "can_edit", "can_manage", "can_delete", "can_share", "can_change_visibility", "can_create_photo"),

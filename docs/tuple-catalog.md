@@ -18,7 +18,7 @@ No tuple. A user is an identity until some command relates them to an object.
 
 #### Create tenant
 
-Insert `tenants`, the tenant's own `companies` row (`tenant_id` set), and `tenant_products` rows for `documents` and `photos`, both `enabled = false`. No tuples. Products start disabled, which means the wildcard tuples are absent.
+Insert `tenants`, the tenant's own `companies` row (`tenant_id` set), and `tenant_products` rows for `documents`, `photos`, `blueprints` and `tasks`, all `enabled = false`. No tuples. Products start disabled, which means the wildcard tuples are absent.
 
 #### Companies
 
@@ -34,7 +34,8 @@ Check is in the decision catalog. Then:
 
 - Enabled documents: write `tenant:T#documents_enabled@user:*` and set `tenant_products.enabled = true`.
 - Disabled documents: delete `tenant:T#documents_enabled@user:*` and set `enabled = false`.
-- Photos uses relation `photos_enabled`.
+- Photos uses relation `photos_enabled`; blueprints `blueprints_enabled`; tasks `tasks_enabled`.
+- A tenant made by an older build may lack a `tenant_products` row for a product: the first toggle creates it (disabled, then set), so no row is needed beforehand. `GET .../products` lists only rows that exist.
 
 Write the wildcard only. Do not write `documents_enabled` for a concrete user. Do not delete content tuples.
 
