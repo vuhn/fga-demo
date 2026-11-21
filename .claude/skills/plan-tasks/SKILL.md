@@ -26,7 +26,16 @@ Wrong: "T3 api: all usecases for estimates", "T4 agent+api: revise flow", "T5 ap
 ## Two rules that override everything else
 
 1. **Slice by delivery endpoint, never by code layer.** A task delivers one *endpoint* end to end in one deployable: one HTTP route, gRPC RPC, stream, queue consumer, CLI command, scheduled job, or one web page/flow. All layers it needs (model, gateway, repo, service, handler, wiring, docs) ship in that one PR, with an e2e test through the real entry point. "Add all the usecases", "add all the repos", "add the handlers" is the wrong cut: half-built layers cannot be e2e tested and tempt breaking changes.
-2. **Every PR must leave the base branch working.** The base branch is whatever the PRs merge into (`main`, or an integration branch such as `feat/re-architecture`; record it in the plan, and if it is an integration branch, add a final "merge to main" gate with the same rules). After any single task merges, in any allowed order: `make check` is green, the system starts and every pre-existing behavior is unchanged, and the new code is either complete and tested or unreachable. No task may rely on a later task to repair it.
+2. **Every PR must leave the base branch working.** The base branch is whatever the PRs merge into (**`main` by default**; an integration branch only under the rule below; record the base in the plan). After any single task merges, in any allowed order: `make check` is green, the system starts and every pre-existing behavior is unchanged, and the new code is either complete and tested or unreachable. No task may rely on a later task to repair it.
+
+### Base branch: `main` unless a breaking change cannot be made safe
+
+Plan every task to merge into `main`, so no long-lived branch drifts. Use the patterns in "Making a merge safe" (additive, dark launch, strangler, expand/backfill/contract) to keep each merge non-breaking. An integration branch is allowed only when some task is breaking and none of those patterns can make it safe. Then the plan's strategy section must state:
+- **Why**: which task breaks, what exactly breaks, and why each pattern was ruled out.
+- **Scope**: only that task and the tasks that depend on it go on the integration branch. Everything before the break and everything independent still merges into `main`.
+- **Exit**: the condition for merging it to `main` (with the same rules: green, pre-existing behavior unchanged), and a final "merge to main" gate task.
+- **Freshness**: rebase or merge `main` into it regularly (`scripts/sync-base.sh`).
+No reason written = `main`.
 
 ## Step by step
 
@@ -84,7 +93,7 @@ Wrong: "T3 api: all usecases for estimates", "T4 agent+api: revise flow", "T5 ap
 - Dependencies that are just list order.
 
 ## Checklist before asking for approval
-- [ ] Base branch named; strategy says how new code stays dark and how it is switched on and off.
+- [ ] Base branch is `main`, or an integration branch with why / scope / exit / freshness written (see "Base branch"); strategy says how new code stays dark and how it is switched on and off.
 - [ ] Every endpoint/RPC/page/job in the design is exactly one slice (or a few behavior splits) in one deployable (never two in one PR).
 - [ ] Skeleton tasks exist only where structure is missing, and have no behavior.
 - [ ] Each task has merge safety, an e2e test, and a rollback; each reviewable in 15-30 min.

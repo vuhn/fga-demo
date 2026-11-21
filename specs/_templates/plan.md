@@ -1,6 +1,6 @@
 # Plan: <feature>
 
-Base branch: <main | integration branch>. Every task keeps it green and running when merged (see `.claude/skills/plan-tasks`).
+Base branch: <main (default) | integration branch: why a breaking change cannot be made safe, scope, exit, how it stays fresh>. Every task keeps it green and running when merged (see `.claude/skills/plan-tasks`).
 
 ## Strategy
 - Delivery pattern: <additive / dark launch / strangler / expand-backfill-contract>, and how new code stays unreachable until complete.
