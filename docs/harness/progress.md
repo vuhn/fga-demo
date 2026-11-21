@@ -22,7 +22,9 @@ Baselines every later task is compared against:
 
 T1 done (branch `feat/task-management-T1`, uncommitted): `api/migrations/00012_tasks.sql` (`tasks`, `task_comments`, `tasks` product value, one `false` row per tenant), `Truncate`, `docs/database-schema.md`. Verified: dry run Up, constraint probes (empty title, bad status, weight 0, end before start, cross-tenant project FK, 4001-char comment, `tasks` product accepted and a bogus product rejected, task delete cascades to its comments) and Down in rolled-back transactions on the seeded DB; EXPLAIN for Q1-Q3 and Q7 (`task_comments_task_created_idx` is used by Q2 and Q7; for Q1 and Q3 the planner picks a Seq Scan or Bitmap Scan on `tasks_tenant_project_idx` because the 4-project seed puts a quarter or more of the rows in one project, so the plan is re-checked on a larger set in T5/T8); the previous build (`main` at 900d203) started on the migrated DB, both smoke-replays identical to the T0 baselines, products list and toggle work (the extra `tasks` row is listed disabled); `make check` and `make verify-live` green.
 
-Next: T2 (model) and T3 (product toggle).
+T2 done (branch `feat/task-management-T2`, uncommitted): superset model in `api/fga/model.fga` and the docs block (`tasks_enabled`, `can_view_tasks`, `can_edit_tasks`, `can_manage_tasks`, type `task_comment`), `docs/authorization-model.md` bullet, `docs/tuple-catalog.md`, `docs/decision-catalog.md`; new `TestTaskAccess` (relation truth table on a scratch store) and `TestModelHasTaskRelations`. Verified: `make check`, `make verify-live` (reseeded, API restarted).
+
+Next: T3 (product toggle).
 
 ## Active task (2026-11-20): usecase-io-structs (branch `refactor/usecase-io-structs`, off `main`, uncommitted)
 

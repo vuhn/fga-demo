@@ -169,6 +169,10 @@ Before a user grant, Check `can_read_tenant` for the target user on `T`. A false
 
 Body is the share shape. Delete the matching tuple, then the matching `resource_grants` row. Revoke of an owner row is 400. A missing grant is 404.
 
+#### Tasks (model only, written by later tasks)
+
+Tasks write no tuples. The product is the wildcard `tenant:T#tasks_enabled@user:*` (set product, `tasks`). A comment (later task) writes `task_comment:C#project@project:P` and `task_comment:C#owner@user:U`; deleting it removes both. `can_view_tasks`, `can_edit_tasks`, `can_manage_tasks` are computed on the project.
+
 #### Delete document, photo, or blueprint
 
 Check `can_delete`. Read every tuple for that object, delete them in one Write, then delete the grants and the row in one Postgres transaction. If Postgres fails, write the tuples back.

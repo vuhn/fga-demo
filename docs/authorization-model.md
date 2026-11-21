@@ -40,6 +40,7 @@ type tenant
     define documents_enabled: [user:*]
     define photos_enabled: [user:*]
     define blueprints_enabled: [user:*]
+    define tasks_enabled: [user:*]
     define internal_role: [tenant_role]
     define external_role: [tenant_role]
     define custom_internal: assignee from internal_role
@@ -93,6 +94,9 @@ type project
     define can_create_private_folder: can_access and (internal_user from tenant or grant_create_private from tenant or grant_create_private) and documents_enabled from tenant
     define can_create_private_album: can_access and (internal_user from tenant or grant_create_private from tenant or grant_create_private) and photos_enabled from tenant
     define can_create_blueprint: can_contribute and blueprints_enabled from tenant
+    define can_view_tasks: can_access and tasks_enabled from tenant
+    define can_edit_tasks: can_contribute and tasks_enabled from tenant
+    define can_manage_tasks: (internal_admin from tenant or internal_admin or grant_manage from tenant or grant_manage) and can_contribute and tasks_enabled from tenant
 
 type folder
   relations
@@ -172,6 +176,13 @@ type blueprint
     define can_manage: (owner or internal_admin from tenant or internal_admin from project or grant_manage from tenant or grant_manage from project) and can_contribute from project and blueprints_enabled from tenant
     define can_delete: can_manage
     define can_share: can_manage
+
+type task_comment
+  relations
+    define project: [project]
+    define owner: [user]
+    define can_edit: owner and can_view_tasks from project
+    define can_delete: (owner or can_manage_tasks from project) and can_view_tasks from project
 ```
 
 How to read it:
@@ -191,8 +202,9 @@ How to read it:
 - **Changing visibility** (`can_change_visibility`) is `can_manage` intersected with `internal_user from tenant` (the internal admin, or an internal owner), or a custom role with `change_visibility`.
 - **Owners** keep `can_view`/`can_manage` on what they own (owner implies editor implies viewer), even when the surrounding folder is private to them.
 - **Membership is a prerequisite.** `can_view` intersects `can_access from project`, which requires `can_read_tenant`, so a stale share on a removed member grants nothing, and a stale project membership grants nothing without the tenant membership.
-- **Products.** `documents_enabled`/`photos_enabled`/`blueprints_enabled` accept only `user:*`; when absent every content check and create relation is false. Only the platform toggles them (the service checks `can_manage_platform`); `can_view_products` lets the internal admin read their status. Member administration and product viewing are not intersected with a product.
+- **Products.** `documents_enabled`/`photos_enabled`/`blueprints_enabled`/`tasks_enabled` accept only `user:*`; when absent every content check and create relation is false. Only the platform toggles them (the service checks `can_manage_platform`); `can_view_products` lets the internal admin read their status. Member administration and product viewing are not intersected with a product.
 - **Blueprints.** A `blueprint` sits directly in a project (`tenant`, `project`, `owner`; no container, no `public`/`root`), gated by `blueprints_enabled from tenant`. Internal members and the same tenant/project `grant_*` reach it like a document; there is no `external_visible`, so an external member sees a blueprint only through a share (`viewer`/`editor` on the blueprint itself) or a custom-role `grant_*`. `can_create_blueprint` on the project is `can_contribute and blueprints_enabled from tenant`; this deliberately lets an external admin who is a project member create (and own) blueprints, an exception to "external admins contribute only in externally visible content" because blueprints have no externally visible regime. Versions are Postgres rows and never tuples.
+- **Tasks.** Tasks have no OpenFGA object; they are authorized on the project. `tasks_enabled` is a `user:*` product on the tenant like the others. `can_view_tasks` is `can_access and tasks_enabled from tenant` (every project member, externals included). `can_edit_tasks` is `can_contribute and tasks_enabled from tenant` (internal members, external admins in the project, custom roles with contribute/edit/manage; never external users). `can_manage_tasks` is the internal admin (tenant or project) or a `grant_manage` role, intersected with `can_contribute` and the product. Only comments get an object: `task_comment` (`project`, `owner`) with `can_edit` = owner and `can_view_tasks from project`, `can_delete` = owner or `can_manage_tasks from project`, both intersected with `can_view_tasks from project` so a removed member fails closed. No `tenant` relation on `task_comment`.
 - **No `but not`.** "Private wins" is expressed with intersection over the ancestor chain, so the model stays allow-only.
 - A system admin is not an `internal_admin` of each tenant. Nothing pulls `platform#system_admin` into a tenant or resource relation.
 
