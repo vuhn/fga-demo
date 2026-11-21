@@ -52,6 +52,7 @@ Typical uses: `requirements` to align with the PO before anyone designs; `design
 | --- | --- |
 | Big feature, new requirement | `/feature` (default) |
 | Resume the build of one planned task | `/build-task T3` |
+| One independent task with behavior worth a contract (a prompt, a `.md` file or a URL, no feature) | `/build-task <prompt \| path.md \| url>` |
 | Only a schema change, no feature | `/db-design` |
 | Small Go change (a route, a field, a fix) with no spec | `/go-api` |
 | Small Python Agent change (a use case, a prompt, an RPC) with no spec | `/python-agent` |

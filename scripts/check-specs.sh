@@ -8,6 +8,12 @@ violation() { printf '\nFAIL: %s\n  why: %s\n  fix: %s\n' "$1" "$2" "$3"; fail=1
 for d in specs/*/; do
   name=$(basename "$d")
   [ "$name" = "_templates" ] && continue
+  if [ "$name" = "_adhoc" ]; then   # independent tasks: contracts only, no feature stages
+    for f in $(find "$d" -type f); do   # specs/_adhoc/<yyyymmdd>/<slug>-contract.md
+      [[ "$f" =~ ^specs/_adhoc/[0-9]{8}/[^/]+-contract\.md$ ]] || violation "$f is in specs/_adhoc/" "_adhoc holds only <yyyymmdd>/<slug>-contract.md" "move it to specs/_adhoc/<yyyymmdd>/<slug>-contract.md or into a feature"
+    done
+    continue
+  fi
   [ -f "$d/README.md" ] || { violation "$d has no README.md" "the status table is how stages and gates are tracked" "copy specs/_templates/README.md"; continue; }
   for stage in system-design db-design plan release; do
     [ -f "$d/$stage.md" ] && ! [ -f "$d/requirements.md" ] && violation "$d$stage.md exists without requirements.md" "each stage reads the previous approved artifact" "write and approve requirements.md first"

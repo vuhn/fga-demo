@@ -1,8 +1,8 @@
 # Task <ID>: <title>
 
-Feature: <feature> | Plan row: <ID> | Deployable: <api/web/agent/blueprint-engine/infra> | Endpoint: <route/RPC/page/job> | Est: <h>
+Feature: <feature, or none for an independent task> | Plan row: <ID, or slug> | Deployable: <api/web/agent/blueprint-engine/infra> | Endpoint: <route/RPC/page/job> | Est: <h>
 Status: draft / approved / implemented / reviewed
-Parent docs read: requirements <ok>, system-design <section>, db-design <section or n/a>, plan <row>
+Parent docs read (independent task: the source, prompt / file / url): requirements <ok>, system-design <section>, db-design <section or n/a>, plan <row>
 
 ## 1. Task
 What changes and why (2-4 sentences). Definition of done (checkable).
