@@ -48,11 +48,33 @@ No reason written = `main`.
 6. **Switch / cutover tasks (type F)** are separate from build tasks: the one-line config flip, flag default change, or route registration that makes new behavior live, one flow at a time, each with its own rollback (unset the variable, flip the flag back) and verification. Building and switching must never be the same PR for risky flows.
 7. **Contract / cleanup tasks (type C)**: delete old code, old columns, fallbacks, flags, only after a soak gate with measurable conditions (e.g. N days or one working day on the new path, evals/smoke within baseline, the user says go).
 8. **Docs tasks (type D)** only for reconciliation; behavior docs change in the same PR as the behavior (spec first).
-9. **Per task** record: ID, type, service, endpoint/slice (the route/RPC/page, or the skeleton/infra item), scope (layers/files), estimate in hours, dependencies, **merge safety** (state of the base branch after merge: how it stays dark or backward compatible, and what proves existing behavior unchanged), **e2e test** (a real call through the entry point against a running stack; unit tests are in addition), **rollback** (revert alone is enough, or the exact switch to undo).
+9. **Per task** record: ID, **status** (its own column: `todo`, `in progress`, `built`, `done`; never written inside the ID cell), type, deployable, endpoint/slice (the route/RPC/page, or the skeleton/infra item), **description** (a one-line Summary in the table and a Jira-style ticket section, see "Writing the Description"), estimate in hours, dependencies, **merge safety** (state of the base branch after merge: how it stays dark or backward compatible, and what proves existing behavior unchanged), **e2e test** (a real call through the entry point against a running stack; unit tests are in addition), **rollback** (revert alone is enough, or the exact switch to undo).
 10. **Order and parallelism.** Dependencies must be real (a task needs another's code or data, not just its place in a list). Mark what can run in parallel (different services/endpoints). Producer before consumer: the service that provides an endpoint merges and is deployed before the one that calls it; additive contract first.
 11. **Rollout and release order** feeds `release-docs`: the merge order is not necessarily the go-live order; list when each switch is flipped per environment.
 12. **Test plan**: map every acceptance criterion to an e2e step, a smoke script, or an eval; per task say which one gates its merge. Regression guard: baselines recorded *before* the first behavior-touching task (smoke replay, eval, test inventory) so "unchanged" is measurable.
 13. Run `plan-reviewer`; fix findings; gate: user approves. `build-task` follows the plan; deviations are written back to it.
+
+## Writing the Description
+
+Each task has a ticket written the way a person writes a Jira ticket for a teammate. The table's Description column holds only the ticket's one-line Summary; the full ticket is a section `### T<n>: <title>` under "Task descriptions" in `plan.md`. The reader is an engineer or an agent that was not in the design discussions; `build-task` reads the ticket together with `requirements.md`, `system-design.md` and `db-design.md`, then writes the detailed contract (the human gate).
+
+Sections:
+- **Summary:** one or two sentences: what the caller or user gets. Name the route, RPC, page or job.
+- **Context:** why the task exists, what it builds on (an earlier task, an existing feature) and who uses it next.
+- **Requirements & Acceptance Criteria:** bullets, each a checkable outcome for this task: what is returned or done, the limits and the errors specific to this task, edge cases, who may use it in business words. Cite the requirement (`AC4`) or the design section it comes from.
+- **Out of scope:** what a reader might assume is included but belongs to another task (name it).
+
+Rules:
+- **Traceable, never invented.** Every criterion comes from `requirements.md` or the design documents. If the task needs a behavior the design does not have, fix the design first; do not add it in the ticket. If ticket and design disagree, the design wins.
+- **Behavior, not files.** No file or layer lists: the layer structure (`docs/harness/layer-structure.md`) and the service skill decide them, and `build-task` reads the code. Name a file or symbol only when the reader cannot derive it (a migration number, a switch name, an existing function to extend).
+- **Common rules once.** Do not restate what applies to every task: the authorization Check and what a denial returns (403, 404, empty list), tenant scoping, write ordering (`WriteGuard`), hiding buttons through `permissions.tsx`, the layer structure. Write "standard authorization conventions apply" and spell a rule out only where this task differs from it.
+- **Do not copy the design.** Short outcomes, not the step order, the queries or the field list of the API contract; point to the section when a detail matters.
+- **Right size.** Roughly three to eight criteria. More means the task is too big (split it by behavior); fewer than two means it may not need its own PR.
+- Skeleton, infra, switch and docs tasks use the same sections: what is set up or flipped, and the verification as a criterion.
+
+Check: every criterion traces to a requirement or a design section; none adds behavior; the Summary in the table equals the section's Summary; every endpoint in the design has a ticket.
+
+Example, wrong: `model/task.go, TaskGateway, TaskCreator usecase, service, repo insert, handler, route, wiring`. Right: `Summary: Let a project contributor create a task. Requirements: a title alone gives 201, not_started, weight 1 (AC1); an assignee must be a project member, else 400 not_a_member (AC3); standard authorization conventions apply. Out of scope: listing and editing (T5, T7).`
 
 ## DB design coverage (required whenever `db-design.md` exists and is not skipped)
 
@@ -96,7 +118,8 @@ No reason written = `main`.
 - [ ] Base branch is `main`, or an integration branch with why / scope / exit / freshness written (see "Base branch"); strategy says how new code stays dark and how it is switched on and off.
 - [ ] Every endpoint/RPC/page/job in the design is exactly one slice (or a few behavior splits) in one deployable (never two in one PR).
 - [ ] Skeleton tasks exist only where structure is missing, and have no behavior.
-- [ ] Each task has merge safety, an e2e test, and a rollback; each reviewable in 15-30 min.
+- [ ] Each task has a status (its own column), merge safety, an e2e test, and a rollback; each reviewable in 15-30 min.
+- [ ] Each task has a ticket section (Summary, Context, Requirements & Acceptance Criteria, Out of scope); every criterion traces to the requirements or design, and no file lists or restated common rules.
 - [ ] Infra is per resource per environment, prod last with a gate; defaults make early merge safe.
 - [ ] Migrations follow expand/backfill/contract in separate tasks; contract and deletes sit behind a soak gate.
 - [ ] Every item of `db-design.md` appears in the "DB design coverage" table with a task, a proof and a rollout step per environment (seed `Truncate`, docs, dry run, old-build compatibility, restore point included).

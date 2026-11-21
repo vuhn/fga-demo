@@ -15,8 +15,9 @@ Phases: **1 Load context -> 2 Clarify and assess impact -> 3 Contract (human gat
 
 ## 1. Load context
 
-Read only what the task needs, and reference it instead of copying it:
-- `specs/<feature>/plan.md`: the task row (scope, deployable, depends on, e2e test, merge safety, rollback, estimate), its "DB design coverage" rows, and the merge sequence around it. Check its dependencies are merged (provider before consumer).
+Read only what the task needs, and reference it instead of copying it. The contract is written from the design documents and the code; the ticket says which task this is and gives its acceptance criteria. If the ticket and the design disagree, the design wins: stop, tell the user, and fix the ticket in `plan.md`.
+
+- `specs/<feature>/plan.md`: the task row and its ticket section under "Task descriptions" (Summary, Context, Requirements & Acceptance Criteria, Out of scope; plus deployable, depends on, e2e test, merge safety, rollback, estimate). The ticket says what to deliver and where it stops; the detail comes from the design documents below and the code. Every acceptance criterion must show up in the contract (a step, a test or an impact row); say which one does not and why, its "DB design coverage" rows, and the merge sequence around it. Check its dependencies are merged (provider before consumer).
 - `specs/<feature>/requirements.md`: the acceptance criteria the task serves.
 - `specs/<feature>/system-design.md`: the sequence diagram part for this endpoint, the authz Check, the failure paths.
 - `specs/<feature>/db-design.md`: only when the task touches data (tables, queries, indexes).
@@ -79,7 +80,7 @@ Gate: show a short summary and the path, then stop. Trivial tasks (a field, a te
 - Load the deployable's skill before the first edit (see "Skill per service" in `docs/harness/sdlc.md`): `go-api` for `api/`, `python-agent` for `agent/`, `python-engine` for `blueprint-engine/`, `db-design` for migrations; `web/` and infra follow CLAUDE.md (`permissions.tsx`, Mantine, `ui.tsx`). A task that touches several services loads each service's skill (one task is still one deployable). Those skills own the layers and the definition of done; this skill owns the contract.
 - Write unit tests, and integration tests where the plan says so. Write the tests first where the contract is clear (bug fix: failing test first, then the fix without editing that test). Implement exactly the contract and nothing else.
 - Verify with evidence: the task's e2e test through the real entry point (not only unit tests); that the merge-safety claim holds (new code unreachable or additive, existing behavior unchanged on the base branch, the rollback works); `make check`; `make verify-live` for authorization changes (it RESETS data; restart the API after a reseed).
-- Update docs and architecture files the task touches, mark the task done in `plan.md` (planned tasks only), update `docs/harness/progress.md`. Keep the diff reviewable in 15-30 minutes. When a PR is created: body per `.github/pull_request_template.md`, temp branches (`wt-*`, `worktree-agent-*`) stay local, and run `scripts/clean-temp-branches.sh` afterwards.
+- Update docs and architecture files the task touches, set the task Status in `plan.md` (planned tasks only: `in progress` when you start implementing, `built` when the review passes, `done` only when it is merged and verified; the status is its own column, never written in the ID cell), update `docs/harness/progress.md`. Keep the diff reviewable in 15-30 minutes. When a PR is created: body per `.github/pull_request_template.md`, temp branches (`wt-*`, `worktree-agent-*`) stay local, and run `scripts/clean-temp-branches.sh` afterwards.
 
 ## 5. Review (cap: 2 rounds)
 
