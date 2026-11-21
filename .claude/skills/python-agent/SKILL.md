@@ -13,16 +13,17 @@ Stateless gRPC service (`fga.demo.agent.v1.AgentService`, :8091). It owns every 
 ## Layers (dependencies point inward)
 `domain/{model,gateway}` + `errors.py` -> `usecase/<op>.py` (+ `usecase/helper/`) -> `service/<op>.py` (+ `service/helper/`, `service/prompts/`) -> `infrastructure/<technology>/` (+ `infrastructure/entity/`) -> `handler/grpc/`. `wire.py` is the only composition root; no layer imports it. The package root holds only `wire.py` and `serve.py`. Folder names are singular.
 
-## Adding an operation: touch exactly these
+## Adding an operation: the usual steps
+Read `docs/harness/layer-structure.md` first. These are the usual steps, in order, for a new operation; each points at the rule it applies. Skip a step that does not apply. For a case they do not cover, decide with "When the steps don't fit" in that doc and write the decision in the task contract.
 1. Spec first: `docs/service-contracts.md` and `proto/fga/demo/agent/v1/agent.proto` (then `make proto-gen`; `make proto` lints and checks generated stubs and breaking changes).
-2. `domain/model/<concept>.py`: data only (frozen dataclass or enum, no methods, stdlib only). One file per concept. Errors go in `domain/errors.py`.
-3. `domain/gateway/<collaborator>_gateway.py` only for a NEW outside dependency: exactly one Protocol per file, named for what the domain asks (`BlueprintEngine`, `LanguageModel`), business-named methods, re-exported in `__init__.py`. A progress sink is a plain callback, not a gateway.
-4. `usecase/<operation>.py`: one Protocol named after the file, verb methods, signatures only. First arg `CallContext`; long runs take `on_progress: Callable[[Progress], None]` (it may raise `Cancelled`).
+2. `domain/model/<concept>.py` (data only, one file per concept; layer-structure.md "Layers"). Errors go in `domain/errors.py`.
+3. `domain/gateway/<collaborator>_gateway.py` only for a NEW outside dependency (one Protocol per file, named for what the domain asks: `BlueprintEngine`, `LanguageModel`). A progress sink is a plain callback, not a gateway.
+4. `usecase/<operation>.py`: signature rules in layer-structure.md "Operation signatures" (`CallContext` first; long runs take `on_progress`, which may raise `Cancelled`).
 5. `service/<operation>.py`: `<Operation>Service`, the business steps (validate, ask the Engine, ask the model, retry with feedback). Same file name as the use case. Dependencies come in through the constructor as Protocols. Prompts are pure functions in `service/prompts/<operation>.py` (inputs in, text out, no classes).
 6. Shared business rule: a Protocol in `usecase/helper/<name>.py` implemented in `service/helper/<name>.py` (paired). Never in `domain/`, never a `utils`/`helpers` module.
 7. `infrastructure/<technology>/`: the adapter for a gateway (`ollama`, `engine_grpc`). Technology wire shapes go in `infrastructure/entity/<technology>_<shape>.py`, not dicts in the adapter. Model-specific tuning stays here, not in prompts. A new Engine operation = a proto method, a typed method on `BlueprintEngine`, one `@rpc` adapter method, and a mapper pair.
-8. `handler/grpc/<domain>_handler.py`: own `<Domain>Usecases`; a public method decodes, calls ONE use case (`self._uc.<field>.<method>`), encodes through `mapper/`. At most 15 statements, no loops, no rules or defaults. Errors via `common/error_helper.py`, streams via `common/streaming_helper.py`; `servicer.py` only delegates.
-9. `handler/grpc/mapper/<model>_mapper.py` and `infrastructure/engine_grpc/mapper/<model>_mapper.py`: one per domain model, convert BOTH ways, at most 25 statements, no decisions. No `*_pb2` message module is imported outside `mapper/`.
+8. `handler/grpc/<domain>_handler.py`: own `<Domain>Usecases`, thin (rule 5; shape checked by `check-python-shape.py`). Errors via `common/error_helper.py`, streams via `common/streaming_helper.py`; `servicer.py` only delegates.
+9. `handler/grpc/mapper/<model>_mapper.py` and `infrastructure/engine_grpc/mapper/<model>_mapper.py`: one per domain model, both ways; no `*_pb2` message module outside `mapper/`.
 10. `wire.py`: build the service, the handler's `<Domain>Usecases` and the handler. Nothing else builds the graph.
 11. Tests in `agent/tests/`: service tests with the scripted/fake Engine and fake language model (no real LLM), real-gRPC handler tests, mapper tests. Bug fixes: failing test first, then the fix without editing that test.
 

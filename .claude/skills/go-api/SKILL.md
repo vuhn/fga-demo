@@ -11,13 +11,14 @@ Source of truth: `docs/harness/layer-structure.md` (the common layer structure),
 `domain/model` (stdlib only) and `domain/gateway` (interfaces) -> `usecase` (one interface per operation, e.g. `FolderCreator`) + `usecase/helper` -> `service` (one file per operation, `folder_creator.go`) -> `infrastructure/{postgres,fga,engine,agent,grpcutil,auth,idgen,config}` implements gateways -> `handler/http`.
 `domain`, `usecase`, `service` never import Gin, pgx, or the OpenFGA SDK (`scripts/check-architecture.sh` enforces).
 
-## Adding an operation: touch exactly these
+## Adding an operation: the usual steps
+Read `docs/harness/layer-structure.md` first. These are the usual steps, in order, for a new operation; each points at the rule it applies. Skip a step that does not apply. For a case they do not cover, decide with "When the steps don't fit" in that doc and write the decision in the task contract.
 1. Spec first: `docs/decision-catalog.md` (the Check), `docs/http-api.md` (route), plus `tuple-catalog`/`authorization-model` if tuples or model change.
-2. `domain/model` types/errors; `domain/gateway` method if new data access (more than 3 params after `ctx` -> one `model.<Action><Model>Params`).
-3. `usecase/<domain>_<op>.go`: one interface whose method is `Op(ctx, in input.X) (output.X, error)` (or only `error`; a streaming callback stays trailing); add the struct to `usecase/input/<domain>.go` (`Actor`, `TenantID`, ids, body fields) and to `usecase/output/<domain>.go` (own copied fields, never a `domain/model` type; a shape shared by several usecases sits in the same domain file and the usecase output embeds it).
+2. `domain/model` types/errors; `domain/gateway` method if new data access (params rule: layer-structure.md "Operation signatures").
+3. `usecase/<domain>_<op>.go` plus its `input.X` / `output.X` structs (`Actor`, `TenantID`, ids, body fields in; own copied fields out): signature and struct rules are in layer-structure.md "Operation signatures" (checked by `scripts/check-go-shape.go`).
 4. `service/<domain>_<op>.go`: validate -> authorize via `helper.Authorizer` (`Require` 403, `RequireVisible` 404, `PlatformOr`, `Permissions`) -> gateways -> `helper.WriteGuard` for stores. No tuple strings here; pass `model.Tuple`.
 5. `infrastructure/postgres/<domain>_repo.go` (literal table names) and `infrastructure/fga/<domain>_relations.go` (pure `*Relations` builders, unit-tested); migration via `db-design` if schema changes.
-6. `handler/http/<domain>_handler.go`: decode, read actor (JWT `sub`) and tenant (`X-Tenant-ID`), build `input.X` through `mapper/<domain>_mapper.go`, call ONE usecase method, map `output.X` to the JSON view in the mapper, map errors with `writeErr`; register in the handler's own `Register(Routes)`.
+6. `handler/http/<domain>_handler.go` (thin, layer-structure.md rule 5): read actor (JWT `sub`) and tenant (`X-Tenant-ID`), convert through `mapper/<domain>_mapper.go`, call ONE usecase method, map errors with `writeErr`; register in the handler's own `Register(Routes)`.
 7. `cmd/api/wire.go`: the only place that builds the graph; constructors take interfaces.
 8. Tests: service unit tests with fakes, relation builder tests; integration test (`-tags=integration`) when authorization changes. Web: `web/src/permissions.tsx` only if a new action/feature appears.
 

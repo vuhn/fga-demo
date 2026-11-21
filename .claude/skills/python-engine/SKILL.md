@@ -16,12 +16,13 @@ The delivery side already follows the target layout: `handler/grpc/<domain>_hand
 - Touching a legacy module for a task: only move what the task needs. A later plan task refactors the rest (`specs/re-architecture-system/plan.md`); do not widen the PR.
 - The layout, model, usecase and service checks run on the Agent only for now; follow them in the Engine anyway.
 
-## Adding an operation: touch exactly these
+## Adding an operation: the usual steps
+Read `docs/harness/layer-structure.md` first. These are the usual steps, in order, for a new operation; each points at the rule it applies. Skip a step that does not apply. For a case they do not cover, decide with "When the steps don't fit" in that doc and write the decision in the task contract.
 1. Spec first: `docs/service-contracts.md` and `proto/fga/demo/engine/v1/engine.proto` (then `make proto-gen`; `make proto` lints, checks generated stubs and breaking changes). Keep the Agent/API callers in mind: a new Engine operation needs a proto method, a gateway method on the caller's side, one `@rpc` adapter method and a mapper pair.
 2. Model/rules: business data in a model module (data only, stdlib only); pure geometry/rules stay deterministic and unit-tested (`domain/layout.py`, `building.py`, `checks.py`, `fixtures.py`).
-3. `domain/gateway/<kind>_gateway.py` for each outside dependency (DXF read/draw/patch, rendering, conversion): exactly one Protocol per file. Implemented in `infrastructure/` (ezdxf, ifcopenshell, OpenCV, pdfium live only there).
-4. `usecase/<operation>.py` (Protocol, verb methods) + `service/<operation>.py` (the implementation, same file name). Deps through the constructor.
-5. `handler/grpc/<domain>_handler.py`: decode, call ONE use case, encode through `handler/grpc/mapper/<model>_mapper.py` (both ways, no decisions). At most 15 statements, no loops. Errors via `common/error_helper.py`. `servicer.py` only delegates. No `*_pb2` message module outside `mapper/`.
+3. `domain/gateway/<kind>_gateway.py` for each outside dependency (DXF read/draw/patch, rendering, conversion), implemented in `infrastructure/` (ezdxf, ifcopenshell, OpenCV, pdfium live only there).
+4. `usecase/<operation>.py` + `service/<operation>.py` (same file name; layer-structure.md rule 3). Deps through the constructor.
+5. `handler/grpc/<domain>_handler.py` (thin, rule 5) with `handler/grpc/mapper/<model>_mapper.py` (both ways). Errors via `common/error_helper.py`; `servicer.py` only delegates; no `*_pb2` message module outside `mapper/`.
 6. `wire.py`: build the graph there and nowhere else; no layer imports it.
 7. Tests in `blueprint-engine/tests/` (no LLM): pure geometry and checks, services with fake gateways, real-gRPC handler tests (`test_grpc.py`). Bug fixes: failing test first, then the fix without editing that test. Prompt behavior is the Agent's (`make agent-eval*`), not the Engine's.
 
