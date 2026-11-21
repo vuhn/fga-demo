@@ -31,12 +31,21 @@ No feature behind the task (a small ask, a task handed over without specs)? Use 
 
 Write `specs/<feature>/tasks/<ID>-contract.md` from `specs/_templates/task-contract.md` (no feature: `specs/_adhoc/<slug>-contract.md`, or answer in chat if the task is trivial). It is the contract the code is reviewed against. It holds:
 1. **Task**: what and why, deployable, the plan row, definition of done.
-2. **Business logic**, step by step plus a Mermaid diagram: new endpoint or code = the whole flow (validate, Check, read, call, write, errors and their statuses); changed code = what changes (before -> after, steps added or removed), and what must stay identical.
+2. **Business logic**, step by step plus a Mermaid diagram (for people): new endpoint or code = the whole flow (validate, Check, read, call, write, errors and their statuses); changed code = what changes (before -> after, steps added or removed), and what must stay identical. Then a **TLA+ model** (for the agent: exact, checkable) when the logic has state or ordering that prose gets wrong; see "TLA+ model" below.
 3. **Impact** listed by API endpoint, RPC, page or feature (and table, caller): what changes, what must not change, and how the task's e2e test proves it.
 4. **Risk**: merge safety (from `plan.md`), rollback, authz, data, concurrency, compatibility with old and new builds, out of scope.
 5. Tests: unit, integration, and the e2e through the real entry point.
 
-Gate: show a short summary and the path, then stop. Trivial tasks (a field, a text, a one-line fix, a skeleton with no behavior) may proceed after stating the contract in a few lines; anything touching authorization, a contract (proto/HTTP), data or concurrency always waits for the user's approval. The contract is not edited silently afterwards: a change during implementation is written to it and shown to the user.
+### TLA+ model (only where it pays)
+
+Write `specs/<feature>/tasks/<ID>.tla` (+ `<ID>.cfg`) when the task has any of: concurrency or races (two requests on the same key, "exactly one row"), a multi-store write order with compensation (Postgres then OpenFGA, revoke order), a state machine or status transitions, idempotency, caching or retry behavior, a cutover/strangler switch. Otherwise write `TLA+: n/a, <reason>` in the contract (a plain read or CRUD slice does not need one; do not pad).
+
+- Model the logic, not the code: a small abstract spec (a few variables, the actions from the business-logic steps including the failure actions: Agent down, second request, crash between two writes), no HTTP, JSON or SQL details. State what each variable stands for in the repo (table, tuple, cache).
+- Write the **invariants** the task must keep (for example `AtMostOneSummaryRow`, `NoTupleWithoutRow`, `NoWriteBeforeCheck`) and, if it matters, a liveness property. Each invariant maps to a test in the contract's test section (name it); an invariant with no test is a gap.
+- Check it: `scripts/check-tla.sh specs/<feature>/tasks/<ID>.tla` (needs Java and `TLA2TOOLS_JAR`). A counterexample means the business logic is wrong: fix the steps and the model together, then show the user. If TLC cannot run (exit 3), write `model-checked: no (<why>)` in the contract; never claim a model passed that was not run, and it still counts as the written spec for implementation.
+- At implementation the model is the reference for ordering and failure handling: implement the actions as modelled, and the tests cover its invariants. If the code needs a different order, change the model and the contract first.
+
+Gate: show a short summary and the path, then stop. Trivial tasks (a field, a text, a one-line fix, a skeleton with no behavior) may proceed after stating the contract in a few lines; a TLA+ model, anything touching authorization, a contract (proto/HTTP), data or concurrency always waits for the user's approval. The contract is not edited silently afterwards: a change during implementation is written to it and shown to the user.
 
 ## 4. Implement
 
