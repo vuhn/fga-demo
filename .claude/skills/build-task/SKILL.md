@@ -1,14 +1,54 @@
 ---
 name: build-task
-description: Stage 5 of the feature SDLC. Implement exactly one task from an approved specs/<feature>/plan.md with its tests and verification. Use when asked to build or implement a planned task.
+description: Stage 5 of the feature SDLC, and the way to implement any single planned task. Loads the parent feature context, clarifies and assesses impact, writes a task contract (business logic, impact by endpoint, risk) for a human check, implements with the service skill on a task branch, then runs a separate reviewer for at most 2 rounds. Use when asked to build or implement one task, e.g. `/build-task T3` or `/build-task <feature> T3`.
 ---
 
-# Build one task
+# Implement one task (contract first)
 
-1. Read `plan.md` and pick one task whose dependencies are done. One task = one PR = one deployable (`api/`, `web/`, `agent/`, `blueprint-engine/`, or infra) x one endpoint; if the work needs code in a second deployable, stop and ask to split it into another planned task (see "Definitions" in the `plan-tasks` skill). Do not pull in other tasks.
-2. Clock-in: `scripts/sync-base.sh <integration-branch>` first (pull the latest base before anything else), then `docs/harness/progress.md`, `make check` baseline.
-3. Short implementation plan first (files, order, tests, risks); if it differs from `plan.md`, update `plan.md` and tell the user.
-4. Implement with the matching skill, loaded before the first edit (see "Skill per service" in `docs/harness/sdlc.md`): `go-api` for `api/`, `python-agent` for `agent/`, `python-engine` for `blueprint-engine/`, `db-design` for migrations, and CLAUDE.md for web (`permissions.tsx`, Mantine, `ui.tsx`). A task that touches several services loads each service's skill (one task is still one service). Write unit tests, and integration tests where the plan says so. Bug fixes: failing test first, then the fix without editing that test.
-5. Verify with evidence: the task's **e2e test** from `plan.md` through the real entry point (not only unit tests), and that its **merge safety** claim holds (new code unreachable or additive, existing behavior unchanged on the base branch; check the rollback works); then `make check`; `make verify-live` for authorization changes (it RESETS data; restart the API after reseeding).
-6. Run `authz-reviewer` when `service/`, `fga/`, `model.fga`, or `permissions.tsx` changed; fix findings below 2.
-7. Update docs/architecture files touched, mark the task done in `plan.md`, update `docs/harness/progress.md`. Do not commit unless asked (user is the only author, never on or to the protected branch, PR body per `.github/pull_request_template.md`, temp branches stay local and `scripts/clean-temp-branches.sh` runs after the PR is created); keep the diff reviewable in 15-30 minutes.
+One task = one PR = one deployable (`api/`, `web/`, `agent/`, `blueprint-engine/`, infra) x one endpoint (see "Definitions" in `plan-tasks`). If the work needs a second deployable, stop and ask to split it in `plan.md`. Do not pull in other tasks. With a plan, pick one task whose dependencies are done.
+
+Phases: **1 Load context -> 2 Clarify and assess impact -> 3 Contract (human gate) -> 4 Implement -> 5 Review (max 2 rounds)**.
+
+## 1. Load context
+
+Read only what the task needs, and reference it instead of copying it:
+- `specs/<feature>/plan.md`: the task row (scope, deployable, depends on, e2e test, merge safety, rollback, estimate), its "DB design coverage" rows, and the merge sequence around it. Check its dependencies are merged (provider before consumer).
+- `specs/<feature>/requirements.md`: the acceptance criteria the task serves.
+- `specs/<feature>/system-design.md`: the sequence diagram part for this endpoint, the authz Check, the failure paths.
+- `specs/<feature>/db-design.md`: only when the task touches data (tables, queries, indexes).
+- Clock-in, first of all: `scripts/sync-base.sh <integration-branch>` (pull the latest base before anything else; on a task branch, rebase or merge the updated base), then `docs/harness/progress.md`, then `make check` as the baseline.
+- The code the task will touch and its callers (Grep), and the owning service's `ARCHITECTURE.md`.
+
+No feature behind the task (a small ask, a task handed over without specs)? Use the user's ask as the parent context, say "no parent specs", and keep the contract short.
+
+## 2. Clarify and assess impact
+
+- Ask the user only what the parent documents do not answer (AskUserQuestion when it is genuinely their call; otherwise pick the sensible default and write it in the contract). If the answer would change the plan, system design or DB design, stop and send the user back to that artifact.
+- List the affected modules, endpoints, tables and callers (from the code, not from memory).
+- Note the risks and what is out of scope.
+
+## 3. Write the contract (human gate)
+
+Write `specs/<feature>/tasks/<ID>-contract.md` from `specs/_templates/task-contract.md` (no feature: `specs/_adhoc/<slug>-contract.md`, or answer in chat if the task is trivial). It is the contract the code is reviewed against. It holds:
+1. **Task**: what and why, deployable, the plan row, definition of done.
+2. **Business logic**, step by step plus a Mermaid diagram: new endpoint or code = the whole flow (validate, Check, read, call, write, errors and their statuses); changed code = what changes (before -> after, steps added or removed), and what must stay identical.
+3. **Impact** listed by API endpoint, RPC, page or feature (and table, caller): what changes, what must not change, and how the task's e2e test proves it.
+4. **Risk**: merge safety (from `plan.md`), rollback, authz, data, concurrency, compatibility with old and new builds, out of scope.
+5. Tests: unit, integration, and the e2e through the real entry point.
+
+Gate: show a short summary and the path, then stop. Trivial tasks (a field, a text, a one-line fix, a skeleton with no behavior) may proceed after stating the contract in a few lines; anything touching authorization, a contract (proto/HTTP), data or concurrency always waits for the user's approval. The contract is not edited silently afterwards: a change during implementation is written to it and shown to the user.
+
+## 4. Implement
+
+- Short implementation plan first (files, order, tests, risks); if it differs from `plan.md`, update `plan.md` and tell the user.
+- Work on a task branch from the integration branch (`feat/<feature>-<ID>`, unless you are already on the task's branch); never on or to the protected branch. Commit on that branch only as the git rules allow: ask once at the contract gate whether to commit when the review passes; with a yes, commit locally (user as the only author, no attribution lines, commit and push as separate commands) and never push unless asked. With no yes, leave the diff uncommitted.
+- Load the deployable's skill before the first edit (see "Skill per service" in `docs/harness/sdlc.md`): `go-api` for `api/`, `python-agent` for `agent/`, `python-engine` for `blueprint-engine/`, `db-design` for migrations; `web/` and infra follow CLAUDE.md (`permissions.tsx`, Mantine, `ui.tsx`). A task that touches several services loads each service's skill (one task is still one deployable). Those skills own the layers and the definition of done; this skill owns the contract.
+- Write unit tests, and integration tests where the plan says so. Write the tests first where the contract is clear (bug fix: failing test first, then the fix without editing that test). Implement exactly the contract and nothing else.
+- Verify with evidence: the task's e2e test through the real entry point (not only unit tests); that the merge-safety claim holds (new code unreachable or additive, existing behavior unchanged on the base branch, the rollback works); `make check`; `make verify-live` for authorization changes (it RESETS data; restart the API after a reseed).
+- Update docs and architecture files the task touches, mark the task done in `plan.md`, update `docs/harness/progress.md`. Keep the diff reviewable in 15-30 minutes. When a PR is created: body per `.github/pull_request_template.md`, temp branches (`wt-*`, `worktree-agent-*`) stay local, and run `scripts/clean-temp-branches.sh` afterwards.
+
+## 5. Review (cap: 2 rounds)
+
+1. Spawn the `task-reviewer` agent (a separate agent; the one that wrote the code never approves it) with the contract path and the branch/diff. Also spawn `authz-reviewer` when `service/`, `fga/`, `model.fga` or `permissions.tsx` changed.
+2. Fix the findings that are Block or Revise (and every `authz-reviewer` finding scored below 2); re-run the checks; round 2 only on what changed.
+3. After round 2, stop looping: list what is still open and hand it to the user (do not start a round 3). Report the contract-vs-code result, the commands run, and what was not run.
