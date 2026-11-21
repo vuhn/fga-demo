@@ -117,7 +117,7 @@ var People = []Person{
 }
 
 var Tenants = []TenantSeed{
-	{Acme, "acme", "Acme", CoAcme, model.AllProducts},
+	{Acme, "acme", "Acme", CoAcme, []string{model.ProductDocuments, model.ProductPhotos, model.ProductBlueprints}}, // tasks is switched on by T15a
 	{Globex, "globex", "Globex", CoGlobex, []string{model.ProductDocuments, model.ProductPhotos}},
 }
 

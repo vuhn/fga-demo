@@ -29,7 +29,7 @@ func NewProductSetter(tenants gateway.TenantGateway, products gateway.ProductGat
 // admin may toggle them; tenant admins can only view them.
 func (s *productSetter) Set(ctx context.Context, in input.ProductSetter) (output.ProductSetter, error) {
 	if !model.ValidProduct(in.Product) {
-		return output.ProductSetter{}, model.Invalid("product must be documents or photos")
+		return output.ProductSetter{}, model.Invalid("product must be documents, photos, blueprints or tasks")
 	}
 	if err := s.authz.RequirePlatform(ctx, in.Actor); err != nil {
 		return output.ProductSetter{}, err

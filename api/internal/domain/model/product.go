@@ -12,10 +12,11 @@ const (
 	ProductDocuments  = "documents"
 	ProductPhotos     = "photos"
 	ProductBlueprints = "blueprints"
+	ProductTasks      = "tasks"
 )
 
 // AllProducts lists every product a tenant can enable.
-var AllProducts = []string{ProductDocuments, ProductPhotos, ProductBlueprints}
+var AllProducts = []string{ProductDocuments, ProductPhotos, ProductBlueprints, ProductTasks}
 
 func ValidProduct(p string) bool {
 	for _, x := range AllProducts {

@@ -24,7 +24,9 @@ T1 done (branch `feat/task-management-T1`, uncommitted): `api/migrations/00012_t
 
 T2 done (branch `feat/task-management-T2`, uncommitted): superset model in `api/fga/model.fga` and the docs block (`tasks_enabled`, `can_view_tasks`, `can_edit_tasks`, `can_manage_tasks`, type `task_comment`), `docs/authorization-model.md` bullet, `docs/tuple-catalog.md`, `docs/decision-catalog.md`; new `TestTaskAccess` (relation truth table on a scratch store) and `TestModelHasTaskRelations`. Verified: `make check`, `make verify-live` (reseeded, API restarted).
 
-Next: T3 (product toggle).
+T3 done (branch `feat/task-management-T3`, uncommitted): `tasks` is a fourth product (`model.AllProducts`), `ProductRepo.Set` creates a missing row before locking it, tenant create inserts four rows, `tasks_enabled` and `can_view/edit/manage_tasks` are in `PermissionRelations` (`/me/permissions`, inspector), docs updated; the seed pins Acme's products explicitly so the demo is unchanged until T15a. Verified: `make check`, `make verify-live`, new unit tests, real-Postgres `TestProductRepoSetCreatesMissingRow`, HTTP walk (platform admin toggles `tasks`, tenant admin 403, unknown product 400, a deleted row toggles, new tenant has four rows), both smoke-replays identical to the T0 baselines. Known: the web Tenant page indexes `PRODUCT_META[p.product]` and has no `tasks` entry (T16).
+
+Next: T4 (POST /projects/:id/tasks).
 
 ## Active task (2026-11-20): usecase-io-structs (branch `refactor/usecase-io-structs`, off `main`, uncommitted)
 

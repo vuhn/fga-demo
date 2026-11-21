@@ -104,7 +104,7 @@ There is no delete tenant route.
 #### Products
 
 - `GET /api/v1/tenants/:id/products` returns `{product, enabled, updated_at}` for every product. OR check of `can_manage_platform` or `can_view_products` (internal admin); 403 otherwise. Tenant admins can see product state but not change it. `enabled` is the Postgres display flag. (Members learn whether a product is on from `GET /me/permissions`.)
-- `PUT /api/v1/tenants/:id/products/:product` where `:product` is `documents`, `photos`, or `blueprints`. Body `{"enabled": true}`. Allow only when `can_manage_platform` is true: products are a platform entitlement. Then the set-product tuple command.
+- `PUT /api/v1/tenants/:id/products/:product` where `:product` is `documents`, `photos`, `blueprints`, or `tasks`. Body `{"enabled": true}`. Allow only when `can_manage_platform` is true: products are a platform entitlement. Then the set-product tuple command.
 
 An internal tenant admin and a system admin can both call this PUT. An internal user, an external admin, and an external user receive 403. Disabling the product still deletes only the wildcard tuple.
 
@@ -261,7 +261,7 @@ Response 200: `{"allowed": false}`.
 
 The actor may check their own `user_id` always. The actor may check another user when `can_manage_platform` is true, or when the actor has `can_manage_members` on the object's tenant. The API derives that tenant from the object, never from the request: a `tenant` object is its own tenant, a content object's tenant is loaded from Postgres, and `platform:main` has no tenant. A missing object is 404. Otherwise 403. This keeps an admin of one tenant from probing access to another tenant's objects.
 
-Whitelisted relations: `can_view`, `can_edit`, `can_delete`, `can_share`, `can_create_document`, `can_create_photo`, `can_create_folder`, `can_create_album`, `can_manage`, `can_manage_members`, `can_view_products`, `can_contribute`, `can_read_tenant`, `can_manage_platform`, `documents_enabled`, `photos_enabled`, `blueprints_enabled`, `can_create_blueprint`.
+Whitelisted relations: `can_view`, `can_edit`, `can_delete`, `can_share`, `can_create_document`, `can_create_photo`, `can_create_folder`, `can_create_album`, `can_manage`, `can_manage_members`, `can_view_products`, `can_contribute`, `can_read_tenant`, `can_manage_platform`, `documents_enabled`, `photos_enabled`, `blueprints_enabled`, `can_create_blueprint`, `tasks_enabled`, `can_view_tasks`, `can_edit_tasks`, `can_manage_tasks` (the last three on `project`).
 
 `can_manage_platform` requires `object_type=platform` and `object_id=main`. Tenant relations require `object_type=tenant`. Content relations require the matching object type. A mismatch is 400.
 
