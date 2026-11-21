@@ -4,5 +4,5 @@ Standalone HTML diagrams made with Archify (open in a browser, no server needed)
 
 | File | Shows |
 | --- | --- |
-| `feature-skill-gates.html` | `/feature` stage chain 1-7, with an approval gate after every stage and `design-reviewer` before gates 2-4 |
+| `feature-skill-gates.html` | `/feature` stage chain 1-7, with an approval gate after every stage and the stage reviewer (`system-design-reviewer`, `db-design-reviewer`, `plan-reviewer`) before gates 2-4 |
 | `build-task-detail.html` | `build-task` in five phases: contract gate, implement, review (max 2 rounds), stop and retry paths |

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structure check for specs/<feature>/ (see specs/README.md). Content is judged by humans and design-reviewer.
+# Structure check for specs/<feature>/ (see specs/README.md). Content is judged by humans and the reviewer agents (docs/harness/review-rules.md).
 set -u
 cd "$(dirname "$0")/.."
 fail=0

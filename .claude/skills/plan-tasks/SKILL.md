@@ -43,7 +43,7 @@ Wrong: "T3 api: all usecases for estimates", "T4 agent+api: revise flow", "T5 ap
 10. **Order and parallelism.** Dependencies must be real (a task needs another's code or data, not just its place in a list). Mark what can run in parallel (different services/endpoints). Producer before consumer: the service that provides an endpoint merges and is deployed before the one that calls it; additive contract first.
 11. **Rollout and release order** feeds `release-docs`: the merge order is not necessarily the go-live order; list when each switch is flipped per environment.
 12. **Test plan**: map every acceptance criterion to an e2e step, a smoke script, or an eval; per task say which one gates its merge. Regression guard: baselines recorded *before* the first behavior-touching task (smoke replay, eval, test inventory) so "unchanged" is measurable.
-13. Run `design-reviewer`; fix findings; gate: user approves. `build-task` follows the plan; deviations are written back to it.
+13. Run `plan-reviewer`; fix findings; gate: user approves. `build-task` follows the plan; deviations are written back to it.
 
 ## DB design coverage (required whenever `db-design.md` exists and is not skipped)
 
