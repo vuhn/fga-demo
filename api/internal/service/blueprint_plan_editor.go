@@ -32,7 +32,7 @@ func (s *blueprintPlanEditor) Edit(ctx context.Context, in input.BlueprintPlanEd
 	if len(in.Ops) == 0 || len(in.Ops) > maxPlanEditBytes || in.Ops[0] != '{' || !json.Valid(in.Ops) {
 		return output.BlueprintPlanEditor{}, model.Invalid("ops must be a JSON object of at most %d bytes", maxPlanEditBytes)
 	}
-	b, cur, err := loadBlueprintForEdit(ctx, s.blueprints, s.authz, in.Actor, in.TenantID, in.ID, in.BaseVersion)
+	_, cur, err := loadBlueprintForEdit(ctx, s.blueprints, s.authz, in.Actor, in.TenantID, in.ID, in.BaseVersion)
 	if err != nil {
 		return output.BlueprintPlanEditor{}, err
 	}
@@ -53,6 +53,6 @@ func (s *blueprintPlanEditor) Edit(ctx context.Context, in input.BlueprintPlanEd
 	if r := []rune(msg); len(r) > 500 {
 		msg = string(r[:500])
 	}
-	got, err := appendBlueprintVersion(ctx, s.blueprints, b, planOutcomeVersion(in.ID, model.BlueprintVersionEdit, msg, in.Actor, out), in.BaseVersion)
+	got, err := appendBlueprintVersion(ctx, s.blueprints, planOutcomeVersion(in.ID, model.BlueprintVersionEdit, msg, in.Actor, out), in.BaseVersion)
 	return output.BlueprintPlanEditor{BlueprintDetail: blueprintDetailOutput(got)}, err
 }

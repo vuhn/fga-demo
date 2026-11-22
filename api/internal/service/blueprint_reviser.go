@@ -25,7 +25,7 @@ func NewBlueprintReviser(blueprints gateway.BlueprintGateway, agent gateway.Blue
 // message into edits on the brief and rebuilds, keeping unchanged rooms in
 // place; the result is a new version. Versions never touch OpenFGA.
 func (s *blueprintReviser) Revise(ctx context.Context, in input.BlueprintReviser) (output.BlueprintReviser, error) {
-	message, b, cur, history, err := prepareRevision(ctx, s.blueprints, s.authz, in.Actor, in.TenantID, in.ID, in.Message, in.BaseVersion)
+	message, _, cur, history, err := prepareRevision(ctx, s.blueprints, s.authz, in.Actor, in.TenantID, in.ID, in.Message, in.BaseVersion)
 	if err != nil {
 		return output.BlueprintReviser{}, err
 	}
@@ -37,7 +37,7 @@ func (s *blueprintReviser) Revise(ctx context.Context, in input.BlueprintReviser
 		if err := requireBuilt(out); err != nil {
 			return output.BlueprintReviser{}, err
 		}
-		got, err := appendBlueprintVersion(ctx, s.blueprints, b, planOutcomeVersion(in.ID, model.BlueprintVersionRevise, message, in.Actor, out), in.BaseVersion)
+		got, err := appendBlueprintVersion(ctx, s.blueprints, planOutcomeVersion(in.ID, model.BlueprintVersionRevise, message, in.Actor, out), in.BaseVersion)
 		return output.BlueprintReviser{BlueprintDetail: blueprintDetailOutput(got)}, err
 	}
 	out, err := s.agent.Revise(ctx, model.ReviseBlueprintParams{Brief: cur.Brief, Previous: cur.Model, Message: message, History: history})
@@ -47,6 +47,6 @@ func (s *blueprintReviser) Revise(ctx context.Context, in input.BlueprintReviser
 	if err := requireBuilt(out); err != nil {
 		return output.BlueprintReviser{}, err
 	}
-	got, err := appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(in.ID, model.BlueprintVersionRevise, message, in.Actor, out), in.BaseVersion)
+	got, err := appendBlueprintVersion(ctx, s.blueprints, outcomeVersion(in.ID, model.BlueprintVersionRevise, message, in.Actor, out), in.BaseVersion)
 	return output.BlueprintReviser{BlueprintDetail: blueprintDetailOutput(got)}, err
 }

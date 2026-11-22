@@ -38,6 +38,6 @@ func (s *blueprintVersionRestorer) Restore(ctx context.Context, in input.Bluepri
 	}
 	v := old
 	v.Kind, v.Message, v.CreatedBy = model.BlueprintVersionRestore, fmt.Sprintf("restored version %d", in.Version), in.Actor
-	got, err := appendBlueprintVersion(ctx, s.blueprints, b, v, in.BaseVersion)
+	got, err := appendBlueprintVersion(ctx, s.blueprints, v, in.BaseVersion)
 	return output.BlueprintVersionRestorer{BlueprintDetail: blueprintDetailOutput(got)}, err
 }

@@ -28,7 +28,7 @@ func (s *blueprintBriefUpdater) UpdateBrief(ctx context.Context, in input.Bluepr
 	if err := validBrief(in.Brief); err != nil {
 		return output.BlueprintBriefUpdater{}, err
 	}
-	b, cur, err := loadBlueprintForEdit(ctx, s.blueprints, s.authz, in.Actor, in.TenantID, in.ID, in.BaseVersion)
+	_, cur, err := loadBlueprintForEdit(ctx, s.blueprints, s.authz, in.Actor, in.TenantID, in.ID, in.BaseVersion)
 	if err != nil {
 		return output.BlueprintBriefUpdater{}, err
 	}
@@ -42,6 +42,6 @@ func (s *blueprintBriefUpdater) UpdateBrief(ctx context.Context, in input.Bluepr
 	if err := requireBuilt(out); err != nil {
 		return output.BlueprintBriefUpdater{}, err
 	}
-	got, err := appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(in.ID, model.BlueprintVersionEdit, "edited the brief", in.Actor, out), in.BaseVersion)
+	got, err := appendBlueprintVersion(ctx, s.blueprints, outcomeVersion(in.ID, model.BlueprintVersionEdit, "edited the brief", in.Actor, out), in.BaseVersion)
 	return output.BlueprintBriefUpdater{BlueprintDetail: blueprintDetailOutput(got)}, err
 }

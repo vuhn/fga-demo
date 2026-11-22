@@ -28,7 +28,7 @@ func NewBlueprintReviewer(blueprints gateway.BlueprintGateway, agent gateway.Blu
 // version's notes. A review that changes nothing is a 400 carrying those
 // notes, and nothing is stored.
 func (s *blueprintReviewer) Review(ctx context.Context, in input.BlueprintReviewer) (output.BlueprintReviewer, error) {
-	b, cur, err := loadBlueprintForEdit(ctx, s.blueprints, s.authz, in.Actor, in.TenantID, in.ID, in.BaseVersion)
+	_, cur, err := loadBlueprintForEdit(ctx, s.blueprints, s.authz, in.Actor, in.TenantID, in.ID, in.BaseVersion)
 	if err != nil {
 		return output.BlueprintReviewer{}, err
 	}
@@ -53,6 +53,6 @@ func (s *blueprintReviewer) Review(ctx context.Context, in input.BlueprintReview
 		}
 		return output.BlueprintReviewer{}, model.Invalid("%s", msg)
 	}
-	got, err := appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(in.ID, model.BlueprintVersionReview, "", in.Actor, out), in.BaseVersion)
+	got, err := appendBlueprintVersion(ctx, s.blueprints, outcomeVersion(in.ID, model.BlueprintVersionReview, "", in.Actor, out), in.BaseVersion)
 	return output.BlueprintReviewer{BlueprintDetail: blueprintDetailOutput(got)}, err
 }

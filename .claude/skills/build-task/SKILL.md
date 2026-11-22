@@ -45,7 +45,7 @@ Naming without a plan row: the ID is a short slug (`<slug>`), the branch is `fea
 
 ## 3. Write the contract (human gate)
 
-Write `specs/<feature>/tasks/<ID>-contract.md` from `specs/_templates/task-contract.md`. Independent task: `specs/_adhoc/<yyyymmdd>/<slug>-contract.md` when it touches authorization, a contract (proto/HTTP), data or concurrency (committed with the PR, for the reviewer); otherwise state the contract in chat and put it in the PR body. It is the contract the code is reviewed against. It holds:
+Write `specs/<feature>/tasks/<ID>-contract.md` from `specs/_templates/task-contract.md`. Independent task: `specs/_adhoc/<yyyymmdd>/<slug>-contract.md` (with its `<slug>.tla` and `<slug>.cfg` next to it) when it touches authorization, a contract (proto/HTTP), data or concurrency (committed with the PR, for the reviewer); otherwise state the contract in chat and put it in the PR body. It is the contract the code is reviewed against. It holds:
 1. **Task**: what and why, deployable, the plan row, definition of done.
 2. **Business logic**, step by step plus a Mermaid diagram (for people): new endpoint or code = the whole flow (validate, Check, read, call, write, errors and their statuses); changed code = what changes (before -> after, steps added or removed), and what must stay identical. Then a **TLA+ model** (for the agent: exact, checkable) when the logic has state or ordering that prose gets wrong; see "TLA+ model" below. Use stable step IDs (`S1`, `S2`, ...).
 3. **Impact** listed by API endpoint, RPC, page or feature (and table, caller): what changes, what must not change, and how the task's e2e test proves it.

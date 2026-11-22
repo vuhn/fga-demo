@@ -30,9 +30,12 @@ func (f *fakeBlueprints) GetVersion(context.Context, string, int) (model.Bluepri
 func (f *fakeBlueprints) ListVersions(context.Context, string) ([]model.BlueprintVersion, error) {
 	return nil, nil
 }
-func (f *fakeBlueprints) AppendVersion(_ context.Context, v model.BlueprintVersion, _ int) error {
+// AppendVersion answers like the real gateway: the blueprint and version of this write (base+1). Get above keeps
+// answering version 1, so a service that re-reads after the write shows up as a wrong version.
+func (f *fakeBlueprints) AppendVersion(_ context.Context, v model.BlueprintVersion, base int) (model.Blueprint, model.BlueprintVersion, error) {
 	f.appended = append(f.appended, v)
-	return nil
+	v.Version = base + 1
+	return model.Blueprint{ID: bpID, TenantID: "t", CurrentVersion: base + 1}, v, nil
 }
 
 // fakeEngine implements gateway.BlueprintEngine (the deterministic operations).
@@ -121,5 +124,17 @@ func TestReviseDeniedOrStaleNeverReachesTheEngine(t *testing.T) {
 	}
 	if len(eng.calls) != 0 {
 		t.Fatalf("engine called %v", eng.calls)
+	}
+}
+
+// The answer of a write is the write's own result, not a later read (a later writer must not leak into it).
+func TestReviseAnswersWithTheWrittenVersionNotAReRead(t *testing.T) {
+	bp, eng := &fakeBlueprints{brief: "null"}, &fakeAgent{}
+	got, err := NewBlueprintReviser(bp, eng, &fakeAuthz{}).Revise(context.Background(), input.BlueprintReviser{Actor: "u", TenantID: "t", ID: bpID, Message: "move wall", BaseVersion: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Blueprint.CurrentVersion != 2 || got.Version.Version != 2 {
+		t.Fatalf("current_version %d, version %d; want 2 and 2", got.Blueprint.CurrentVersion, got.Version.Version)
 	}
 }
