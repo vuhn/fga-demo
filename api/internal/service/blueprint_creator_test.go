@@ -142,13 +142,14 @@ type convertingBlueprints struct {
 	plainAppend int
 }
 
-func (c *convertingBlueprints) AppendVersionWithOriginal(_ context.Context, v model.BlueprintVersion, base int, o model.BlueprintOriginal) error {
+func (c *convertingBlueprints) AppendVersionWithOriginal(_ context.Context, v model.BlueprintVersion, base int, o model.BlueprintOriginal) (model.Blueprint, model.BlueprintVersion, error) {
 	c.appended, c.original, c.base, c.n = v, o, base, c.n+1
-	return nil
+	v.Version = base + 1
+	return model.Blueprint{ID: bpID, TenantID: "t", CurrentVersion: base + 1}, v, nil
 }
-func (c *convertingBlueprints) AppendVersion(context.Context, model.BlueprintVersion, int) error {
+func (c *convertingBlueprints) AppendVersion(context.Context, model.BlueprintVersion, int) (model.Blueprint, model.BlueprintVersion, error) {
 	c.plainAppend++
-	return nil
+	return model.Blueprint{}, model.BlueprintVersion{}, nil
 }
 
 func TestConvertStoresANewVersionWithoutABriefAndTheDrawingAsItsOriginal(t *testing.T) {

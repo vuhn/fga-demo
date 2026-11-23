@@ -49,13 +49,9 @@ func (s *blueprintPlanConverter) Convert(ctx context.Context, in input.Blueprint
 	sum := sha256.Sum256(out.DXF)
 	orig := model.BlueprintOriginal{BlueprintID: in.ID, Version: in.BaseVersion + 1, Name: drawnFileName(b.Name), MimeType: model.DXFMimeType,
 		ByteSize: int64(len(out.DXF)), SHA256: hex.EncodeToString(sum[:]), Data: out.DXF}
-	if err := s.blueprints.AppendVersionWithOriginal(ctx, v, in.BaseVersion, orig); err != nil {
-		return output.BlueprintPlanConverter{}, err
-	}
-	b, err = s.blueprints.Get(ctx, in.ID)
+	b, v, err = s.blueprints.AppendVersionWithOriginal(ctx, v, in.BaseVersion, orig)
 	if err != nil {
 		return output.BlueprintPlanConverter{}, err
 	}
-	v, err = s.blueprints.GetVersion(ctx, in.ID, in.BaseVersion+1)
-	return output.BlueprintPlanConverter{BlueprintDetail: blueprintDetailOutput(blueprintDetail{Blueprint: b, Version: v})}, err
+	return output.BlueprintPlanConverter{BlueprintDetail: blueprintDetailOutput(blueprintDetail{Blueprint: b, Version: v})}, nil
 }

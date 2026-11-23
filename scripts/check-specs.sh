@@ -8,9 +8,9 @@ violation() { printf '\nFAIL: %s\n  why: %s\n  fix: %s\n' "$1" "$2" "$3"; fail=1
 for d in specs/*/; do
   name=$(basename "$d")
   [ "$name" = "_templates" ] && continue
-  if [ "$name" = "_adhoc" ]; then   # independent tasks: contracts only, no feature stages
-    for f in $(find "$d" -type f); do   # specs/_adhoc/<yyyymmdd>/<slug>-contract.md
-      [[ "$f" =~ ^specs/_adhoc/[0-9]{8}/[^/]+-contract\.md$ ]] || violation "$f is in specs/_adhoc/" "_adhoc holds only <yyyymmdd>/<slug>-contract.md" "move it to specs/_adhoc/<yyyymmdd>/<slug>-contract.md or into a feature"
+  if [ "$name" = "_adhoc" ]; then   # independent tasks: a contract (and its TLA+ model), no feature stages
+    for f in $(find "$d" -type f); do   # specs/_adhoc/<yyyymmdd>/<slug>-contract.md, <slug>.tla, <slug>.cfg
+      [[ "$f" =~ ^specs/_adhoc/[0-9]{8}/([^/]+-contract\.md|[^/]+\.(tla|cfg))$ ]] || violation "$f is in specs/_adhoc/" "_adhoc holds only <yyyymmdd>/<slug>-contract.md and its <slug>.tla/.cfg model" "move it to specs/_adhoc/<yyyymmdd>/<slug>-contract.md or into a feature"
     done
     continue
   fi

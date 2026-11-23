@@ -45,7 +45,7 @@ Naming without a plan row: the ID is a short slug (`<slug>`), the branch is `fea
 
 ## 3. Write the contract (human gate)
 
-Write `specs/<feature>/tasks/<ID>-contract.md` from `specs/_templates/task-contract.md`. Independent task: `specs/_adhoc/<yyyymmdd>/<slug>-contract.md` when it touches authorization, a contract (proto/HTTP), data or concurrency (committed with the PR, for the reviewer); otherwise state the contract in chat and put it in the PR body. It is the contract the code is reviewed against. It holds:
+Write `specs/<feature>/tasks/<ID>-contract.md` from `specs/_templates/task-contract.md`. Independent task: `specs/_adhoc/<yyyymmdd>/<slug>-contract.md` (with its `<slug>.tla` and `<slug>.cfg` next to it) when it touches authorization, a contract (proto/HTTP), data or concurrency (committed with the PR, for the reviewer); otherwise state the contract in chat and put it in the PR body. It is the contract the code is reviewed against. It holds:
 1. **Task**: what and why, deployable, the plan row, definition of done.
 2. **Business logic**, step by step plus a Mermaid diagram (for people): new endpoint or code = the whole flow (validate, Check, read, call, write, errors and their statuses); changed code = what changes (before -> after, steps added or removed), and what must stay identical. Then a **TLA+ model** (for the agent: exact, checkable) when the logic has state or ordering that prose gets wrong; see "TLA+ model" below. Use stable step IDs (`S1`, `S2`, ...).
 3. **Impact** listed by API endpoint, RPC, page or feature (and table, caller): what changes, what must not change, and how the task's e2e test proves it.
@@ -67,7 +67,7 @@ A5. **Fixed model.** Add the control that removes the counterexample and name it
 A6. **Three maps in the contract** (templates in `specs/_templates/task-contract.md`):
 - Atomicity: per action, the code unit that makes it atomic (one SQL statement, one transaction, one FGA call, or "not atomic").
 - Guard: per action, its enabling condition and where it lives (`if` or SQL `WHERE`).
-- Invariant: per invariant, the test that asserts it (named). A race invariant is a real-Postgres concurrency test, not a fake; the naive counterexample becomes a regression test; each failure action has a fault-injection test. An invariant with no test is a gap.
+- Invariant: per invariant, the test that asserts it (named). A race invariant is tested with concurrent callers against the real store its atomicity unit names, not a fake that serializes calls; the naive counterexample becomes a regression test; each failure action has a fault-injection test. An invariant with no test is a gap.
 
 At implementation the model is the reference for ordering and failure handling: implement the actions as modelled, and the tests cover its invariants. If the code needs a different order or atomicity, change the model and the contract first.
 
@@ -75,7 +75,8 @@ Gate: show a short summary and the path, then stop. Trivial tasks (a field, a te
 
 ## 4. Implement
 
-- Short implementation plan first (files, order, tests, risks); if it differs from `plan.md`, update `plan.md` and tell the user (independent task: there is no `plan.md`, skip this).
+- Read the whole contract file first, every section, and make the implementation plan cover all of it. Anything in the contract the plan doesn't cover is a gap to fix before coding. The plan is short (files, order, tests, risks); if it differs from `plan.md`, update `plan.md` and tell the user (independent task: there is no `plan.md`, skip this).
+- If the contract has a TLA+ model, implement each action at the code unit its atomicity and guard maps name, and write the test each invariant's row names. If the code needs a different order or atomicity, change the contract and model first and show the user; never edit them silently. With `TLA+: n/a`, implement each step `S#` as written.
 - Work on a task branch from the integration branch (`feat/<feature>-<ID>`, unless you are already on the task's branch); never on or to the protected branch. Commit on that branch only as the git rules allow: ask once at the contract gate whether to commit when the review passes; with a yes, commit locally (user as the only author, no attribution lines, commit and push as separate commands) and never push unless asked. With no yes, leave the diff uncommitted.
 - Load the deployable's skill before the first edit (see "Skill per service" in `docs/harness/sdlc.md`): `go-api` for `api/`, `python-agent` for `agent/`, `python-engine` for `blueprint-engine/`, `db-design` for migrations; `web/` and infra follow CLAUDE.md (`permissions.tsx`, Mantine, `ui.tsx`). A task that touches several services loads each service's skill (one task is still one deployable). Those skills own the layers and the definition of done; this skill owns the contract.
 - Write unit tests, and integration tests where the plan says so. Write the tests first where the contract is clear (bug fix: failing test first, then the fix without editing that test). Implement exactly the contract and nothing else.

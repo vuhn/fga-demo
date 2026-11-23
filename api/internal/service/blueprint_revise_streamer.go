@@ -25,7 +25,7 @@ func NewBlueprintReviseStreamer(blueprints gateway.BlueprintGateway, agent gatew
 // base_version test first, the same engine call, the same single write after
 // it. Progress is passed through and never stored.
 func (s *blueprintReviseStreamer) ReviseStream(ctx context.Context, in input.BlueprintReviseStreamer, onProgress func(model.BlueprintProgress)) (output.BlueprintReviseStreamer, error) {
-	message, b, cur, history, err := prepareRevision(ctx, s.blueprints, s.authz, in.Actor, in.TenantID, in.ID, in.Message, in.BaseVersion)
+	message, _, cur, history, err := prepareRevision(ctx, s.blueprints, s.authz, in.Actor, in.TenantID, in.ID, in.Message, in.BaseVersion)
 	if err != nil {
 		return output.BlueprintReviseStreamer{}, err
 	}
@@ -43,9 +43,9 @@ func (s *blueprintReviseStreamer) ReviseStream(ctx context.Context, in input.Blu
 		return output.BlueprintReviseStreamer{}, err
 	}
 	if imported {
-		got, err := appendBlueprintVersion(ctx, s.blueprints, b, planOutcomeVersion(in.ID, model.BlueprintVersionRevise, message, in.Actor, out), in.BaseVersion)
+		got, err := appendBlueprintVersion(ctx, s.blueprints, planOutcomeVersion(in.ID, model.BlueprintVersionRevise, message, in.Actor, out), in.BaseVersion)
 		return output.BlueprintReviseStreamer{BlueprintDetail: blueprintDetailOutput(got)}, err
 	}
-	got, err := appendBlueprintVersion(ctx, s.blueprints, b, outcomeVersion(in.ID, model.BlueprintVersionRevise, message, in.Actor, out), in.BaseVersion)
+	got, err := appendBlueprintVersion(ctx, s.blueprints, outcomeVersion(in.ID, model.BlueprintVersionRevise, message, in.Actor, out), in.BaseVersion)
 	return output.BlueprintReviseStreamer{BlueprintDetail: blueprintDetailOutput(got)}, err
 }

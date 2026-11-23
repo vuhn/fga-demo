@@ -31,11 +31,13 @@ type BlueprintGateway interface {
 	ListVersions(ctx context.Context, id string) ([]model.BlueprintVersion, error)
 	// AppendVersion stores v as version base+1 and makes it current, only
 	// while the current version is still base. Otherwise ErrConflict and
-	// nothing is written.
-	AppendVersion(ctx context.Context, v model.BlueprintVersion, base int) error
+	// nothing is written. It returns the blueprint and the version row exactly
+	// as this write left them (read in the same transaction), so a later writer
+	// never shows up in this write's answer.
+	AppendVersion(ctx context.Context, v model.BlueprintVersion, base int) (model.Blueprint, model.BlueprintVersion, error)
 	// AppendVersionWithOriginal is AppendVersion plus the original file stored with the new version, in the
-	// same transaction (converting a plan made from a brief into a DXF plan).
-	AppendVersionWithOriginal(ctx context.Context, v model.BlueprintVersion, base int, original model.BlueprintOriginal) error
+	// same transaction (converting a plan made from a brief into a DXF plan). It returns what AppendVersion returns.
+	AppendVersionWithOriginal(ctx context.Context, v model.BlueprintVersion, base int, original model.BlueprintOriginal) (model.Blueprint, model.BlueprintVersion, error)
 }
 
 // BlueprintGrantGateway is the resource_grants rows of blueprints.

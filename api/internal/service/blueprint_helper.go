@@ -123,17 +123,14 @@ func outcomeVersion(blueprintID, kind, message, actor string, o model.BlueprintO
 		Brief: o.Brief, Model: o.Model, Checks: o.Checks, Notes: append(o.Notes[:0:0], o.Notes...), OK: o.OK, CreatedBy: actor}
 }
 
-// appendBlueprintVersion stores v on top of base and returns the new detail.
-func appendBlueprintVersion(ctx context.Context, blueprints gateway.BlueprintGateway, b model.Blueprint, v model.BlueprintVersion, base int) (blueprintDetail, error) {
-	if err := blueprints.AppendVersion(ctx, v, base); err != nil {
-		return blueprintDetail{}, err
-	}
-	b, err := blueprints.Get(ctx, b.ID)
+// appendBlueprintVersion stores v on top of base and returns the detail of exactly that write: the blueprint
+// and the version as the write's own transaction left them, never a re-read that a later writer could change.
+func appendBlueprintVersion(ctx context.Context, blueprints gateway.BlueprintGateway, v model.BlueprintVersion, base int) (blueprintDetail, error) {
+	b, got, err := blueprints.AppendVersion(ctx, v, base)
 	if err != nil {
 		return blueprintDetail{}, err
 	}
-	v, err = blueprints.GetVersion(ctx, b.ID, base+1)
-	return blueprintDetail{Blueprint: b, Version: v}, err
+	return blueprintDetail{Blueprint: b, Version: got}, nil
 }
 
 func blueprintID(b model.Blueprint) string { return b.ID }

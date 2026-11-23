@@ -45,7 +45,6 @@ API-specific rules (the general ones are in the standard above):
 3. The service validates, then authorizes through `helper.Authorizer` (`Require` 403, `RequireVisible` 404, `PlatformOr`, `Permissions`).
 4. Reads: ListObjects, then `WHERE tenant_id = $1 AND id = ANY($2)`. Never load a whole tenant and filter in Go.
 5. Writes: Postgres rows and OpenFGA tuples, ordered by `WriteGuard`.
-6. Blueprints: the engine (LLM and geometry) is called after the Check and before any write, so a slow or failed LLM call writes nothing. Versions are Postgres rows guarded by `base_version` (409 when stale); they never touch OpenFGA. Estimate sessions follow the same order (Check `can_edit`, engine, then one write guarded by the session's turn counter) and stream the agent's events as SSE; estimates are read with `can_view`. The estimate domain has its own entity, gateways, repos, usecases, services and handler.
 
 "Platform admin OR tenant relation" is two Checks composed in the service, never a model relation that makes system admins tenant members.
 
