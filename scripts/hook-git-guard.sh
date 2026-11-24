@@ -3,11 +3,11 @@
 #  1. no commit or push on main/master; 2. temp branches (wt-*, worktree-agent-*, working-tree-*) are never pushed;
 #  3. commits carry the user as the only author: no Co-Authored-By / agent attribution lines.
 set -u
-cd "$(dirname "$0")/.."
 input=$(cat)
 mode=$(printf '%s' "$input" | python3 -c 'import sys,json;d=json.load(sys.stdin);print("agy" if ("toolCall" in d or "hookEventName" in d) else "claude")' 2>/dev/null)
 [ -z "$mode" ] && mode="claude"
 if [ "$mode" = "agy" ]; then
+  cd "$(dirname "$0")/.." # Antigravity runs hooks from .agents/; Claude keeps the session cwd (worktrees)
   cmd=$(printf '%s' "$input" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("toolCall",{}).get("args",{}).get("CommandLine",""))' 2>/dev/null)
 else
   cmd=$(printf '%s' "$input" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("tool_input",{}).get("command",""))' 2>/dev/null)
