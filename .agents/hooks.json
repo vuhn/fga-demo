@@ -1,0 +1,39 @@
+{
+  "git-guard": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ../scripts/hook-git-guard.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "migrations-guard": {
+    "PreToolUse": [
+      {
+        "matcher": "edit_file|write_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ../scripts/hook-migrations.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "edit_file|write_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ../scripts/hook-migrations.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
